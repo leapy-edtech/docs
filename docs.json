@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Leapy Docs",
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
@@ -11,77 +11,188 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentação",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Visão Geral",
             "pages": [
               "index",
-              "quickstart",
-              "development"
+              "documentation/overview/product-map",
+              "documentation/overview/glossary",
+              "documentation/overview/roles-permissions"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Domínios",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              {
+                "group": "Pulsos",
+                "pages": [
+                  "documentation/domains/pulses/index",
+                  "documentation/domains/pulses/journeys",
+                  "documentation/domains/pulses/business-rules",
+                  "documentation/domains/pulses/data-model",
+                  "documentation/domains/pulses/integrations",
+                  "documentation/domains/pulses/operations",
+                  "documentation/domains/pulses/metrics"
+                ]
+              },
+              {
+                "group": "Matchmaker",
+                "pages": [
+                  "documentation/domains/matchmaker/index",
+                  "documentation/domains/matchmaker/journeys",
+                  "documentation/domains/matchmaker/business-rules",
+                  "documentation/domains/matchmaker/data-model",
+                  "documentation/domains/matchmaker/integrations",
+                  "documentation/domains/matchmaker/operations",
+                  "documentation/domains/matchmaker/metrics"
+                ]
+              },
+              {
+                "group": "Dashs & Insights",
+                "pages": [
+                  "documentation/domains/insights/index",
+                  "documentation/domains/insights/metric-catalog",
+                  "documentation/domains/insights/data-pipeline",
+                  "documentation/domains/insights/operations"
+                ]
+              },
+              {
+                "group": "Talentos",
+                "pages": [
+                  "documentation/domains/talents/index",
+                  "documentation/domains/talents/identity-model",
+                  "documentation/domains/talents/data-model",
+                  "documentation/domains/talents/operations"
+                ]
+              },
+              {
+                "group": "Admin",
+                "pages": [
+                  "documentation/domains/admin/index",
+                  "documentation/domains/admin/roles-permissions",
+                  "documentation/domains/admin/user-lifecycle",
+                  "documentation/domains/admin/audit-security",
+                  "documentation/domains/admin/operations"
+                ]
+              },
+              {
+                "group": "Presenças",
+                "pages": [
+                  "documentation/domains/presences/index",
+                  "documentation/domains/presences/journeys",
+                  "documentation/domains/presences/business-rules",
+                  "documentation/domains/presences/data-model",
+                  "documentation/domains/presences/operations"
+                ]
+              },
+              {
+                "group": "Cursos e Conteúdos",
+                "pages": [
+                  "documentation/domains/courses-content/index",
+                  "documentation/domains/courses-content/journeys",
+                  "documentation/domains/courses-content/business-rules",
+                  "documentation/domains/courses-content/data-model",
+                  "documentation/domains/courses-content/operations"
+                ]
+              }
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Plataforma",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "documentation/platform/architecture",
+              "documentation/platform/events-jobs-inngest",
+              "documentation/platform/automations-make",
+              "documentation/platform/backoffice-directus",
+              "documentation/platform/agent-system",
+              "documentation/platform/observability",
+              "documentation/platform/environments",
+              "documentation/platform/security-data",
+              "documentation/platform/conventions"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Operações",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "documentation/operations/support-triage",
+              {
+                "group": "Runbooks",
+                "pages": [
+                  "documentation/operations/runbooks/pulse-not-activated",
+                  "documentation/operations/runbooks/job-stuck-inngest",
+                  "documentation/operations/runbooks/dashboard-mismatch",
+                  "documentation/operations/runbooks/permission-issues"
+                ]
+              },
+              {
+                "group": "Playbooks",
+                "pages": [
+                  "documentation/operations/playbooks/reprocess-safely",
+                  "documentation/operations/playbooks/rollback-hotfix",
+                  "documentation/operations/playbooks/data-fix-manual"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Processos",
+            "pages": [
+              "documentation/processes/dev-lifecycle",
+              "documentation/processes/release-changelog",
+              "documentation/processes/incident-management"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Guias",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Backoffice (Directus)",
             "pages": [
-              "api-reference/introduction"
+              "guides/backoffice/index",
+              "guides/backoffice/collections",
+              "guides/backoffice/flows-hooks",
+              "guides/backoffice/manual-fixes"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "App - RH (Next)",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "guides/app-rh/index",
+              "guides/app-rh/rh-workflows",
+              "guides/app-rh/leadership-workflows",
+              "guides/app-rh/talent-workflows"
             ]
           }
         ]
+      },
+      {
+        "tab": "API Reference",
+        "dropdowns": [
+          {
+            "dropdown": "Backoffice",
+            "pages": [
+              "api-reference/backoffice/index"
+            ]
+          },
+          {
+            "dropdown": "Agent System",
+            "pages": [
+              "api-reference/agent-system/index"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Changelog",
+        "pages": [
+          "changelog/index"
+        ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
+    ]
   },
   "logo": {
     "light": "/logo/light.svg",
@@ -90,33 +201,19 @@
   "navbar": {
     "links": [
       {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "label": "Suporte",
+        "href": "mailto:suporte@leapy.com"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://app.leapy.com"
     }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "linkedin": "https://linkedin.com/company/leapy"
     }
   }
 }
