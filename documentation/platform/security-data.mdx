@@ -1,0 +1,180 @@
+---
+title: "Segurança e Dados"
+description: "Políticas de segurança e proteção de dados"
+---
+
+## Visão Geral
+
+A segurança e proteção de dados são prioridades fundamentais na plataforma Leapy, seguindo as melhores práticas de mercado e conformidade com regulamentações.
+
+## Proteção de Dados
+
+### Dados em Repouso
+
+| Tipo | Proteção |
+|------|----------|
+| Banco de dados | AES-256 encryption |
+| Backups | AES-256 encryption |
+| Object Storage | Server-side encryption |
+| Redis/Cache | Conexão TLS |
+
+### Dados em Trânsito
+
+| Conexão | Proteção |
+|---------|----------|
+| Cliente → Servidor | TLS 1.3 |
+| Servidor → Banco | TLS + certificado |
+| Servidor → Serviços | TLS mútuo |
+
+### Dados Sensíveis
+
+Tratamento especial para PII:
+
+| Dado | Tratamento |
+|------|------------|
+| Senhas | bcrypt hash (cost 12) |
+| Tokens | AES-256 encryption |
+| CPF/RG | Mascaramento + encryption |
+| Dados bancários | Tokenização |
+
+## Conformidade
+
+### LGPD
+
+A plataforma está em conformidade com a LGPD:
+
+- **Consentimento**: Coleta com consentimento explícito
+- **Finalidade**: Uso apenas para fins declarados
+- **Minimização**: Coleta apenas dados necessários
+- **Retenção**: Dados mantidos pelo tempo necessário
+- **Direitos**: Acesso, correção, exclusão
+
+### Direitos do Titular
+
+Usuários podem exercer seus direitos:
+
+| Direito | Como Exercer |
+|---------|--------------|
+| Acesso | Exportar dados via perfil |
+| Correção | Editar perfil ou solicitar ao RH |
+| Exclusão | Solicitar via canal de suporte |
+| Portabilidade | Exportação em formato padrão |
+
+### Retenção de Dados
+
+| Tipo de Dado | Retenção |
+|--------------|----------|
+| Dados de colaborador ativo | Enquanto ativo |
+| Dados de ex-colaborador | 5 anos |
+| Logs de acesso | 1 ano |
+| Logs de auditoria | 5 anos |
+| Backups | 30 dias |
+
+## Segurança de Acesso
+
+### Autenticação
+
+Múltiplos fatores de autenticação:
+
+- Senha forte (requisitos configuráveis)
+- 2FA (TOTP, SMS, Email)
+- SSO (SAML, OAuth)
+
+### Autorização
+
+RBAC com escopos:
+
+```typescript
+// Verificação de permissão
+const hasAccess = checkPermission({
+  user: currentUser,
+  permission: "talent:read",
+  scope: "team",
+  resource: targetResource
+});
+```
+
+### Sessões
+
+| Configuração | Valor Padrão |
+|--------------|--------------|
+| Timeout de inatividade | 30 minutos |
+| Duração máxima | 8 horas |
+| Sessões simultâneas | 3 |
+
+## Segurança da Aplicação
+
+### Proteções Implementadas
+
+| Ataque | Proteção |
+|--------|----------|
+| SQL Injection | Queries parametrizadas |
+| XSS | Sanitização + CSP |
+| CSRF | Tokens em formulários |
+| Clickjacking | X-Frame-Options |
+| SSRF | Validação de URLs |
+
+### Headers de Segurança
+
+```
+Content-Security-Policy: default-src 'self'
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Strict-Transport-Security: max-age=31536000
+```
+
+### Dependências
+
+- Scan automático de vulnerabilidades
+- Dependabot para atualizações
+- Audit regular de pacotes
+
+## Incidentes de Segurança
+
+### Resposta a Incidentes
+
+1. **Identificação**: Detectar e classificar
+2. **Contenção**: Limitar impacto
+3. **Erradicação**: Remover ameaça
+4. **Recuperação**: Restaurar operação
+5. **Lições Aprendidas**: Documentar e melhorar
+
+### Comunicação
+
+| Severidade | SLA de Notificação |
+|------------|-------------------|
+| Crítica | 4 horas |
+| Alta | 24 horas |
+| Média | 72 horas |
+| Baixa | Próximo relatório |
+
+## Backup e Recuperação
+
+### Estratégia de Backup
+
+| Tipo | Frequência | Retenção |
+|------|------------|----------|
+| Snapshot | A cada 6 horas | 7 dias |
+| Backup completo | Diário | 30 dias |
+| Backup off-site | Semanal | 90 dias |
+
+### RTO e RPO
+
+| Métrica | Objetivo |
+|---------|----------|
+| RPO (Recovery Point Objective) | 6 horas |
+| RTO (Recovery Time Objective) | 4 horas |
+
+## Auditorias
+
+### Auditorias Internas
+
+- Revisão mensal de acessos
+- Análise trimestral de logs
+- Teste anual de DR
+
+### Auditorias Externas
+
+- Pentest anual
+- Auditoria SOC 2 (em andamento)
+- Certificação ISO 27001 (planejado)

@@ -1,0 +1,73 @@
+---
+title: "Regras de Negócio - Pulsos"
+description: "Regras de negócio que governam o funcionamento do módulo de Pulsos"
+---
+
+## Regras de Criação
+
+### RN-PUL-001: Mínimo de Perguntas
+
+Um pulso deve ter no mínimo **1 pergunta** para ser ativado.
+
+### RN-PUL-002: Público Obrigatório
+
+Todo pulso deve ter pelo menos **1 destinatário** definido antes da ativação.
+
+### RN-PUL-003: Período de Resposta
+
+O período mínimo para coleta de respostas é de **24 horas**.
+
+## Regras de Disparo
+
+### RN-PUL-010: Horário de Envio
+
+Notificações de pulso são enviadas apenas em **dias úteis** entre **8h e 18h** do fuso horário do tenant.
+
+### RN-PUL-011: Limite de Pulsos Simultâneos
+
+Um talento não pode ter mais de **3 pulsos ativos** simultaneamente.
+
+### RN-PUL-012: Intervalo entre Pulsos
+
+Deve haver um intervalo mínimo de **7 dias** entre pulsos do mesmo tipo para o mesmo público.
+
+## Regras de Anonimato
+
+### RN-PUL-020: Anonimato por Grupo
+
+Para garantir anonimato, resultados só são exibidos quando há no mínimo **5 respostas** em um grupo/recorte.
+
+### RN-PUL-021: Respostas Abertas
+
+Respostas de perguntas abertas em pulsos anônimos passam por **revisão automática** para remover possíveis identificadores.
+
+### RN-PUL-022: Bloqueio de Exportação
+
+Não é permitido exportar dados individuais de pulsos configurados como anônimos.
+
+## Regras de Fechamento
+
+### RN-PUL-030: Fechamento Automático
+
+Pulsos são fechados automaticamente na **data limite** configurada.
+
+### RN-PUL-031: Fechamento Antecipado
+
+O RH pode fechar um pulso antecipadamente se a taxa de resposta atingir **90%**.
+
+### RN-PUL-032: Extensão de Prazo
+
+O prazo pode ser estendido em até **2x o período original**.
+
+## Tabela Resumo
+
+| Código | Regra | Valor |
+|--------|-------|-------|
+| RN-PUL-001 | Mínimo de perguntas | 1 |
+| RN-PUL-002 | Público obrigatório | Sim |
+| RN-PUL-003 | Período mínimo | 24h |
+| RN-PUL-010 | Horário de envio | 8h-18h |
+| RN-PUL-011 | Pulsos simultâneos | 3 |
+| RN-PUL-012 | Intervalo entre pulsos | 7 dias |
+| RN-PUL-020 | Mínimo para anonimato | 5 respostas |
+| RN-PUL-031 | Taxa para fechamento antecipado | 90% |

@@ -1,0 +1,178 @@
+---
+title: "Operações - Cursos e Conteúdos"
+description: "Guia de operações e troubleshooting do módulo de Cursos e Conteúdos"
+---
+
+## Operações Comuns
+
+### Resetar Progresso de Talento
+
+Quando necessário reiniciar o progresso de um talento em um curso:
+
+```bash
+inngest.send({
+  name: "courses/reset-enrollment",
+  data: { 
+    enrollment_id: "...",
+    keep_certificate: false
+  }
+})
+```
+
+**Via Backoffice:**
+
+1. Acesse **Enrollments**
+2. Localize a matrícula
+3. Clique em **Resetar Progresso**
+4. Confirme a ação
+
+<Warning>
+  Esta ação remove todo o progresso, notas e certificado (se houver).
+</Warning>
+
+### Emitir Certificado Manualmente
+
+Se o certificado não foi gerado automaticamente:
+
+1. Verifique se todos os requisitos foram cumpridos
+2. Acesse a matrícula no Backoffice
+3. Clique em **Gerar Certificado**
+4. O certificado será gerado e enviado ao talento
+
+```bash
+inngest.send({
+  name: "courses/generate-certificate",
+  data: { enrollment_id: "..." }
+})
+```
+
+### Estender Prazo de Atribuição
+
+1. Localize a atribuição em **Assignments**
+2. Edite o campo `due_date`
+3. Salve as alterações
+4. Notificação é enviada automaticamente
+
+### Arquivar Curso
+
+Para remover um curso do catálogo sem deletar:
+
+1. Acesse o curso
+2. Altere `status` para `archived`
+3. Matrículas existentes são mantidas mas novas inscrições são bloqueadas
+
+## Troubleshooting
+
+### Vídeo não carrega
+
+**Possíveis causas:**
+
+1. URL do vídeo inválida ou expirada
+2. Provedor de vídeo com problemas
+3. Formato não suportado
+
+**Diagnóstico:**
+
+```sql
+-- Verificar URL do conteúdo
+SELECT id, title, url, type 
+FROM contents WHERE id = '...';
+```
+
+**Soluções:**
+
+1. Testar URL diretamente
+2. Verificar status do provedor de vídeo
+3. Atualizar URL se necessário
+
+### Progresso não está sendo salvo
+
+**Possíveis causas:**
+
+1. Sessão expirada
+2. Erro de comunicação
+3. Job de processamento falhou
+
+**Diagnóstico:**
+
+1. Verificar logs de erro no console do usuário
+2. Verificar jobs no Inngest
+3. Verificar tabela `progress`
+
+**Solução:**
+
+```bash
+# Recalcular progresso da matrícula
+inngest.send({
+  name: "courses/recalculate-progress",
+  data: { enrollment_id: "..." }
+})
+```
+
+### Avaliação permite mais tentativas que o configurado
+
+**Possíveis causas:**
+
+1. Configuração alterada após início
+2. Bug no controle de tentativas
+
+**Verificação:**
+
+```sql
+-- Contar tentativas
+SELECT COUNT(*) FROM assessment_attempts 
+WHERE enrollment_id = '...' AND assessment_id = '...';
+```
+
+## Monitoramento
+
+### Métricas Importantes
+
+| Métrica | Descrição | Alerta |
+|---------|-----------|--------|
+| `courses.completion_rate` | Taxa de conclusão | < 50% |
+| `courses.average_score` | Nota média | < 70% |
+| `courses.dropout_rate` | Taxa de abandono | > 30% |
+| `courses.content_errors` | Erros em conteúdos | > 0 |
+
+### Dashboards
+
+- **Catálogo**: Status e métricas dos cursos
+- **Engajamento**: Participação e progresso
+- **Performance**: Notas e avaliações
+
+## Jobs Relacionados
+
+| Job | Descrição | Frequência |
+|-----|-----------|------------|
+| `courses/process-video-progress` | Processa progresso de vídeos | Tempo real |
+| `courses/check-due-dates` | Verifica prazos | Diário |
+| `courses/send-reminders` | Envia lembretes | Diário |
+| `courses/generate-certificates` | Gera certificados | Ao concluir |
+| `courses/archive-old` | Arquiva cursos antigos | Mensal |
+
+## Gestão de Conteúdo
+
+### Upload de Vídeos
+
+Formatos suportados: MP4, WebM, MOV
+
+Recomendações:
+- Resolução: 1080p
+- Codec: H.264
+- Áudio: AAC
+
+### Integração com Plataformas
+
+Suporte a embed de:
+- YouTube
+- Vimeo
+- Google Drive
+- OneDrive
+
+### Atualização de Conteúdo
+
+Ao atualizar um conteúdo:
+- Progresso existente é preservado
+- Novas versões não resetam conclusões anteriores
+- Recomenda-se criar novo conteúdo para alterações significativas

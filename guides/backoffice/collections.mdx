@@ -1,0 +1,181 @@
+---
+title: "Collections do Backoffice"
+description: "Guia das principais collections do Directus"
+---
+
+## Collections Core
+
+### Tenants
+
+Organizações clientes da plataforma.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `id` | UUID único | ❌ |
+| `name` | Nome da organização | ✅ |
+| `slug` | Identificador único | ❌ |
+| `status` | Status (active, suspended) | ✅ |
+| `settings` | Configurações JSON | ✅ |
+
+**Operações comuns:**
+- Verificar configurações do tenant
+- Alterar status para suspensão temporária
+- Ajustar settings específicos
+
+### Talents
+
+Colaboradores cadastrados.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `id` | UUID único | ❌ |
+| `tenant_id` | Tenant proprietário | ❌ |
+| `email` | Email do colaborador | ✅ |
+| `first_name` | Nome | ✅ |
+| `last_name` | Sobrenome | ✅ |
+| `status` | Status (active, inactive) | ✅ |
+| `area_id` | Área atual | ✅ |
+| `position_id` | Cargo atual | ✅ |
+| `manager_id` | Gestor direto | ✅ |
+| `hire_date` | Data de admissão | ✅ |
+| `termination_date` | Data de desligamento | ✅ |
+
+**Operações comuns:**
+- Corrigir dados cadastrais
+- Alterar área/cargo/gestor
+- Registrar desligamento
+
+### Areas
+
+Estrutura organizacional.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `id` | UUID único | ❌ |
+| `tenant_id` | Tenant proprietário | ❌ |
+| `name` | Nome da área | ✅ |
+| `code` | Código interno | ✅ |
+| `parent_id` | Área pai (hierarquia) | ✅ |
+| `manager_id` | Gestor da área | ✅ |
+
+### Positions
+
+Cargos e funções.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `id` | UUID único | ❌ |
+| `tenant_id` | Tenant proprietário | ❌ |
+| `name` | Nome do cargo | ✅ |
+| `level` | Nível (junior, senior, etc) | ✅ |
+| `career_track` | Trilha (individual, management) | ✅ |
+
+## Collections de Pulsos
+
+### Pulses
+
+Pesquisas e questionários.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `id` | UUID único | ❌ |
+| `title` | Título do pulso | ✅ |
+| `status` | Status (draft, active, closed) | ✅ |
+| `start_date` | Data de início | ✅ |
+| `end_date` | Data de encerramento | ✅ |
+| `is_anonymous` | Se é anônimo | ✅ |
+
+**Status possíveis:**
+- `draft`: Em edição
+- `active`: Coletando respostas
+- `closed`: Encerrado
+- `cancelled`: Cancelado
+
+### Pulse Recipients
+
+Destinatários de pulsos.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `pulse_id` | Pulso | ❌ |
+| `talent_id` | Destinatário | ❌ |
+| `notified_at` | Data da notificação | ✅ |
+| `status` | Status (pending, responded) | ✅ |
+
+### Responses
+
+Respostas enviadas.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `id` | UUID único | ❌ |
+| `pulse_id` | Pulso respondido | ❌ |
+| `talent_id` | Respondente (se não anônimo) | ❌ |
+| `submitted_at` | Data de envio | ❌ |
+| `is_complete` | Se está completa | ✅ |
+
+<Warning>
+  Respostas de pulsos anônimos não devem ser vinculadas a talentos.
+</Warning>
+
+## Collections de Matchmaker
+
+### Opportunities
+
+Oportunidades internas.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `id` | UUID único | ❌ |
+| `title` | Título | ✅ |
+| `status` | Status | ✅ |
+| `type` | Tipo (vacancy, project, etc) | ✅ |
+| `area_id` | Área responsável | ✅ |
+| `manager_id` | Gestor responsável | ✅ |
+| `closes_at` | Data de encerramento | ✅ |
+
+### Applications
+
+Candidaturas.
+
+| Campo | Descrição | Editável |
+|-------|-----------|:--------:|
+| `opportunity_id` | Oportunidade | ❌ |
+| `talent_id` | Candidato | ❌ |
+| `status` | Status da candidatura | ✅ |
+| `applied_at` | Data da candidatura | ❌ |
+
+**Status possíveis:**
+- `pending`: Aguardando análise
+- `under_review`: Em análise
+- `interview`: Em entrevista
+- `selected`: Selecionado
+- `rejected`: Recusado
+- `withdrawn`: Desistência
+
+## Dicas de Uso
+
+### Filtros Úteis
+
+**Pulsos ativos do tenant:**
+```
+status = 'active' AND tenant_id = '[UUID]'
+```
+
+**Talentos sem gestor:**
+```
+manager_id IS NULL AND status = 'active'
+```
+
+**Candidaturas pendentes há mais de 7 dias:**
+```
+status = 'pending' AND applied_at < DATE_SUB(NOW(), INTERVAL 7 DAY)
+```
+
+### Relações
+
+Use o painel de relações para navegar entre registros relacionados:
+
+- Talent → Ver pulsos respondidos
+- Pulse → Ver todas as respostas
+- Opportunity → Ver candidaturas

@@ -1,0 +1,150 @@
+---
+title: "Operações - Presenças"
+description: "Guia de operações e troubleshooting do módulo de Presenças"
+---
+
+## Operações Comuns
+
+### Registrar Presença Manualmente
+
+Quando o talento não conseguiu fazer check-in pelo sistema:
+
+1. Acesse o evento no Backoffice
+2. Vá para **Attendances**
+3. Clique em **+ Criar**
+4. Selecione o talento
+5. Preencha horários de check-in/checkout
+6. Defina método como `manual`
+7. Adicione observação explicativa
+
+### Corrigir Presença Incorreta
+
+1. Localize a presença em **Attendances**
+2. Edite os campos necessários
+3. Atualize o `status` se necessário
+4. Registre o motivo da correção em `notes`
+
+### Encerrar Evento Manualmente
+
+Se o evento não foi encerrado automaticamente:
+
+1. Acesse o evento
+2. Altere `status` para `closed`
+3. Verifique se todos os check-outs foram processados
+
+```bash
+# Processar check-outs pendentes
+inngest.send({
+  name: "presences/process-pending-checkouts",
+  data: { event_id: "..." }
+})
+```
+
+### Reenviar Convites
+
+Para reenviar convites não recebidos:
+
+```bash
+inngest.send({
+  name: "presences/resend-invites",
+  data: { 
+    event_id: "...",
+    talent_ids: ["..."] // opcional, se vazio reenvia para todos
+  }
+})
+```
+
+## Troubleshooting
+
+### Check-in não funciona
+
+**Possíveis causas:**
+
+1. Evento ainda não iniciou (fora da janela)
+2. QR Code expirado ou inválido
+3. Localização fora do raio permitido
+4. Talento não está na lista de participantes
+
+**Diagnóstico:**
+
+```sql
+-- Verificar se talento é participante
+SELECT * FROM event_participants 
+WHERE event_id = '...' AND talent_id = '...';
+
+-- Verificar status do evento
+SELECT status, start_datetime, end_datetime 
+FROM events WHERE id = '...';
+```
+
+### Presença não foi contabilizada
+
+**Possíveis causas:**
+
+1. Check-out não foi realizado
+2. Tempo de permanência insuficiente
+3. Job de processamento falhou
+
+**Solução:**
+
+1. Verificar se existe registro em `attendances`
+2. Verificar `checkout_at` e `duration_minutes`
+3. Recalcular presença manualmente se necessário
+
+### QR Code não escaneia
+
+**Possíveis causas:**
+
+1. Código expirado
+2. Iluminação inadequada
+3. Câmera do dispositivo com problema
+
+**Soluções:**
+
+1. Gerar novo QR Code para o evento
+2. Usar método alternativo (link ou manual)
+
+## Monitoramento
+
+### Métricas Importantes
+
+| Métrica | Descrição | Alerta |
+|---------|-----------|--------|
+| `presences.checkin_failures` | Falhas de check-in | > 10% |
+| `presences.average_attendance` | Taxa média de presença | < 70% |
+| `presences.no_shows` | Taxa de no-show | > 15% |
+| `presences.late_arrivals` | Taxa de atrasos | > 20% |
+
+### Dashboards
+
+- **Eventos Ativos**: Status em tempo real
+- **Participação**: Métricas de presença
+- **Tendências**: Análise temporal
+
+## Jobs Relacionados
+
+| Job | Descrição | Frequência |
+|-----|-----------|------------|
+| `presences/send-reminders` | Envia lembretes de evento | 24h e 1h antes |
+| `presences/open-checkin` | Abre janela de check-in | 15 min antes |
+| `presences/close-event` | Encerra eventos finalizados | A cada 5 min |
+| `presences/process-checkouts` | Processa check-outs automáticos | A cada 5 min |
+| `presences/generate-report` | Gera relatório pós-evento | Ao encerrar |
+
+## Integrações
+
+### Google Calendar / Outlook
+
+Sincronização bidirecional de eventos:
+
+- Eventos criados no Leapy aparecem no calendário
+- Confirmação pode ser feita via calendário
+- Lembretes sincronizados
+
+### Sistemas de Ponto
+
+Integração para controle de jornada:
+
+- Exportação de registros de presença
+- Validação de horas trabalhadas
+- Relatórios consolidados

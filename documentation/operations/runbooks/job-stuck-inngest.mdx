@@ -1,0 +1,131 @@
+---
+title: "Runbook: Job Travado no Inngest"
+description: "Procedimento para resolver jobs travados ou em loop"
+---
+
+## Descrição do Problema
+
+Job do Inngest está travado, em loop infinito ou não progride.
+
+## Sintomas
+
+- Job aparece como "Running" por tempo excessivo
+- Múltiplas execuções do mesmo job
+- Logs mostram retries repetidos
+- Eventos não sendo processados
+
+## Diagnóstico
+
+### 1. Identificar o Job
+
+No Inngest Dashboard:
+
+1. Acesse **Runs**
+2. Filtre por status: `Running` ou `Failed`
+3. Identifique jobs com duração anormal (> 5 min para jobs simples)
+
+### 2. Analisar Logs do Job
+
+Clique no job e verifique:
+
+- **Steps executados**: Quais completaram?
+- **Último step**: Onde travou?
+- **Erro**: Mensagem de erro (se houver)
+- **Retries**: Quantas tentativas?
+
+### 3. Verificar Dependências
+
+O job pode estar travado por:
+
+- **Banco de dados**: Conexão/lock
+- **API externa**: Timeout/indisponibilidade
+- **Redis**: Conexão/limite
+
+```sql
+-- Verificar locks no banco
+SELECT * FROM pg_locks 
+WHERE NOT granted;
+```
+
+## Causa Raiz Comum
+
+| Causa | Frequência |
+|-------|------------|
+| Timeout de API externa | 35% |
+| Deadlock no banco | 25% |
+| Erro não tratado | 20% |
+| Bug no código | 15% |
+| Limite de recursos | 5% |
+
+## Resolução
+
+### Opção 1: Cancelar e Reprocessar
+
+No Inngest Dashboard:
+
+1. Selecione o job travado
+2. Clique em **Cancel**
+3. Se necessário, reenvie o evento original
+
+```bash
+# Reenviar evento
+inngest.send({
+  name: "[EVENT_NAME]",
+  data: { ... } // dados originais
+})
+```
+
+### Opção 2: Forçar Retry
+
+Se o job está em estado de falha:
+
+1. Acesse o job no dashboard
+2. Clique em **Retry**
+3. Monitore a nova execução
+
+### Opção 3: Corrigir Dependência
+
+Se o problema é uma dependência externa:
+
+1. Identificar a dependência com problema
+2. Verificar status/logs da dependência
+3. Corrigir ou aguardar recuperação
+4. Reprocessar jobs afetados
+
+## Verificação Pós-Correção
+
+- [ ] Job completou com sucesso
+- [ ] Não há novos jobs travados
+- [ ] Dados foram processados corretamente
+- [ ] Monitoramento normalizado
+
+## Prevenção
+
+### Timeouts Adequados
+
+```typescript
+// Sempre definir timeout em operações externas
+await step.run("call-external-api", { timeout: "30s" }, async () => {
+  return await externalApi.call();
+});
+```
+
+### Circuit Breaker
+
+Implementar circuit breaker para APIs instáveis.
+
+### Alertas
+
+Configurar alertas para:
+- Jobs em execução > 5 minutos
+- Taxa de falha > 10%
+- Fila crescente
+
+## Escalação
+
+Se múltiplos jobs travados ou problema sistêmico:
+
+1. Abrir incidente
+2. Pausar processamento se necessário
+3. Investigar causa raiz
+4. Reprocessar em batch após correção

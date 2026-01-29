@@ -1,0 +1,114 @@
+---
+title: "Runbook: Pulso Não Ativado"
+description: "Procedimento para resolver pulsos que não foram ativados"
+---
+
+## Descrição do Problema
+
+Pulso agendado não foi ativado no horário previsto.
+
+## Sintomas
+
+- Pulso permanece em status `draft` após `start_date`
+- Destinatários não receberam notificação
+- Dashboard mostra 0 respostas
+
+## Diagnóstico
+
+### 1. Verificar Status do Pulso
+
+```sql
+SELECT id, title, status, start_date, end_date, created_at
+FROM pulses
+WHERE id = '[PULSE_ID]';
+```
+
+**Resultado esperado**: `status = 'active'`
+
+**Se `status = 'draft'`**: O job de ativação não executou
+
+### 2. Verificar Job de Ativação
+
+Acesse o Inngest Dashboard e busque por:
+- Function: `pulse/activate`
+- Event: `pulse.scheduled`
+- Payload com `pulse_id`
+
+**Verificar**:
+- Job foi disparado?
+- Job falhou? Qual erro?
+- Job está na fila?
+
+### 3. Verificar Logs
+
+```sql
+-- Axiom/Logs
+['leapy-production']
+| where pulse_id == '[PULSE_ID]'
+| where timestamp > ago(24h)
+| order by timestamp desc
+```
+
+## Causa Raiz Comum
+
+| Causa | Frequência |
+|-------|------------|
+| Job não disparado | 40% |
+| Erro de validação | 30% |
+| Problema de conectividade | 20% |
+| Bug no código | 10% |
+
+## Resolução
+
+### Opção 1: Disparar Manualmente via Inngest
+
+```bash
+inngest.send({
+  name: "pulse/activate",
+  data: { pulse_id: "[PULSE_ID]" }
+})
+```
+
+### Opção 2: Ativar via Backoffice
+
+1. Acesse Directus > Pulses
+2. Localize o pulso
+3. Altere `status` de `draft` para `active`
+4. Salve
+
+<Warning>
+  Ao ativar manualmente, as notificações serão disparadas imediatamente.
+</Warning>
+
+### Opção 3: Forçar Reprocessamento
+
+```bash
+inngest.send({
+  name: "pulse/reprocess-activation",
+  data: { 
+    pulse_id: "[PULSE_ID]",
+    force: true
+  }
+})
+```
+
+## Verificação Pós-Correção
+
+- [ ] Status alterado para `active`
+- [ ] Destinatários notificados
+- [ ] Dashboard atualizado
+- [ ] Cliente informado
+
+## Prevenção
+
+1. Monitorar job `pulse/activate` no Inngest
+2. Alertas para pulsos não ativados após `start_date + 1h`
+3. Revisão periódica de pulsos em `draft` com `start_date` passada
+
+## Escalação
+
+Se o problema persistir após as tentativas acima:
+
+1. Escalar para engenharia de plantão
+2. Abrir incidente se múltiplos pulsos afetados
+3. Verificar saúde geral do Inngest

@@ -1,0 +1,180 @@
+---
+title: "Correções Manuais"
+description: "Guia para correções manuais de dados no Backoffice"
+---
+
+## Quando Fazer Correções Manuais
+
+Correções manuais são necessárias quando:
+
+- Bug causou dados incorretos
+- Solicitação de cliente para ajuste
+- Migração de dados
+- Correção de inconsistências
+
+## Princípios
+
+<Warning>
+  **SEMPRE** siga estes princípios antes de qualquer alteração:
+</Warning>
+
+1. **Documente** o que vai fazer
+2. **Faça backup** se possível
+3. **Valide** os registros antes
+4. **Teste** em staging primeiro
+5. **Comunique** ao time
+
+## Correções Comuns
+
+### Corrigir Dados de Talento
+
+**Cenário**: Email digitado incorretamente
+
+1. Acesse **Talents**
+2. Busque pelo talento
+3. Clique para editar
+4. Corrija o campo `email`
+5. Salve
+
+**Validações**:
+- [ ] Email não está duplicado
+- [ ] Formato de email válido
+
+### Alterar Status de Pulso
+
+**Cenário**: Pulso precisa ser fechado manualmente
+
+1. Acesse **Pulses**
+2. Localize o pulso
+3. Altere `status` para `closed`
+4. Salve
+
+**Efeitos colaterais**:
+- Job de fechamento será disparado
+- Métricas serão calculadas
+- Notificações podem ser enviadas
+
+### Corrigir Resposta de Pulso
+
+**Cenário**: Resposta marcada como incompleta incorretamente
+
+1. Acesse **Responses**
+2. Filtre por `pulse_id` e `talent_id`
+3. Altere `is_complete` para `true`
+4. Salve
+
+<Warning>
+  Não altere o conteúdo de respostas de pulsos anônimos!
+</Warning>
+
+### Mover Talento de Área
+
+**Cenário**: Talento transferido de área
+
+1. Acesse **Talents**
+2. Localize o talento
+3. Altere `area_id` para a nova área
+4. Se necessário, altere `manager_id`
+5. Salve
+
+**Validações**:
+- [ ] Nova área existe
+- [ ] Novo gestor (se alterado) está ativo
+
+### Cancelar Candidatura
+
+**Cenário**: Candidatura precisa ser cancelada
+
+1. Acesse **Applications**
+2. Localize a candidatura
+3. Altere `status` para `withdrawn`
+4. Adicione nota no campo `notes` (se existir)
+5. Salve
+
+### Reenviar Notificação de Pulso
+
+**Cenário**: Talento não recebeu notificação
+
+1. Acesse **Pulse Recipients**
+2. Filtre por `pulse_id` e `talent_id`
+3. Defina `notified_at` como `NULL`
+4. Salve
+5. O job de notificação irá reprocessar
+
+## Correções em Massa
+
+Para alterações em múltiplos registros:
+
+### Via Interface
+
+1. Selecione múltiplos registros (checkbox)
+2. Use a ação de **Bulk Edit**
+3. Faça as alterações
+4. Confirme
+
+### Via SQL (com muito cuidado!)
+
+Se necessário usar SQL diretamente:
+
+1. **Sempre** faça backup primeiro
+2. **Sempre** use transação
+3. **Sempre** valide antes de commitar
+
+```sql
+-- Exemplo: Atualizar área de múltiplos talentos
+BEGIN;
+
+-- Verificar registros afetados
+SELECT id, email, area_id FROM directus_users
+WHERE area_id = 'old-area-id' AND tenant_id = 'tenant-id';
+
+-- Atualizar (se quantidade bater)
+UPDATE directus_users
+SET area_id = 'new-area-id', updated_at = NOW()
+WHERE area_id = 'old-area-id' AND tenant_id = 'tenant-id';
+
+-- Verificar resultado
+SELECT id, email, area_id FROM directus_users
+WHERE area_id = 'new-area-id' AND tenant_id = 'tenant-id';
+
+-- Se correto:
+COMMIT;
+
+-- Se incorreto:
+ROLLBACK;
+```
+
+## Checklist de Correção
+
+### Antes
+
+- [ ] Documentei o que vou fazer
+- [ ] Identifiquei todos os registros afetados
+- [ ] Tenho backup/snapshot (se crítico)
+- [ ] Testei em staging (se complexo)
+- [ ] Comuniquei ao time
+
+### Durante
+
+- [ ] Estou alterando apenas o necessário
+- [ ] Verifico cada alteração antes de salvar
+- [ ] Documento alterações feitas
+
+### Depois
+
+- [ ] Validei que a correção funcionou
+- [ ] Verifiquei efeitos colaterais
+- [ ] Invalidei cache se necessário
+- [ ] Atualizei documentação
+- [ ] Notifiquei stakeholders
+
+## Rollback
+
+Se algo der errado:
+
+1. **Não entre em pânico**
+2. Avalie o impacto
+3. Se tiver backup, restaure
+4. Se não, corrija manualmente
+5. Documente o que aconteceu
+6. Comunique o time

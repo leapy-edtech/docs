@@ -1,0 +1,173 @@
+---
+title: "Operações - Admin"
+description: "Guia de operações e troubleshooting do módulo Admin"
+---
+
+## Operações Comuns
+
+### Resetar Senha de Usuário
+
+**Via Backoffice:**
+
+1. Acesse **Admin > Usuários**
+2. Localize o usuário
+3. Clique em **Resetar Senha**
+4. Email de recuperação é enviado
+
+**Via API (Super Admin):**
+
+```bash
+POST /admin/users/{user_id}/reset-password
+```
+
+### Forçar Logout de Usuário
+
+Para encerrar todas as sessões de um usuário:
+
+```bash
+inngest.send({
+  name: "admin/force-logout",
+  data: { user_id: "..." }
+})
+```
+
+### Alterar Papel de Usuário
+
+1. Acesse o usuário no Backoffice
+2. Vá para a aba **Papéis**
+3. Adicione ou remova papéis
+4. Salve as alterações
+
+<Note>
+  Alterações de papel entram em vigor na próxima requisição do usuário.
+</Note>
+
+### Desbloquear Usuário
+
+Se um usuário foi bloqueado por múltiplas tentativas de login:
+
+1. Acesse **Admin > Usuários**
+2. Localize o usuário (filtro: status = bloqueado)
+3. Clique em **Desbloquear**
+
+Ou via banco:
+
+```sql
+UPDATE users SET locked_until = NULL 
+WHERE id = '...';
+```
+
+## Troubleshooting
+
+### Usuário não recebe email de convite
+
+**Possíveis causas:**
+
+1. Email incorreto
+2. Email na caixa de spam
+3. Falha no serviço de email
+
+**Diagnóstico:**
+
+```sql
+-- Verificar status do convite
+SELECT * FROM user_invites 
+WHERE email = '...' 
+ORDER BY created_at DESC;
+```
+
+**Solução:**
+
+1. Verificar email está correto
+2. Reenviar convite
+3. Se persistir, verificar logs do serviço de email
+
+### Permissão negada mesmo com papel correto
+
+**Possíveis causas:**
+
+1. Escopo insuficiente
+2. Cache de permissões desatualizado
+3. Permissão não inclusa no papel
+
+**Diagnóstico:**
+
+```sql
+-- Verificar permissões efetivas
+SELECT r.name as role, p.name as permission
+FROM user_roles ur
+JOIN roles r ON ur.role_id = r.id
+JOIN role_permissions rp ON r.id = rp.role_id
+JOIN permissions p ON rp.permission_id = p.id
+WHERE ur.user_id = '...';
+```
+
+**Solução:**
+
+1. Verificar se a permissão existe no papel
+2. Verificar escopo da permissão
+3. Forçar logout para limpar cache
+
+### 2FA não funciona
+
+**Possíveis causas:**
+
+1. Relógio do dispositivo dessincronizado
+2. App autenticador mal configurado
+3. Códigos de backup usados
+
+**Solução:**
+
+1. Verificar hora do dispositivo
+2. Se necessário, admin pode desativar 2FA temporariamente
+3. Usuário reconfigura 2FA
+
+## Monitoramento
+
+### Métricas de Segurança
+
+| Métrica | Descrição | Alerta |
+|---------|-----------|--------|
+| `auth.failed_logins` | Falhas de login/hora | > 100 |
+| `auth.suspicious_logins` | Logins suspeitos | > 5 |
+| `admin.permission_denials` | Negações de permissão | > 50/hora |
+| `admin.sensitive_actions` | Ações sensíveis | Notificar todas |
+
+### Dashboards
+
+- **Segurança**: Métricas de autenticação e ataques
+- **Auditoria**: Ações por usuário e tipo
+- **Sessões**: Sessões ativas e distribuição
+
+## Jobs Relacionados
+
+| Job | Descrição | Frequência |
+|-----|-----------|------------|
+| `admin/expire-invites` | Expira convites antigos | Diário |
+| `admin/expire-sessions` | Limpa sessões inativas | A cada hora |
+| `admin/cleanup-audit-logs` | Arquiva logs antigos | Semanal |
+| `admin/security-report` | Gera relatório de segurança | Semanal |
+
+## Backup e Recuperação
+
+### Dados Críticos
+
+Dados de admin requerem backup especial:
+
+- Usuários e credenciais
+- Papéis e permissões
+- Configurações do tenant
+- Logs de auditoria
+
+### Procedimento de Recuperação
+
+1. Notificar equipe de segurança
+2. Identificar escopo do incidente
+3. Restaurar dados do backup mais recente
+4. Validar integridade dos dados
+5. Forçar reset de senhas se necessário
+6. Documentar e reportar incidente
+
+<Warning>
+  Qualquer incidente de segurança deve ser reportado imediatamente à equipe de segurança.
+</Warning>

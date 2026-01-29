@@ -1,0 +1,78 @@
+---
+title: "Regras de Negócio - Presenças"
+description: "Regras de negócio que governam o funcionamento do módulo de Presenças"
+---
+
+## Regras de Eventos
+
+### RN-PRE-001: Antecedência Mínima
+
+Eventos devem ser criados com no mínimo **24 horas** de antecedência.
+
+### RN-PRE-002: Duração Mínima
+
+Um evento deve ter duração mínima de **15 minutos**.
+
+### RN-PRE-003: Capacidade
+
+Se definida, a capacidade máxima não pode ser excedida. Confirmações além da capacidade entram em lista de espera.
+
+## Regras de Check-in
+
+### RN-PRE-010: Janela de Check-in
+
+O check-in é permitido a partir de **15 minutos antes** do início até o encerramento do evento.
+
+### RN-PRE-011: Tolerância de Atraso
+
+A tolerância padrão é de **15 minutos** após o início. Check-ins após esse período são marcados como "atrasado".
+
+### RN-PRE-012: Check-in Único
+
+Cada talento pode fazer apenas **um check-in por evento**. Tentativas duplicadas são ignoradas.
+
+### RN-PRE-013: Validação de Localização
+
+Quando check-in por geolocalização está habilitado, o talento deve estar a no máximo **100 metros** do local do evento.
+
+## Regras de Check-out
+
+### RN-PRE-020: Check-out Obrigatório
+
+Se configurado como obrigatório, a presença só é validada com check-out realizado.
+
+### RN-PRE-021: Tempo Mínimo de Permanência
+
+Para presença válida, o talento deve permanecer no evento por pelo menos **50% da duração**.
+
+### RN-PRE-022: Check-out Automático
+
+Se não realizado, o check-out é registrado automaticamente no horário de encerramento do evento.
+
+## Regras de Confirmação
+
+### RN-PRE-030: Prazo para Confirmação
+
+O convidado deve confirmar ou recusar até **24 horas antes** do evento.
+
+### RN-PRE-031: Limite de Ausências
+
+Talentos com mais de **3 ausências não justificadas** em eventos obrigatórios são sinalizados ao RH.
+
+### RN-PRE-032: Justificativa
+
+Ausências podem ser justificadas até **48 horas após** o evento.
+
+## Tabela Resumo
+
+| Código | Regra | Valor |
+|--------|-------|-------|
+| RN-PRE-001 | Antecedência mínima | 24 horas |
+| RN-PRE-002 | Duração mínima | 15 minutos |
+| RN-PRE-010 | Janela de check-in | 15 min antes |
+| RN-PRE-011 | Tolerância de atraso | 15 minutos |
+| RN-PRE-013 | Raio de geolocalização | 100 metros |
+| RN-PRE-021 | Permanência mínima | 50% |
+| RN-PRE-030 | Prazo para confirmação | 24h antes |
+| RN-PRE-031 | Limite de ausências | 3 |
+| RN-PRE-032 | Prazo para justificativa | 48 horas |

@@ -1,0 +1,92 @@
+---
+title: "Jornadas - Matchmaker"
+description: "Fluxos de uso e jornadas do usuário no módulo Matchmaker"
+---
+
+## Jornada do RH
+
+### Criar Oportunidade
+
+```mermaid
+flowchart LR
+    A[Acessar Matchmaker] --> B[Nova Oportunidade]
+    B --> C[Preencher Detalhes]
+    C --> D[Definir Requisitos]
+    D --> E[Configurar Visibilidade]
+    E --> F[Publicar]
+```
+
+**Passos detalhados:**
+
+1. **Acessar o módulo Matchmaker** no menu lateral
+2. **Criar nova oportunidade** clicando em "+ Nova Oportunidade"
+3. **Preencher informações** (título, descrição, área, gestor responsável)
+4. **Definir requisitos** (competências, experiência, nível)
+5. **Configurar visibilidade** (toda empresa, áreas específicas)
+6. **Publicar** para disponibilizar aos talentos
+
+### Gerenciar Pipeline
+
+```mermaid
+flowchart LR
+    A[Visualizar Interesses] --> B[Avaliar Candidatos]
+    B --> C[Avançar/Recusar]
+    C --> D[Agendar Entrevistas]
+    D --> E[Finalizar Conexão]
+```
+
+## Jornada do Talento
+
+### Explorar Oportunidades
+
+```mermaid
+flowchart LR
+    A[Acessar Matchmaker] --> B[Ver Sugestões]
+    B --> C[Filtrar/Buscar]
+    C --> D[Ver Detalhes]
+    D --> E[Manifestar Interesse]
+```
+
+**Pontos importantes:**
+
+- O talento vê oportunidades ordenadas por score de compatibilidade
+- Pode filtrar por tipo, área, localização
+- Ao manifestar interesse, pode adicionar uma mensagem
+- Recebe notificações sobre atualizações de status
+
+### Acompanhar Candidaturas
+
+```mermaid
+flowchart LR
+    A[Minhas Candidaturas] --> B[Ver Status]
+    B --> C[Responder Mensagens]
+    C --> D[Confirmar Participação]
+```
+
+## Jornada da Liderança
+
+### Buscar Talentos para Projetos
+
+```mermaid
+flowchart LR
+    A[Criar Oportunidade] --> B[Receber Interesses]
+    B --> C[Avaliar Perfis]
+    C --> D[Selecionar Talento]
+    D --> E[Iniciar Conexão]
+```
+
+### Aprovar Transferências
+
+Quando um talento da equipe manifesta interesse em outra área:
+
+```mermaid
+flowchart LR
+    A[Notificação Recebida] --> B[Avaliar Solicitação]
+    B --> C{Aprovar?}
+    C -->|Sim| D[Liberar Talento]
+    C -->|Não| E[Conversar com Talento]
+```
+
+<Note>
+  A aprovação do gestor atual é necessária para transferências definitivas, mas não para projetos temporários.
+</Note>

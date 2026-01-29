@@ -1,0 +1,126 @@
+---
+title: "Modelo de Identidade"
+description: "Como talentos são identificados e autenticados na plataforma Leapy"
+---
+
+## Identificadores
+
+Cada talento possui múltiplos identificadores para diferentes propósitos:
+
+| Identificador | Formato | Uso |
+|---------------|---------|-----|
+| `id` | UUID | Identificador interno único |
+| `external_id` | String | ID do sistema de origem (HRIS) |
+| `email` | Email | Identificador de login |
+| `employee_number` | String | Matrícula do colaborador |
+
+## Modelo de Identidade
+
+```mermaid
+erDiagram
+    TALENT ||--o{ IDENTITY : has
+    IDENTITY ||--|| AUTH_PROVIDER : uses
+    TALENT ||--o{ SESSION : creates
+```
+
+### Talent (Talento)
+
+Entidade principal que representa o colaborador.
+
+### Identity (Identidade)
+
+Credenciais de acesso vinculadas ao talento.
+
+| Campo | Descrição |
+|-------|-----------|
+| `provider` | Provedor de autenticação (email, SSO) |
+| `provider_id` | ID no provedor |
+| `email` | Email de login |
+| `is_primary` | Se é a identidade principal |
+
+### Auth Provider
+
+Provedores de autenticação suportados:
+
+- **Email/Password**: Autenticação nativa
+- **Google SSO**: Login com conta Google
+- **Microsoft SSO**: Login com conta Microsoft/Azure AD
+- **SAML**: SSO corporativo via SAML 2.0
+
+## Fluxo de Autenticação
+
+```mermaid
+sequenceDiagram
+    participant U as Usuário
+    participant App as Aplicação
+    participant Auth as Auth Service
+    participant IdP as Identity Provider
+    
+    U->>App: Acessa plataforma
+    App->>Auth: Verifica sessão
+    Auth-->>App: Sessão inválida
+    App->>U: Redireciona para login
+    U->>IdP: Autentica
+    IdP->>Auth: Token/Assertion
+    Auth->>Auth: Valida e cria sessão
+    Auth->>App: Token de acesso
+    App->>U: Acesso concedido
+```
+
+## Vinculação de Identidades
+
+Um talento pode ter múltiplas identidades vinculadas:
+
+```json
+{
+  "talent_id": "uuid",
+  "identities": [
+    {
+      "provider": "email",
+      "email": "joao@empresa.com",
+      "is_primary": true
+    },
+    {
+      "provider": "google",
+      "email": "joao@empresa.com",
+      "is_primary": false
+    }
+  ]
+}
+```
+
+## Regras de Identidade
+
+### RN-IDT-001: Email Único
+
+O email deve ser único por tenant. Não é permitido cadastrar dois talentos com o mesmo email.
+
+### RN-IDT-002: Identidade Primária
+
+Todo talento deve ter exatamente uma identidade primária.
+
+### RN-IDT-003: Desvinculação
+
+Não é permitido desvincular a última identidade de um talento ativo.
+
+## Single Sign-On (SSO)
+
+### Configuração
+
+O SSO é configurado a nível de tenant:
+
+1. Admin acessa configurações de autenticação
+2. Seleciona provedor (Google, Microsoft, SAML)
+3. Configura credenciais/metadados
+4. Define políticas (obrigatório, opcional)
+
+### Provisionamento Automático
+
+Com SSO configurado, é possível habilitar provisionamento automático:
+
+- **Just-in-Time (JIT)**: Cria talento no primeiro login
+- **SCIM**: Sincronização via protocolo SCIM 2.0
+
+<Note>
+  O provisionamento automático requer mapeamento de atributos entre o IdP e a plataforma.
+</Note>

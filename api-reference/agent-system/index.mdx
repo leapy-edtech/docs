@@ -1,0 +1,246 @@
+---
+title: "API do Agent System"
+description: "Documentação da API do sistema de agentes de IA"
+---
+
+## Visão Geral
+
+O Agent System expõe APIs para interação com assistentes de IA da plataforma Leapy.
+
+## Base URL
+
+| Ambiente | URL |
+|----------|-----|
+| Production | `https://api.leapy.com/agents` |
+| Staging | `https://staging.leapy.com/api/agents` |
+
+## Autenticação
+
+Todas as requisições requerem autenticação via token JWT.
+
+```bash
+Authorization: Bearer <access_token>
+```
+
+## Endpoints
+
+### Chat Completion
+
+Envia mensagem para um agente e recebe resposta.
+
+```bash
+POST /chat
+Content-Type: application/json
+
+{
+  "agent": "hr_assistant",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Quantos talentos temos na área de Tecnologia?"
+    }
+  ],
+  "context": {
+    "tenant_id": "uuid"
+  }
+}
+```
+
+**Resposta:**
+
+```json
+{
+  "id": "msg_abc123",
+  "agent": "hr_assistant",
+  "message": {
+    "role": "assistant",
+    "content": "Na área de Tecnologia temos 45 talentos ativos...",
+    "tool_calls": [
+      {
+        "tool": "query_talents",
+        "input": { "area_id": "tech-uuid" },
+        "output": { "count": 45 }
+      }
+    ]
+  },
+  "usage": {
+    "prompt_tokens": 150,
+    "completion_tokens": 80,
+    "total_tokens": 230
+  }
+}
+```
+
+### Streaming
+
+Para respostas em streaming:
+
+```bash
+POST /chat/stream
+Content-Type: application/json
+
+{
+  "agent": "hr_assistant",
+  "messages": [...],
+  "stream": true
+}
+```
+
+**Resposta (Server-Sent Events):**
+
+```
+data: {"type": "start", "id": "msg_abc123"}
+
+data: {"type": "delta", "content": "Na área de "}
+
+data: {"type": "delta", "content": "Tecnologia "}
+
+data: {"type": "tool_call", "tool": "query_talents", "status": "started"}
+
+data: {"type": "tool_call", "tool": "query_talents", "status": "completed", "output": {...}}
+
+data: {"type": "delta", "content": "temos 45 talentos..."}
+
+data: {"type": "done", "usage": {...}}
+```
+
+### Listar Agentes
+
+```bash
+GET /agents
+```
+
+**Resposta:**
+
+```json
+{
+  "data": [
+    {
+      "id": "hr_assistant",
+      "name": "HR Assistant",
+      "description": "Assistente para equipes de RH",
+      "capabilities": ["query_data", "generate_reports"],
+      "available": true
+    },
+    {
+      "id": "support_agent",
+      "name": "Support Agent",
+      "description": "Agente de suporte",
+      "capabilities": ["diagnose", "suggest_fixes"],
+      "available": true
+    }
+  ]
+}
+```
+
+### Obter Histórico
+
+```bash
+GET /conversations/{conversation_id}
+```
+
+**Resposta:**
+
+```json
+{
+  "id": "conv_xyz",
+  "agent": "hr_assistant",
+  "messages": [
+    {
+      "id": "msg_1",
+      "role": "user",
+      "content": "Olá",
+      "timestamp": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "msg_2",
+      "role": "assistant",
+      "content": "Olá! Como posso ajudar?",
+      "timestamp": "2024-01-15T10:00:02Z"
+    }
+  ],
+  "created_at": "2024-01-15T10:00:00Z",
+  "updated_at": "2024-01-15T10:00:02Z"
+}
+```
+
+## Agentes Disponíveis
+
+### hr_assistant
+
+Assistente para equipes de RH.
+
+**Capabilities:**
+- `query_talents`: Consultar dados de talentos
+- `query_pulses`: Consultar dados de pulsos
+- `generate_report`: Gerar relatórios
+- `suggest_actions`: Sugerir ações
+
+**Permissões requeridas:**
+- `agent:hr_assistant`
+- `talent:read`
+- `pulse:read`
+
+### support_agent
+
+Agente de suporte técnico.
+
+**Capabilities:**
+- `diagnose_issue`: Diagnosticar problemas
+- `suggest_fix`: Sugerir correções
+- `execute_action`: Executar ações (limitadas)
+
+**Permissões requeridas:**
+- `agent:support`
+
+### analytics_agent
+
+Agente de análise de dados.
+
+**Capabilities:**
+- `query_metrics`: Consultar métricas
+- `analyze_trends`: Analisar tendências
+- `generate_insights`: Gerar insights
+
+**Permissões requeridas:**
+- `agent:analytics`
+- `dashboard:read`
+
+## Limites
+
+| Limite | Valor |
+|--------|-------|
+| Mensagens por minuto | 10 |
+| Tokens por mensagem | 4000 |
+| Conversações ativas | 5 |
+| Histórico retido | 30 dias |
+
+## Erros
+
+| Código | Descrição |
+|--------|-----------|
+| 400 | Requisição inválida |
+| 401 | Não autenticado |
+| 403 | Sem permissão para o agente |
+| 429 | Rate limit excedido |
+| 500 | Erro interno |
+
+**Exemplo de erro:**
+
+```json
+{
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "Too many requests. Please wait before trying again.",
+    "retry_after": 60
+  }
+}
+```
+
+## Boas Práticas
+
+1. **Use streaming** para melhor UX
+2. **Mantenha contexto** enviando histórico relevante
+3. **Trate erros** graciosamente
+4. **Respeite rate limits** implementando backoff
+5. **Log interações** para debugging

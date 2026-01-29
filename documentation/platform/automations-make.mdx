@@ -1,0 +1,153 @@
+---
+title: "Automações - Make"
+description: "Sistema de automações e integrações com Make (Integromat)"
+---
+
+## Visão Geral
+
+Make (anteriormente Integromat) é a plataforma de automações e integrações da Leapy, conectando a plataforma com sistemas externos e automatizando workflows complexos.
+
+## Conceitos
+
+### Cenários
+
+Cenários são workflows automatizados compostos por módulos:
+
+```mermaid
+flowchart LR
+    A[Trigger] --> B[Ação 1]
+    B --> C[Filtro]
+    C --> D[Ação 2]
+    D --> E[Ação Final]
+```
+
+### Módulos
+
+| Tipo | Descrição |
+|------|-----------|
+| **Trigger** | Inicia o cenário (webhook, schedule) |
+| **Ação** | Executa uma operação |
+| **Filtro** | Condiciona o fluxo |
+| **Router** | Divide em múltiplos caminhos |
+| **Aggregator** | Agrupa múltiplos itens |
+
+## Cenários Ativos
+
+### Sincronização HRIS
+
+Sincroniza dados de colaboradores com sistemas externos de RH.
+
+```mermaid
+flowchart LR
+    A[Webhook: talent.updated] --> B[Mapear Campos]
+    B --> C[Upsert no HRIS]
+    C --> D[Log Resultado]
+```
+
+**Configuração:**
+
+- Trigger: Webhook do Inngest
+- Destino: API do HRIS (Gupy, etc)
+- Frequência: Tempo real
+
+### Notificações Slack/Teams
+
+Envia notificações para canais de comunicação.
+
+```mermaid
+flowchart LR
+    A[Webhook: pulse.closed] --> B[Formatar Mensagem]
+    B --> C{Canal}
+    C -->|Slack| D[Enviar Slack]
+    C -->|Teams| E[Enviar Teams]
+```
+
+### Exportação de Relatórios
+
+Gera e distribui relatórios automaticamente.
+
+```mermaid
+flowchart LR
+    A[Schedule: Mensal] --> B[Gerar Dados]
+    B --> C[Criar Excel]
+    C --> D[Upload Drive]
+    D --> E[Enviar Email]
+```
+
+### Onboarding Automatizado
+
+Workflow de onboarding de novos colaboradores.
+
+```mermaid
+flowchart LR
+    A[talent.created] --> B[Criar Conta Email]
+    B --> C[Provisionar Acessos]
+    C --> D[Enviar Kit Boas-vindas]
+    D --> E[Atribuir Treinamentos]
+```
+
+## Integração com Inngest
+
+### Webhook Outbound
+
+O Inngest pode disparar webhooks para o Make:
+
+```typescript
+await step.run("trigger-make", async () => {
+  await fetch(MAKE_WEBHOOK_URL, {
+    method: "POST",
+    body: JSON.stringify(eventData)
+  });
+});
+```
+
+### Webhook Inbound
+
+Make pode disparar eventos no Inngest:
+
+```typescript
+// Endpoint que recebe webhook do Make
+export async function POST(req: Request) {
+  const data = await req.json();
+  await inngest.send({
+    name: "external.integration.completed",
+    data
+  });
+}
+```
+
+## Gestão de Cenários
+
+### Versionamento
+
+Cenários são versionados e documentados:
+
+- Backup antes de alterações
+- Changelog de modificações
+- Rollback quando necessário
+
+### Monitoramento
+
+- **Logs**: Histórico de execuções
+- **Erros**: Alertas de falha
+- **Operações**: Contagem de uso
+
+### Ambientes
+
+| Ambiente | Uso |
+|----------|-----|
+| Production | Cenários em produção |
+| Sandbox | Testes e desenvolvimento |
+
+## Boas Práticas
+
+1. **Nomeação clara**: Nomes descritivos para cenários
+2. **Error handling**: Sempre trate erros
+3. **Logs**: Adicione logs em pontos críticos
+4. **Idempotência**: Cenários devem ser seguros para reexecução
+5. **Rate limits**: Respeite limites de APIs externas
+6. **Documentação**: Documente cada cenário
+
+<Warning>
+  Alterações em cenários de produção devem ser testadas em sandbox primeiro.
+</Warning>

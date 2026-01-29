@@ -1,0 +1,185 @@
+---
+title: "Operações - Talentos"
+description: "Guia de operações e troubleshooting do módulo de Talentos"
+---
+
+## Operações Comuns
+
+### Cadastrar Novo Talento
+
+**Via Backoffice:**
+
+1. Acesse Directus > **Talents**
+2. Clique em **+ Criar**
+3. Preencha os campos obrigatórios
+4. Salve o registro
+
+**Via API:**
+
+```bash
+POST /items/talents
+{
+  "first_name": "João",
+  "last_name": "Silva",
+  "email": "joao.silva@empresa.com",
+  "hire_date": "2024-02-01",
+  "area_id": "...",
+  "position_id": "..."
+}
+```
+
+### Desligar Talento
+
+1. Acesse o talento no Backoffice
+2. Preencha `termination_date`
+3. Altere `status` para `offboarding`
+4. O job de offboarding será disparado automaticamente
+
+<Warning>
+  O desligamento dispara ações em cascata: revogação de acessos, remoção de pulsos pendentes, etc.
+</Warning>
+
+### Transferir Talento de Área
+
+1. Localize o talento no Backoffice
+2. Atualize `area_id` e/ou `manager_id`
+3. Opcionalmente, atualize `position_id`
+4. Salve as alterações
+5. Histórico é registrado automaticamente
+
+### Merge de Talentos Duplicados
+
+Quando há talentos duplicados:
+
+```bash
+# Via script de operações
+inngest.send({
+  name: "talents/merge",
+  data: {
+    keep_id: "uuid-do-talento-principal",
+    merge_id: "uuid-do-talento-duplicado"
+  }
+})
+```
+
+<Note>
+  O merge preserva todos os dados históricos do talento mantido e transfere dados relevantes do duplicado.
+</Note>
+
+## Troubleshooting
+
+### Talento não consegue fazer login
+
+**Possíveis causas:**
+
+1. Email incorreto
+2. Identidade não vinculada
+3. Status não é `active`
+4. SSO não configurado corretamente
+
+**Diagnóstico:**
+
+```sql
+-- Verificar identidades
+SELECT * FROM identities 
+WHERE talent_id = '...';
+
+-- Verificar status
+SELECT status, email FROM talents 
+WHERE id = '...';
+```
+
+### Dados desatualizados após sync com HRIS
+
+**Possíveis causas:**
+
+1. Job de sincronização falhou
+2. Mapeamento de campos incorreto
+3. Dados de origem com problemas
+
+**Diagnóstico:**
+
+1. Verificar logs do job de sync no Inngest
+2. Comparar dados na origem vs destino
+3. Verificar mapeamento de campos na configuração
+
+### Hierarquia organizacional incorreta
+
+**Possíveis causas:**
+
+1. `manager_id` apontando para talento incorreto
+2. Área sem gestor definido
+3. Ciclo na hierarquia
+
+**Verificação:**
+
+```sql
+-- Verificar ciclos na hierarquia
+WITH RECURSIVE hierarchy AS (
+  SELECT id, manager_id, 1 as depth
+  FROM talents WHERE id = '...'
+  UNION ALL
+  SELECT t.id, t.manager_id, h.depth + 1
+  FROM talents t
+  JOIN hierarchy h ON t.id = h.manager_id
+  WHERE h.depth < 20
+)
+SELECT * FROM hierarchy;
+```
+
+## Monitoramento
+
+### Métricas Importantes
+
+| Métrica | Descrição | Alerta |
+|---------|-----------|--------|
+| `talents.sync.lag` | Atraso na sincronização | > 1 hora |
+| `talents.duplicates` | Possíveis duplicados | > 0 |
+| `talents.incomplete_profiles` | Perfis incompletos | > 10% |
+
+### Verificações de Qualidade
+
+- Talentos sem área definida
+- Talentos sem gestor
+- Emails duplicados
+- Datas inconsistentes (desligamento < admissão)
+
+## Jobs Relacionados
+
+| Job | Descrição | Frequência |
+|-----|-----------|------------|
+| `talents/sync-hris` | Sincroniza com HRIS externo | Diário, 2h |
+| `talents/process-termination` | Processa desligamentos | Tempo real |
+| `talents/cleanup-inactive` | Anonimiza dados antigos | Mensal |
+| `talents/detect-duplicates` | Detecta possíveis duplicados | Semanal |
+
+## Importação em Massa
+
+### Via CSV
+
+1. Prepare arquivo CSV com colunas obrigatórias
+2. Acesse Backoffice > **Talents** > **Importar**
+3. Faça upload do arquivo
+4. Mapeie as colunas
+5. Execute a importação
+
+**Colunas obrigatórias:**
+
+- `email`
+- `first_name`
+- `last_name`
+- `hire_date`
+
+### Via API em Batch
+
+```bash
+POST /items/talents
+[
+  { "email": "...", "first_name": "...", ... },
+  { "email": "...", "first_name": "...", ... }
+]
+```
+
+<Note>
+  Importações em massa são processadas em background e podem levar alguns minutos.
+</Note>

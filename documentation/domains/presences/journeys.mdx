@@ -1,0 +1,108 @@
+---
+title: "Jornadas - Presenças"
+description: "Fluxos de uso e jornadas do usuário no módulo de Presenças"
+---
+
+## Jornada do Organizador (RH/Liderança)
+
+### Criar Evento com Controle de Presença
+
+```mermaid
+flowchart LR
+    A[Criar Evento] --> B[Definir Detalhes]
+    B --> C[Configurar Presença]
+    C --> D[Convidar Participantes]
+    D --> E[Publicar Evento]
+```
+
+**Passos detalhados:**
+
+1. **Criar evento** em Presenças > Eventos
+2. **Definir detalhes**: título, data, local, descrição
+3. **Configurar controle de presença**: método de check-in, tolerância
+4. **Convidar participantes**: todos, área específica, lista manual
+5. **Publicar** para disponibilizar aos convidados
+
+### Acompanhar Presença em Tempo Real
+
+```mermaid
+flowchart LR
+    A[Acessar Evento] --> B[Ver Dashboard]
+    B --> C[Monitorar Check-ins]
+    C --> D[Resolver Problemas]
+    D --> E[Fechar Evento]
+```
+
+**Durante o evento:**
+
+- Visualizar participantes presentes
+- Registrar presenças manualmente se necessário
+- Resolver problemas de check-in
+- Enviar lembretes para ausentes
+
+### Consolidar e Reportar
+
+```mermaid
+flowchart LR
+    A[Evento Encerrado] --> B[Revisar Presenças]
+    B --> C[Ajustar se Necessário]
+    C --> D[Gerar Relatório]
+    D --> E[Compartilhar]
+```
+
+## Jornada do Talento
+
+### Confirmar Participação
+
+```mermaid
+flowchart LR
+    A[Receber Convite] --> B[Ver Detalhes]
+    B --> C{Pode Participar?}
+    C -->|Sim| D[Confirmar]
+    C -->|Não| E[Recusar/Justificar]
+```
+
+### Registrar Presença
+
+```mermaid
+flowchart LR
+    A[Chegar ao Evento] --> B[Fazer Check-in]
+    B --> C[Participar]
+    C --> D[Fazer Check-out]
+```
+
+**Métodos de check-in:**
+
+1. **QR Code**: Abrir app/câmera e escanear
+2. **Link**: Clicar no link recebido
+3. **Geolocalização**: Confirmar localização no app
+
+### Verificar Histórico
+
+O talento pode consultar seu histórico de participações:
+
+- Eventos participados
+- Taxa de presença
+- Certificados (quando aplicável)
+
+## Jornada da Liderança
+
+### Monitorar Equipe
+
+```mermaid
+flowchart LR
+    A[Acessar Dashboard] --> B[Ver Eventos da Equipe]
+    B --> C[Analisar Participação]
+    C --> D[Identificar Ausências]
+    D --> E[Tomar Ações]
+```
+
+**Análises disponíveis:**
+
+- Taxa de participação por colaborador
+- Eventos com baixa adesão
+- Padrões de ausência
+
+<Note>
+  Líderes só visualizam dados da sua equipe direta.
+</Note>

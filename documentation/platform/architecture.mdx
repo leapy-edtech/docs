@@ -1,0 +1,152 @@
+---
+title: "Arquitetura"
+description: "Visão geral da arquitetura da plataforma Leapy"
+---
+
+## Visão Geral
+
+A plataforma Leapy é construída com uma arquitetura moderna, escalável e resiliente, utilizando tecnologias de ponta para garantir performance e disponibilidade.
+
+## Diagrama de Arquitetura
+
+```mermaid
+flowchart TB
+    subgraph Clients
+        WEB[App Web - Next.js]
+        MOBILE[App Mobile]
+    end
+    
+    subgraph Edge
+        CDN[CDN - Vercel]
+        LB[Load Balancer]
+    end
+    
+    subgraph Application
+        API[API - Next.js]
+        BACKOFFICE[Backoffice - Directus]
+        AGENTS[Agent System]
+    end
+    
+    subgraph Processing
+        INNGEST[Inngest - Jobs/Events]
+        MAKE[Make - Automações]
+    end
+    
+    subgraph Data
+        DB[(PostgreSQL)]
+        CACHE[(Redis)]
+        STORAGE[Object Storage]
+    end
+    
+    subgraph Observability
+        LOGS[Logs]
+        METRICS[Métricas]
+        TRACES[Traces]
+    end
+    
+    WEB --> CDN
+    MOBILE --> CDN
+    CDN --> LB
+    LB --> API
+    API --> DB
+    API --> CACHE
+    API --> INNGEST
+    API --> BACKOFFICE
+    BACKOFFICE --> DB
+    INNGEST --> DB
+    INNGEST --> MAKE
+    AGENTS --> API
+    API --> STORAGE
+    
+    API --> LOGS
+    API --> METRICS
+    API --> TRACES
+```
+
+## Stack Tecnológica
+
+### Frontend
+
+| Tecnologia | Uso |
+|------------|-----|
+| **Next.js 14** | Framework React para App Web |
+| **React Native** | App Mobile |
+| **TypeScript** | Linguagem principal |
+| **TailwindCSS** | Estilização |
+| **Shadcn/ui** | Componentes |
+
+### Backend
+
+| Tecnologia | Uso |
+|------------|-----|
+| **Next.js API** | API Routes e Server Actions |
+| **Directus** | Backoffice e CMS |
+| **PostgreSQL** | Banco de dados principal |
+| **Redis** | Cache e sessões |
+
+### Infraestrutura
+
+| Tecnologia | Uso |
+|------------|-----|
+| **Vercel** | Deploy e hosting |
+| **Neon** | PostgreSQL serverless |
+| **Upstash** | Redis serverless |
+| **Cloudflare R2** | Object storage |
+
+### Processamento
+
+| Tecnologia | Uso |
+|------------|-----|
+| **Inngest** | Jobs e eventos assíncronos |
+| **Make** | Automações e integrações |
+
+## Padrões Arquiteturais
+
+### Multi-Tenancy
+
+A plataforma é multi-tenant com isolamento de dados por tenant:
+
+```typescript
+// Todas as queries incluem tenant_id
+const talents = await db.query.talents.findMany({
+  where: eq(talents.tenant_id, currentTenant.id)
+});
+```
+
+### Event-Driven
+
+Operações assíncronas são processadas via eventos:
+
+```typescript
+// Disparo de evento
+await inngest.send({
+  name: "pulse.activated",
+  data: { pulse_id: pulse.id }
+});
+
+// Handler do evento
+inngest.createFunction(
+  { id: "notify-pulse-recipients" },
+  { event: "pulse.activated" },
+  async ({ event }) => {
+    // Processa notificações
+  }
+);
+```
+
+### API First
+
+Toda funcionalidade é exposta via API:
+
+- **REST**: Operações CRUD via Directus
+- **Server Actions**: Operações Next.js
+- **GraphQL**: Queries complexas (opcional)
+
+## Ambientes
+
+| Ambiente | URL | Uso |
+|----------|-----|-----|
+| Production | app.leapy.com | Produção |
+| Staging | staging.leapy.com | Homologação |
+| Development | dev.leapy.com | Desenvolvimento |
+| Local | localhost:3000 | Local |

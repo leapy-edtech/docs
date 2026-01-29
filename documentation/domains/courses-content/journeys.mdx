@@ -1,0 +1,128 @@
+---
+title: "Jornadas - Cursos e Conteúdos"
+description: "Fluxos de uso e jornadas do usuário no módulo de Cursos e Conteúdos"
+---
+
+## Jornada do RH
+
+### Criar e Publicar Curso
+
+```mermaid
+flowchart LR
+    A[Criar Curso] --> B[Adicionar Módulos]
+    B --> C[Configurar Avaliações]
+    C --> D[Definir Requisitos]
+    D --> E[Publicar]
+```
+
+**Passos detalhados:**
+
+1. **Criar curso** em Cursos > Novo Curso
+2. **Adicionar módulos** com conteúdos (vídeos, textos, etc)
+3. **Configurar avaliações** (quizzes, tarefas)
+4. **Definir requisitos** (competências, público-alvo)
+5. **Publicar** para disponibilizar no catálogo
+
+### Criar Trilha de Aprendizagem
+
+```mermaid
+flowchart LR
+    A[Criar Trilha] --> B[Selecionar Cursos]
+    B --> C[Definir Sequência]
+    C --> D[Configurar Critérios]
+    D --> E[Publicar]
+```
+
+**Configurações da trilha:**
+
+- Cursos obrigatórios vs opcionais
+- Ordem de realização (sequencial ou livre)
+- Prazo para conclusão
+- Certificação final
+
+### Atribuir Treinamentos
+
+```mermaid
+flowchart LR
+    A[Selecionar Público] --> B[Escolher Conteúdo]
+    B --> C[Definir Prazo]
+    C --> D[Enviar Atribuição]
+```
+
+## Jornada do Talento
+
+### Explorar e Aprender
+
+```mermaid
+flowchart LR
+    A[Acessar Catálogo] --> B[Buscar/Filtrar]
+    B --> C[Ver Detalhes]
+    C --> D[Inscrever-se]
+    D --> E[Iniciar Curso]
+```
+
+**Funcionalidades:**
+
+- Busca por palavra-chave
+- Filtros por tema, duração, nível
+- Recomendações personalizadas
+- Lista de desejos
+
+### Consumir Conteúdo
+
+```mermaid
+flowchart LR
+    A[Acessar Curso] --> B[Assistir/Ler]
+    B --> C[Completar Módulo]
+    C --> D{Mais módulos?}
+    D -->|Sim| B
+    D -->|Não| E[Fazer Avaliação]
+    E --> F[Receber Certificado]
+```
+
+**Durante o curso:**
+
+- Marcação de progresso automática
+- Anotações pessoais
+- Download de materiais
+- Retomar de onde parou
+
+### Acompanhar Progresso
+
+```mermaid
+flowchart LR
+    A[Meus Cursos] --> B[Ver Progresso]
+    B --> C[Verificar Prazos]
+    C --> D[Baixar Certificados]
+```
+
+## Jornada da Liderança
+
+### Atribuir para Equipe
+
+```mermaid
+flowchart LR
+    A[Identificar Necessidade] --> B[Buscar Conteúdo]
+    B --> C[Atribuir à Equipe]
+    C --> D[Acompanhar]
+```
+
+### Monitorar Desenvolvimento
+
+```mermaid
+flowchart LR
+    A[Dashboard de Equipe] --> B[Ver Progresso]
+    B --> C[Identificar Gaps]
+    C --> D[Recomendar Conteúdos]
+```
+
+**Informações disponíveis:**
+
+- Taxa de conclusão por colaborador
+- Cursos em andamento
+- Competências desenvolvidas
+- Comparativo com outras equipes
+
+<Note>
+  Líderes podem fazer recomendações mas não podem obrigar a realização de cursos fora de atribuições formais do RH.
+</Note>

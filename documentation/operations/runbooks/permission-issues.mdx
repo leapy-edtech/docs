@@ -1,0 +1,163 @@
+---
+title: "Runbook: Problemas de Permissão"
+description: "Procedimento para resolver problemas de acesso e permissão"
+---
+
+## Descrição do Problema
+
+Usuário não consegue acessar recurso ou funcionalidade que deveria ter permissão.
+
+## Sintomas
+
+- Erro 403 (Forbidden) na interface
+- Funcionalidade não aparece no menu
+- Dados não são exibidos
+- Ação retorna "Permissão negada"
+
+## Diagnóstico
+
+### 1. Coletar Informações
+
+- User ID
+- Tenant ID
+- Recurso/ação tentada
+- Mensagem de erro exata
+- Screenshot (se possível)
+
+### 2. Verificar Papéis do Usuário
+
+```sql
+SELECT 
+  u.id,
+  u.email,
+  r.name as role_name,
+  r.id as role_id
+FROM users u
+JOIN user_roles ur ON u.id = ur.user_id
+JOIN roles r ON ur.role_id = r.id
+WHERE u.id = '[USER_ID]';
+```
+
+### 3. Verificar Permissões do Papel
+
+```sql
+SELECT 
+  p.name as permission,
+  rp.scope,
+  rp.conditions
+FROM role_permissions rp
+JOIN permissions p ON rp.permission_id = p.id
+WHERE rp.role_id = '[ROLE_ID]';
+```
+
+### 4. Verificar Escopo
+
+Se o usuário tem a permissão mas não vê os dados:
+
+```sql
+-- Verificar escopo do usuário
+SELECT scope_type, scope_value
+FROM user_scopes
+WHERE user_id = '[USER_ID]';
+
+-- Verificar se recurso está no escopo
+SELECT area_id, manager_id
+FROM talents
+WHERE id = '[RESOURCE_ID]';
+```
+
+### 5. Verificar Logs
+
+```sql
+-- Axiom/Logs
+['leapy-production']
+| where user_id == '[USER_ID]'
+| where message contains 'permission'
+| where timestamp > ago(1h)
+```
+
+## Causa Raiz Comum
+
+| Causa | Frequência |
+|-------|------------|
+| Papel não atribuído | 35% |
+| Escopo incorreto | 25% |
+| Permissão faltando no papel | 20% |
+| Cache de permissões | 15% |
+| Bug no código | 5% |
+
+## Resolução
+
+### Opção 1: Atribuir Papel
+
+Se o usuário não tem o papel necessário:
+
+1. Acesse Backoffice > Users
+2. Localize o usuário
+3. Adicione o papel correto
+4. Salve
+
+### Opção 2: Ajustar Escopo
+
+Se o escopo está limitado:
+
+```sql
+-- Verificar e atualizar escopo
+UPDATE user_scopes
+SET scope_type = 'area', scope_value = '[AREA_ID]'
+WHERE user_id = '[USER_ID]';
+```
+
+Ou via Backoffice:
+
+1. Acesse User Scopes
+2. Localize o registro do usuário
+3. Ajuste `scope_type` e `scope_value`
+
+### Opção 3: Adicionar Permissão ao Papel
+
+Se a permissão está faltando no papel:
+
+1. Acesse Roles > [ROLE]
+2. Adicione a permissão necessária
+3. Salve
+
+<Warning>
+  Alterações em papéis afetam todos os usuários com esse papel.
+</Warning>
+
+### Opção 4: Limpar Cache de Permissões
+
+```bash
+# Forçar logout para limpar cache
+inngest.send({
+  name: "admin/invalidate-user-session",
+  data: { user_id: "[USER_ID]" }
+})
+```
+
+Ou peça ao usuário fazer logout e login novamente.
+
+## Verificação Pós-Correção
+
+- [ ] Usuário consegue acessar o recurso
+- [ ] Não há erros de permissão nos logs
+- [ ] Funcionalidade aparece corretamente
+- [ ] Usuário confirmou resolução
+
+## Prevenção
+
+1. **Documentar papéis**: Matriz clara de permissões
+2. **Onboarding**: Checklist de permissões para novos usuários
+3. **Auditoria**: Revisão periódica de acessos
+4. **Alertas**: Notificar sobre negações de permissão frequentes
+
+## Matriz de Referência Rápida
+
+| Funcionalidade | Permissão Necessária | Papéis com Acesso |
+|----------------|---------------------|-------------------|
+| Criar Pulso | `pulse:create` | Admin, RH |
+| Ver Dashboard Global | `dashboard:read:global` | Admin, RH |
+| Ver Dashboard Equipe | `dashboard:read:team` | Admin, RH, Liderança |
+| Criar Oportunidade | `opportunity:create` | Admin, RH, Liderança |
+| Gerenciar Usuários | `user:manage` | Admin |

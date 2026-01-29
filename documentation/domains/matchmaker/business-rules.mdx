@@ -1,0 +1,98 @@
+---
+title: "Regras de Negócio - Matchmaker"
+description: "Regras de negócio que governam o funcionamento do módulo Matchmaker"
+---
+
+## Regras de Oportunidades
+
+### RN-MAT-001: Aprovação para Publicação
+
+Oportunidades do tipo **Vaga Interna** requerem aprovação do RH antes da publicação.
+
+### RN-MAT-002: Período Mínimo de Publicação
+
+Oportunidades devem ficar publicadas por no mínimo **5 dias úteis** antes de serem encerradas.
+
+### RN-MAT-003: Limite de Oportunidades Ativas
+
+Um gestor pode ter no máximo **10 oportunidades ativas** simultaneamente.
+
+## Regras de Elegibilidade
+
+### RN-MAT-010: Tempo Mínimo na Posição
+
+Para se candidatar a vagas internas, o talento deve ter no mínimo **12 meses** na posição atual.
+
+<Note>
+  Esta regra pode ser flexibilizada pelo RH em casos excepcionais.
+</Note>
+
+### RN-MAT-011: Performance Mínima
+
+Talentos com avaliação de performance **abaixo da expectativa** não são elegíveis para vagas internas.
+
+### RN-MAT-012: Projetos Simultâneos
+
+Um talento pode participar de no máximo **2 projetos temporários** simultaneamente.
+
+## Regras de Matching
+
+### RN-MAT-020: Score Mínimo de Compatibilidade
+
+Sugestões de match só são exibidas quando o score é **≥ 60%**.
+
+### RN-MAT-021: Fatores do Score
+
+O score de compatibilidade considera:
+
+| Fator | Peso |
+|-------|------|
+| Competências técnicas | 40% |
+| Experiência | 25% |
+| Competências comportamentais | 20% |
+| Interesses declarados | 15% |
+
+### RN-MAT-022: Atualização do Score
+
+O score é recalculado quando:
+
+- Perfil do talento é atualizado
+- Requisitos da oportunidade mudam
+- A cada **24 horas** automaticamente
+
+## Regras de Processo
+
+### RN-MAT-030: Aprovação do Gestor Atual
+
+Para vagas internas, a transferência requer aprovação do gestor atual do talento.
+
+### RN-MAT-031: Prazo para Aprovação
+
+O gestor atual tem **5 dias úteis** para se manifestar. Após esse prazo, considera-se aprovado automaticamente.
+
+### RN-MAT-032: Período de Transição
+
+A transferência deve ocorrer em no máximo **30 dias** após aprovação, salvo acordo entre as partes.
+
+## Regras de Comunicação
+
+### RN-MAT-040: Feedback Obrigatório
+
+Ao recusar um candidato, é obrigatório fornecer um **motivo** (selecionável de lista pré-definida).
+
+### RN-MAT-041: Prazo para Feedback
+
+O feedback deve ser dado em até **10 dias úteis** após a manifestação de interesse.
+
+## Tabela Resumo
+
+| Código | Regra | Valor |
+|--------|-------|-------|
+| RN-MAT-002 | Período mínimo de publicação | 5 dias úteis |
+| RN-MAT-003 | Máx. oportunidades ativas | 10 |
+| RN-MAT-010 | Tempo mínimo na posição | 12 meses |
+| RN-MAT-012 | Máx. projetos simultâneos | 2 |
+| RN-MAT-020 | Score mínimo para sugestão | 60% |
+| RN-MAT-031 | Prazo para aprovação | 5 dias úteis |
+| RN-MAT-032 | Período de transição | 30 dias |
+| RN-MAT-041 | Prazo para feedback | 10 dias úteis |

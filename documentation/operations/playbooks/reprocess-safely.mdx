@@ -1,0 +1,200 @@
+---
+title: "Playbook: Reprocessamento Seguro"
+description: "Procedimento para reprocessar dados de forma segura"
+---
+
+## Quando Usar
+
+Use este playbook quando precisar reprocessar dados históricos sem impactar a operação normal.
+
+## Cenários Comuns
+
+- Correção de bug que afetou cálculos
+- Atualização de regras de negócio
+- Migração de dados
+- Recuperação de dados inconsistentes
+
+## Pré-requisitos
+
+- [ ] Identificação clara do escopo (tenant, período, entidade)
+- [ ] Backup dos dados atuais
+- [ ] Janela de manutenção comunicada (se necessário)
+- [ ] Aprovação do responsável técnico
+
+## Procedimento
+
+### 1. Preparação
+
+#### 1.1 Documentar o Escopo
+
+```markdown
+**Reprocessamento**: [DESCRIÇÃO]
+**Tenant(s)**: [LISTA DE TENANTS]
+**Período**: [DATA INÍCIO] a [DATA FIM]
+**Entidades**: [LISTA DE ENTIDADES]
+**Motivo**: [JUSTIFICATIVA]
+**Responsável**: [NOME]
+**Data**: [DATA/HORA]
+```
+
+#### 1.2 Criar Backup
+
+```sql
+-- Backup da tabela afetada
+CREATE TABLE backup_[TABLE]_[DATE] AS
+SELECT * FROM [TABLE]
+WHERE tenant_id IN (...) AND created_at BETWEEN '...' AND '...';
+```
+
+#### 1.3 Estimar Impacto
+
+```sql
+-- Contar registros afetados
+SELECT COUNT(*) FROM [TABLE]
+WHERE tenant_id IN (...) AND created_at BETWEEN '...' AND '...';
+```
+
+### 2. Execução
+
+#### 2.1 Pausar Processamento (se necessário)
+
+```bash
+# Pausar jobs relacionados no Inngest
+# Via dashboard: Functions > [FUNCTION] > Pause
+```
+
+#### 2.2 Executar Reprocessamento
+
+**Para pequenos volumes (< 1000 registros):**
+
+```bash
+inngest.send({
+  name: "data/reprocess-batch",
+  data: {
+    entity: "[ENTITY]",
+    tenant_id: "[TENANT_ID]",
+    start_date: "YYYY-MM-DD",
+    end_date: "YYYY-MM-DD",
+    dry_run: true // Primeiro em dry-run!
+  }
+})
+```
+
+**Para grandes volumes:**
+
+```bash
+inngest.send({
+  name: "data/reprocess-batch-chunked",
+  data: {
+    entity: "[ENTITY]",
+    tenant_id: "[TENANT_ID]",
+    start_date: "YYYY-MM-DD",
+    end_date: "YYYY-MM-DD",
+    chunk_size: 100,
+    delay_between_chunks: "1s"
+  }
+})
+```
+
+#### 2.3 Monitorar Execução
+
+- Acompanhar progresso no Inngest Dashboard
+- Verificar logs para erros
+- Monitorar métricas de banco de dados
+
+### 3. Validação
+
+#### 3.1 Verificar Resultados
+
+```sql
+-- Comparar contagens antes/depois
+SELECT 
+  COUNT(*) as total,
+  COUNT(CASE WHEN status = 'processed' THEN 1 END) as processed
+FROM [TABLE]
+WHERE tenant_id = '...' AND created_at BETWEEN '...' AND '...';
+```
+
+#### 3.2 Validar Amostra
+
+```sql
+-- Verificar amostra de registros
+SELECT * FROM [TABLE]
+WHERE tenant_id = '...'
+ORDER BY RANDOM()
+LIMIT 10;
+```
+
+#### 3.3 Comparar com Backup
+
+```sql
+-- Identificar diferenças
+SELECT a.id, a.[FIELD], b.[FIELD] as old_value
+FROM [TABLE] a
+JOIN backup_[TABLE]_[DATE] b ON a.id = b.id
+WHERE a.[FIELD] != b.[FIELD];
+```
+
+### 4. Finalização
+
+#### 4.1 Retomar Processamento
+
+```bash
+# Retomar jobs pausados no Inngest
+# Via dashboard: Functions > [FUNCTION] > Resume
+```
+
+#### 4.2 Limpar Cache
+
+```bash
+inngest.send({
+  name: "cache/invalidate",
+  data: {
+    tenant_id: "[TENANT_ID]",
+    keys: ["affected_keys"]
+  }
+})
+```
+
+#### 4.3 Documentar Resultado
+
+```markdown
+**Resultado**: ✅ Sucesso / ❌ Falha
+**Registros processados**: X
+**Erros**: Y (lista se houver)
+**Tempo total**: Z minutos
+**Observações**: [NOTAS]
+```
+
+#### 4.4 Remover Backup (após 7 dias)
+
+```sql
+DROP TABLE backup_[TABLE]_[DATE];
+```
+
+## Rollback
+
+Se algo der errado:
+
+```sql
+-- Restaurar do backup
+BEGIN;
+
+DELETE FROM [TABLE]
+WHERE tenant_id IN (...) AND created_at BETWEEN '...' AND '...';
+
+INSERT INTO [TABLE]
+SELECT * FROM backup_[TABLE]_[DATE];
+
+COMMIT;
+```
+
+## Checklist Final
+
+- [ ] Backup criado e validado
+- [ ] Reprocessamento executado
+- [ ] Resultados validados
+- [ ] Cache invalidado
+- [ ] Processamento retomado
+- [ ] Documentação atualizada
+- [ ] Stakeholders notificados

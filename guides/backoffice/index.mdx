@@ -1,0 +1,123 @@
+---
+title: "Guia do Backoffice"
+description: "Guia completo para uso do Backoffice (Directus)"
+---
+
+## Visão Geral
+
+O Backoffice é a interface administrativa da plataforma Leapy, construída sobre o Directus. Ele permite gerenciar dados, configurações e operações do sistema.
+
+## Acesso
+
+| Ambiente | URL |
+|----------|-----|
+| Production | https://backoffice.leapy.com |
+| Staging | https://backoffice-staging.leapy.com |
+
+<Note>
+  Você precisa de credenciais de acesso. Solicite ao time de engenharia se não tiver.
+</Note>
+
+## Interface
+
+### Navegação Principal
+
+```
+📁 Collections (Menu Lateral)
+├── 📂 Core
+│   ├── Tenants
+│   ├── Talents
+│   ├── Areas
+│   └── Positions
+├── 📂 Pulses
+│   ├── Pulses
+│   ├── Questions
+│   ├── Recipients
+│   └── Responses
+├── 📂 Matchmaker
+│   ├── Opportunities
+│   ├── Applications
+│   └── Matches
+└── 📂 System
+    ├── Users
+    ├── Roles
+    └── Activity
+```
+
+### Elementos da Interface
+
+| Elemento | Descrição |
+|----------|-----------|
+| **Barra Lateral** | Navegação entre collections |
+| **Toolbar** | Ações (criar, filtrar, buscar) |
+| **Lista** | Visualização dos registros |
+| **Drawer** | Detalhes/edição de registro |
+
+## Operações Básicas
+
+### Visualizar Registros
+
+1. Clique na collection desejada
+2. Use filtros para encontrar registros específicos
+3. Clique em um registro para ver detalhes
+
+### Criar Registro
+
+1. Clique no botão **+ Criar** na toolbar
+2. Preencha os campos obrigatórios
+3. Clique em **Salvar**
+
+### Editar Registro
+
+1. Clique no registro para abrir
+2. Faça as alterações necessárias
+3. Clique em **Salvar**
+
+### Deletar Registro
+
+1. Selecione o(s) registro(s)
+2. Clique no ícone de **Lixeira**
+3. Confirme a exclusão
+
+<Warning>
+  Cuidado ao deletar! Algumas exclusões são irreversíveis.
+</Warning>
+
+## Filtros e Busca
+
+### Filtros Rápidos
+
+```
+Status = active
+AND created_at > 2024-01-01
+AND tenant_id = [UUID]
+```
+
+### Busca Global
+
+Use a barra de busca para encontrar registros por:
+- ID
+- Nome
+- Email
+- Outros campos indexados
+
+### Ordenação
+
+Clique no cabeçalho da coluna para ordenar:
+- 1 clique: Ascendente
+- 2 cliques: Descendente
+- 3 cliques: Sem ordenação
+
+## Próximos Passos
+
+<Cards>
+  <Card title="Collections" href="/guides/backoffice/collections">
+    Entenda as principais collections
+  </Card>
+  <Card title="Flows e Hooks" href="/guides/backoffice/flows-hooks">
+    Aprenda sobre automações
+  </Card>
+  <Card title="Correções Manuais" href="/guides/backoffice/manual-fixes">
+    Guia para correções de dados
+  </Card>
+</Cards>

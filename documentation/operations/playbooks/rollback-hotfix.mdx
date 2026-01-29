@@ -1,0 +1,199 @@
+---
+title: "Playbook: Rollback e Hotfix"
+description: "Procedimento para rollback de deploy e aplicação de hotfixes"
+---
+
+## Quando Usar
+
+Use este playbook quando:
+
+- Deploy causou problema em produção
+- Bug crítico precisa de correção urgente
+- Necessário reverter para versão anterior
+
+## Classificação
+
+| Tipo | Descrição | Tempo Alvo |
+|------|-----------|------------|
+| **Rollback** | Reverter para versão anterior | < 15 min |
+| **Hotfix** | Correção rápida sem rollback | < 1 hora |
+
+## Procedimento de Rollback
+
+### 1. Decisão de Rollback
+
+**Critérios para rollback imediato:**
+
+- [ ] Funcionalidade crítica quebrada
+- [ ] Erro afeta > 10% dos usuários
+- [ ] Dados sendo corrompidos
+- [ ] Segurança comprometida
+
+### 2. Comunicação
+
+```markdown
+🚨 **ROLLBACK EM ANDAMENTO**
+
+**Motivo**: [DESCRIÇÃO DO PROBLEMA]
+**Impacto**: [QUEM ESTÁ SENDO AFETADO]
+**ETA**: [TEMPO ESTIMADO]
+**Responsável**: [NOME]
+
+Atualizações no #incidents
+```
+
+### 3. Executar Rollback
+
+#### Vercel (Frontend + API)
+
+```bash
+# Via Vercel Dashboard
+# Deployments > [PREVIOUS DEPLOY] > Promote to Production
+
+# Ou via CLI
+vercel rollback
+```
+
+#### Directus
+
+```bash
+# SSH no servidor ou via deploy
+cd /app
+git checkout [PREVIOUS_VERSION]
+npm run build
+pm2 restart directus
+```
+
+### 4. Verificação
+
+- [ ] Aplicação respondendo
+- [ ] Funcionalidade crítica funcionando
+- [ ] Logs sem erros
+- [ ] Métricas normalizadas
+
+### 5. Pós-Rollback
+
+- [ ] Comunicar resolução
+- [ ] Documentar incidente
+- [ ] Agendar postmortem
+
+## Procedimento de Hotfix
+
+### 1. Avaliação
+
+**Perguntas:**
+
+- O problema pode esperar o próximo deploy normal?
+- O fix é simples e de baixo risco?
+- Há possibilidade de causar mais problemas?
+
+### 2. Criar Branch de Hotfix
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b hotfix/description
+```
+
+### 3. Implementar Fix
+
+- Código mínimo necessário
+- Testes para o caso específico
+- Code review obrigatório (mesmo que rápido)
+
+### 4. Deploy do Hotfix
+
+```bash
+# Merge direto para main (com aprovação)
+git checkout main
+git merge hotfix/description
+git push origin main
+
+# Deploy automático ou manual
+```
+
+### 5. Verificação
+
+- [ ] Fix aplicado em produção
+- [ ] Problema resolvido
+- [ ] Sem efeitos colaterais
+
+### 6. Documentação
+
+```markdown
+## Hotfix: [TÍTULO]
+
+**Data**: YYYY-MM-DD HH:MM
+**Commit**: [HASH]
+**PR**: #[NUMBER]
+
+**Problema**: [DESCRIÇÃO]
+**Solução**: [DESCRIÇÃO]
+**Impacto**: [USUÁRIOS AFETADOS]
+**Tempo de resolução**: X minutos
+```
+
+## Checklist de Emergência
+
+### Pré-Rollback/Hotfix
+
+- [ ] Incidente declarado
+- [ ] Canal de comunicação ativo
+- [ ] Responsável identificado
+- [ ] Decisão tomada (rollback vs hotfix)
+
+### Durante
+
+- [ ] Atualizações a cada 15 minutos
+- [ ] Logs sendo monitorados
+- [ ] Backup disponível (se aplicável)
+
+### Pós
+
+- [ ] Verificação completa
+- [ ] Comunicação de resolução
+- [ ] Incidente documentado
+- [ ] Postmortem agendado
+
+## Templates de Comunicação
+
+### Início do Incidente
+
+```
+🚨 [S1/S2] Incidente em andamento
+
+**Problema**: [DESCRIÇÃO]
+**Impacto**: [QUEM/O QUE]
+**Status**: Investigando
+**Próxima atualização**: 15 minutos
+```
+
+### Atualização
+
+```
+📢 Atualização do incidente
+
+**Status**: Rollback em andamento / Hotfix sendo aplicado
+**ETA**: [TEMPO]
+**Próxima atualização**: 15 minutos
+```
+
+### Resolução
+
+```
+✅ Incidente resolvido
+
+**Problema**: [DESCRIÇÃO]
+**Solução**: [ROLLBACK/HOTFIX]
+**Duração**: X minutos
+**Postmortem**: [LINK]
+```
+
+## Contatos de Emergência
+
+| Área | Contato |
+|------|---------|
+| Engenharia (On-call) | [PAGERDUTY] |
+| Infraestrutura | [CONTATO] |
+| Produto | [CONTATO] |
+| Comunicação | [CONTATO] |

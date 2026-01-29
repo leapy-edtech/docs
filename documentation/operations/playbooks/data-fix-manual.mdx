@@ -1,0 +1,241 @@
+---
+title: "Playbook: Correção Manual de Dados"
+description: "Procedimento para correções manuais seguras em dados de produção"
+---
+
+## Quando Usar
+
+Use este playbook quando:
+
+- Dados incorretos precisam ser corrigidos
+- Bug causou inconsistência em registros
+- Solicitação de cliente para ajuste de dados
+- Migração manual necessária
+
+## Princípios
+
+1. **Sempre faça backup** antes de qualquer alteração
+2. **Documente tudo** - antes, durante e depois
+3. **Valide duas vezes** - antes de executar
+4. **Mínimo necessário** - altere apenas o que precisa
+
+## Níveis de Risco
+
+| Nível | Descrição | Aprovação |
+|-------|-----------|-----------|
+| 🟢 Baixo | 1-10 registros, campos não críticos | Tech Lead |
+| 🟡 Médio | 11-100 registros ou campos importantes | Tech Lead + PM |
+| 🔴 Alto | > 100 registros ou dados críticos | CTO + Documentação formal |
+
+## Procedimento
+
+### 1. Documentação Prévia
+
+Criar documento de correção:
+
+```markdown
+# Correção de Dados - [TÍTULO]
+
+**Data**: YYYY-MM-DD
+**Solicitante**: [NOME]
+**Responsável**: [NOME]
+**Ticket**: [LINK]
+
+## Contexto
+[DESCRIÇÃO DO PROBLEMA]
+
+## Escopo
+- **Tenant(s)**: [IDS]
+- **Tabela(s)**: [NOMES]
+- **Registros**: [QUANTIDADE ESTIMADA]
+- **Campos**: [LISTA]
+
+## Query de Identificação
+```sql
+[QUERY]
+```
+
+## Query de Correção
+```sql
+[QUERY]
+```
+
+## Validação
+[COMO VALIDAR QUE FUNCIONOU]
+
+## Rollback
+[COMO DESFAZER SE NECESSÁRIO]
+```
+
+### 2. Backup
+
+```sql
+-- Criar backup da tabela
+CREATE TABLE backup_[TABLE]_[DATE] AS
+SELECT * FROM [TABLE]
+WHERE [CONDITIONS];
+
+-- Verificar backup
+SELECT COUNT(*) FROM backup_[TABLE]_[DATE];
+```
+
+### 3. Identificar Registros
+
+```sql
+-- Identificar registros afetados
+SELECT id, [FIELDS_TO_CHANGE], [CONTEXT_FIELDS]
+FROM [TABLE]
+WHERE [CONDITIONS];
+```
+
+**Validar:**
+- [ ] Quantidade de registros está correta?
+- [ ] Registros são os esperados?
+- [ ] Não há registros indevidos?
+
+### 4. Dry Run
+
+```sql
+-- Simular a alteração
+BEGIN;
+
+UPDATE [TABLE]
+SET [FIELD] = [NEW_VALUE]
+WHERE [CONDITIONS];
+
+-- Verificar resultado
+SELECT * FROM [TABLE] WHERE [CONDITIONS];
+
+-- NÃO fazer COMMIT, apenas verificar
+ROLLBACK;
+```
+
+### 5. Executar Correção
+
+```sql
+-- Executar com transação
+BEGIN;
+
+UPDATE [TABLE]
+SET [FIELD] = [NEW_VALUE],
+    updated_at = NOW()
+WHERE [CONDITIONS];
+
+-- Verificar número de linhas afetadas
+-- [X rows affected] deve bater com o esperado
+
+-- Se correto:
+COMMIT;
+
+-- Se incorreto:
+ROLLBACK;
+```
+
+### 6. Validação
+
+```sql
+-- Verificar correção
+SELECT id, [FIELDS], updated_at
+FROM [TABLE]
+WHERE [CONDITIONS]
+ORDER BY updated_at DESC;
+
+-- Comparar com backup
+SELECT 
+  a.id,
+  a.[FIELD] as new_value,
+  b.[FIELD] as old_value
+FROM [TABLE] a
+JOIN backup_[TABLE]_[DATE] b ON a.id = b.id
+WHERE [CONDITIONS];
+```
+
+### 7. Ações Relacionadas
+
+Após correção, pode ser necessário:
+
+```bash
+# Invalidar cache
+inngest.send({
+  name: "cache/invalidate",
+  data: { keys: ["affected_keys"] }
+})
+
+# Reprocessar métricas
+inngest.send({
+  name: "insights/recalculate",
+  data: { tenant_id: "...", metrics: ["..."] }
+})
+
+# Notificar sistemas integrados
+inngest.send({
+  name: "integration/sync",
+  data: { entity: "...", ids: ["..."] }
+})
+```
+
+### 8. Documentação Final
+
+```markdown
+## Resultado
+
+**Status**: ✅ Sucesso / ❌ Falha
+**Registros alterados**: X
+**Tempo de execução**: Y minutos
+**Validação**: [DESCRIÇÃO]
+
+## Evidências
+- Screenshot antes: [LINK]
+- Screenshot depois: [LINK]
+- Logs: [LINK]
+```
+
+### 9. Limpeza
+
+Após 7 dias sem problemas:
+
+```sql
+-- Remover backup
+DROP TABLE backup_[TABLE]_[DATE];
+```
+
+## Rollback
+
+Se algo der errado:
+
+```sql
+-- Restaurar do backup
+BEGIN;
+
+UPDATE [TABLE] t
+SET 
+  [FIELD1] = b.[FIELD1],
+  [FIELD2] = b.[FIELD2],
+  updated_at = NOW()
+FROM backup_[TABLE]_[DATE] b
+WHERE t.id = b.id;
+
+COMMIT;
+```
+
+## Checklist
+
+### Pré-Execução
+- [ ] Documento de correção criado
+- [ ] Backup realizado
+- [ ] Query de identificação validada
+- [ ] Dry run executado
+- [ ] Aprovação obtida
+
+### Execução
+- [ ] Transação aberta
+- [ ] Correção executada
+- [ ] Número de linhas verificado
+- [ ] Commit realizado
+
+### Pós-Execução
+- [ ] Validação feita
+- [ ] Cache invalidado (se aplicável)
+- [ ] Métricas reprocessadas (se aplicável)
+- [ ] Documento atualizado
+- [ ] Stakeholder notificado

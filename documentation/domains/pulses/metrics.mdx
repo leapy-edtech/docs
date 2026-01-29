@@ -1,0 +1,136 @@
+---
+title: "Métricas - Pulsos"
+description: "Métricas e indicadores do módulo de Pulsos"
+---
+
+## Métricas Principais
+
+### eNPS (Employee Net Promoter Score)
+
+O eNPS mede a lealdade e satisfação dos colaboradores.
+
+**Cálculo:**
+
+```
+eNPS = % Promotores - % Detratores
+```
+
+| Classificação | Nota (0-10) |
+|---------------|-------------|
+| Promotores | 9-10 |
+| Neutros | 7-8 |
+| Detratores | 0-6 |
+
+**Escala de interpretação:**
+
+| Faixa | Classificação |
+|-------|---------------|
+| 75 a 100 | Excelente |
+| 50 a 74 | Muito bom |
+| 0 a 49 | Bom |
+| -100 a -1 | Crítico |
+
+### Taxa de Resposta
+
+Percentual de destinatários que responderam o pulso.
+
+**Cálculo:**
+
+```
+Taxa de Resposta = (Respostas Completas / Total Destinatários) × 100
+```
+
+**Benchmarks:**
+
+| Taxa | Avaliação |
+|------|-----------|
+| > 80% | Excelente |
+| 60-80% | Bom |
+| 40-60% | Regular |
+| < 40% | Baixo |
+
+### Tempo Médio de Resposta
+
+Tempo médio entre recebimento da notificação e envio da resposta.
+
+**Cálculo:**
+
+```
+TMR = Σ(submitted_at - notified_at) / Total Respostas
+```
+
+## Métricas por Dimensão
+
+Para pulsos de clima, as métricas são calculadas por dimensão:
+
+| Dimensão | Descrição |
+|----------|-----------|
+| **Engajamento** | Conexão emocional com o trabalho |
+| **Liderança** | Qualidade da gestão imediata |
+| **Cultura** | Alinhamento com valores da empresa |
+| **Desenvolvimento** | Oportunidades de crescimento |
+| **Bem-estar** | Equilíbrio e saúde mental |
+| **Reconhecimento** | Valorização do trabalho |
+
+### Score por Dimensão
+
+Cada dimensão recebe um score de 0 a 100:
+
+```
+Score = (Soma das Respostas / Máximo Possível) × 100
+```
+
+## Comparativos
+
+### Variação Temporal
+
+Compara resultados entre ciclos do mesmo pulso:
+
+```
+Variação = Score Atual - Score Anterior
+```
+
+| Variação | Indicador |
+|----------|-----------|
+| > +5 | 🟢 Melhora significativa |
+| +1 a +5 | 🟡 Leve melhora |
+| -1 a +1 | ⚪ Estável |
+| -5 a -1 | 🟠 Leve queda |
+| < -5 | 🔴 Queda significativa |
+
+### Benchmark de Mercado
+
+Comparativo com dados agregados de outras empresas:
+
+<Note>
+  Benchmarks são calculados com base em dados anonimizados de empresas do mesmo segmento e porte.
+</Note>
+
+## Dashboards Disponíveis
+
+<CardGroup cols={2}>
+  <Card title="Visão Geral" icon="gauge">
+    Resumo das principais métricas do pulso
+  </Card>
+  <Card title="Por Área" icon="building">
+    Comparativo entre áreas/departamentos
+  </Card>
+  <Card title="Temporal" icon="chart-line">
+    Evolução das métricas ao longo do tempo
+  </Card>
+  <Card title="Detalhado" icon="magnifying-glass">
+    Análise pergunta a pergunta
+  </Card>
+</CardGroup>
+
+## Exportação
+
+Os dados podem ser exportados em diferentes formatos:
+
+- **PDF**: Relatório formatado para apresentações
+- **Excel**: Dados brutos para análise
+- **CSV**: Integração com outras ferramentas
+
+<Warning>
+  A exportação respeita as regras de anonimato. Dados individuais não são exportáveis em pulsos anônimos.
+</Warning>

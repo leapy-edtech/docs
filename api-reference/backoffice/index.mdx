@@ -1,0 +1,256 @@
+---
+title: "API do Backoffice"
+description: "Documentação da API REST do Backoffice (Directus)"
+---
+
+## Visão Geral
+
+O Backoffice (Directus) expõe uma API REST completa para todas as collections. Esta documentação cobre os principais endpoints e padrões de uso.
+
+## Base URL
+
+| Ambiente | URL |
+|----------|-----|
+| Production | `https://backoffice.leapy.com` |
+| Staging | `https://backoffice-staging.leapy.com` |
+
+## Autenticação
+
+### Obter Token
+
+```bash
+POST /auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "your-password"
+}
+```
+
+**Resposta:**
+
+```json
+{
+  "data": {
+    "access_token": "eyJ...",
+    "expires": 900000,
+    "refresh_token": "abc123..."
+  }
+}
+```
+
+### Usar Token
+
+```bash
+GET /items/talents
+Authorization: Bearer eyJ...
+```
+
+### Refresh Token
+
+```bash
+POST /auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "abc123..."
+}
+```
+
+## Endpoints Principais
+
+### Items (CRUD)
+
+```bash
+# Listar
+GET /items/{collection}
+
+# Obter um
+GET /items/{collection}/{id}
+
+# Criar
+POST /items/{collection}
+
+# Atualizar
+PATCH /items/{collection}/{id}
+
+# Deletar
+DELETE /items/{collection}/{id}
+```
+
+### Collections Disponíveis
+
+| Collection | Descrição |
+|------------|-----------|
+| `talents` | Colaboradores |
+| `areas` | Áreas/departamentos |
+| `positions` | Cargos |
+| `pulses` | Pesquisas |
+| `opportunities` | Oportunidades |
+
+## Parâmetros de Query
+
+### Filtros
+
+```bash
+# Igualdade
+GET /items/talents?filter[status][_eq]=active
+
+# Contém
+GET /items/talents?filter[email][_contains]=@empresa.com
+
+# Maior que
+GET /items/talents?filter[hire_date][_gte]=2024-01-01
+
+# Em lista
+GET /items/talents?filter[status][_in]=active,on_leave
+
+# Combinação (AND)
+GET /items/talents?filter[status][_eq]=active&filter[area_id][_eq]=uuid
+```
+
+### Ordenação
+
+```bash
+# Ascendente
+GET /items/talents?sort=first_name
+
+# Descendente
+GET /items/talents?sort=-created_at
+
+# Múltiplos campos
+GET /items/talents?sort=area_id,-created_at
+```
+
+### Paginação
+
+```bash
+# Limite e offset
+GET /items/talents?limit=20&offset=40
+
+# Página
+GET /items/talents?limit=20&page=3
+```
+
+### Campos
+
+```bash
+# Selecionar campos
+GET /items/talents?fields=id,first_name,email
+
+# Incluir relações
+GET /items/talents?fields=*,area.*,position.name
+```
+
+## Exemplos
+
+### Listar Talentos Ativos
+
+```bash
+GET /items/talents?filter[status][_eq]=active&fields=id,first_name,last_name,email,area.name&sort=first_name&limit=50
+```
+
+### Criar Talento
+
+```bash
+POST /items/talents
+Content-Type: application/json
+
+{
+  "first_name": "João",
+  "last_name": "Silva",
+  "email": "joao.silva@empresa.com",
+  "status": "active",
+  "area_id": "uuid-da-area",
+  "position_id": "uuid-do-cargo",
+  "hire_date": "2024-02-01"
+}
+```
+
+### Atualizar Talento
+
+```bash
+PATCH /items/talents/uuid-do-talento
+Content-Type: application/json
+
+{
+  "area_id": "nova-area-uuid",
+  "manager_id": "novo-gestor-uuid"
+}
+```
+
+### Buscar Pulsos Ativos
+
+```bash
+GET /items/pulses?filter[status][_eq]=active&filter[tenant_id][_eq]=uuid&fields=id,title,start_date,end_date,recipients.talent_id&sort=-start_date
+```
+
+## Respostas
+
+### Sucesso
+
+```json
+{
+  "data": [
+    { "id": "uuid", "first_name": "João", ... },
+    { "id": "uuid", "first_name": "Maria", ... }
+  ],
+  "meta": {
+    "total_count": 150,
+    "filter_count": 50
+  }
+}
+```
+
+### Erro
+
+```json
+{
+  "errors": [
+    {
+      "message": "You don't have permission to access this.",
+      "extensions": {
+        "code": "FORBIDDEN"
+      }
+    }
+  ]
+}
+```
+
+## Códigos de Status
+
+| Código | Descrição |
+|--------|-----------|
+| 200 | Sucesso |
+| 201 | Criado |
+| 204 | Sem conteúdo (delete) |
+| 400 | Requisição inválida |
+| 401 | Não autenticado |
+| 403 | Não autorizado |
+| 404 | Não encontrado |
+| 500 | Erro interno |
+
+## Rate Limiting
+
+| Limite | Valor |
+|--------|-------|
+| Requisições/minuto | 100 |
+| Burst | 200 |
+
+Headers de rate limit:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1609459200
+```
+
+## Webhooks
+
+Configure webhooks em **Settings > Webhooks** para receber notificações de eventos.
+
+**Eventos disponíveis:**
+- `items.create`
+- `items.update`
+- `items.delete`

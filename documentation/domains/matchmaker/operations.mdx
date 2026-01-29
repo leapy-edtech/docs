@@ -1,0 +1,131 @@
+---
+title: "Operações - Matchmaker"
+description: "Guia de operações e troubleshooting do módulo Matchmaker"
+---
+
+## Operações Comuns
+
+### Reprocessar Score de Match
+
+Quando scores parecem incorretos ou desatualizados:
+
+```bash
+# Via Inngest Dashboard
+inngest.send({
+  name: "matchmaker/recalculate-scores",
+  data: { opportunity_id: "..." }
+})
+```
+
+Ou para um talento específico:
+
+```bash
+inngest.send({
+  name: "matchmaker/recalculate-talent-scores",
+  data: { talent_id: "..." }
+})
+```
+
+### Forçar Fechamento de Oportunidade
+
+Para fechar uma oportunidade manualmente:
+
+1. Acesse o Backoffice (Directus)
+2. Navegue até **Opportunities**
+3. Localize a oportunidade
+4. Altere `status` para `closed`
+5. Preencha `closed_reason`
+
+<Warning>
+  Candidatos pendentes receberão notificação automática de encerramento.
+</Warning>
+
+### Corrigir Status de Candidatura
+
+Se uma candidatura ficou com status incorreto:
+
+1. Acesse **Applications** no Backoffice
+2. Localize a candidatura
+3. Atualize o campo `status`
+4. Adicione entrada em `application_status_history`
+
+## Troubleshooting
+
+### Oportunidade não aparece para talentos
+
+**Possíveis causas:**
+
+1. Status ainda é `draft`
+2. Data de publicação no futuro
+3. Configuração de visibilidade incorreta
+4. Talento não é elegível
+
+**Diagnóstico:**
+
+```sql
+-- Verificar status e datas
+SELECT status, published_at, closes_at, visibility 
+FROM opportunities WHERE id = '...';
+
+-- Verificar elegibilidade do talento
+SELECT * FROM talent_eligibility_checks 
+WHERE talent_id = '...' AND opportunity_id = '...';
+```
+
+### Score de match muito baixo
+
+**Possíveis causas:**
+
+1. Perfil do talento incompleto
+2. Requisitos muito específicos
+3. Pesos mal configurados
+
+**Diagnóstico:**
+
+```sql
+-- Ver breakdown do score
+SELECT score, score_breakdown 
+FROM matches 
+WHERE opportunity_id = '...' AND talent_id = '...';
+```
+
+### Candidatura travada em status
+
+**Possíveis causas:**
+
+1. Aprovação pendente do gestor
+2. Job de notificação falhou
+3. Workflow interrompido
+
+**Solução:**
+
+1. Verificar `current_manager_approval`
+2. Checar logs no Inngest
+3. Se necessário, avançar manualmente no Backoffice
+
+## Monitoramento
+
+### Métricas Importantes
+
+| Métrica | Descrição | Alerta |
+|---------|-----------|--------|
+| `matchmaker.time_to_fill` | Tempo para preencher vaga | > 30 dias |
+| `matchmaker.application_rate` | Taxa de candidaturas | < 5 por oportunidade |
+| `matchmaker.score_calculation_time` | Tempo de cálculo de score | > 5s |
+| `matchmaker.approval_pending` | Aprovações pendentes | > 5 dias |
+
+### Dashboards
+
+- **Grafana**: Performance e erros
+- **Inngest**: Jobs de matching e notificações
+- **Backoffice**: Dados operacionais
+
+## Jobs Relacionados
+
+| Job | Descrição | Frequência |
+|-----|-----------|------------|
+| `matchmaker/calculate-scores` | Calcula scores de novos talentos | Em tempo real |
+| `matchmaker/recalculate-all` | Recalcula todos os scores | Diário, 3h |
+| `matchmaker/close-expired` | Fecha oportunidades expiradas | A cada hora |
+| `matchmaker/send-reminders` | Envia lembretes de aprovação | Diário, 10h |
+| `matchmaker/cleanup-old-matches` | Limpa matches antigos | Semanal |

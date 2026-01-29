@@ -1,0 +1,88 @@
+---
+title: "Regras de Negócio - Cursos e Conteúdos"
+description: "Regras de negócio que governam o funcionamento do módulo de Cursos e Conteúdos"
+---
+
+## Regras de Cursos
+
+### RN-CUR-001: Estrutura Mínima
+
+Um curso deve ter no mínimo **1 módulo** com pelo menos **1 conteúdo** para ser publicado.
+
+### RN-CUR-002: Avaliação Opcional
+
+Avaliação final é opcional, mas se configurada, define a aprovação no curso.
+
+### RN-CUR-003: Nota de Aprovação
+
+A nota mínima para aprovação é **70%** por padrão, configurável entre 50% e 100%.
+
+### RN-CUR-004: Tentativas de Avaliação
+
+O número máximo de tentativas na avaliação é **3** por padrão, configurável.
+
+## Regras de Progresso
+
+### RN-CUR-010: Marcação de Progresso
+
+O progresso é marcado automaticamente quando:
+- **Vídeo**: Assistido até pelo menos **90%** da duração
+- **Texto**: Permanência mínima baseada na extensão do conteúdo
+- **Download**: Arquivo baixado conta como concluído
+
+### RN-CUR-011: Ordem de Módulos
+
+Se configurado como sequencial, o próximo módulo só é liberado após conclusão do anterior.
+
+### RN-CUR-012: Certificado
+
+O certificado é emitido automaticamente quando:
+- Todos os módulos obrigatórios foram concluídos
+- A avaliação foi aprovada (se existir)
+
+## Regras de Atribuição
+
+### RN-CUR-020: Prazo Mínimo
+
+Atribuições devem ter prazo mínimo de **7 dias**.
+
+### RN-CUR-021: Notificações de Prazo
+
+Lembretes são enviados:
+- **7 dias** antes do vencimento
+- **3 dias** antes do vencimento
+- **1 dia** antes do vencimento
+- No dia do vencimento
+
+### RN-CUR-022: Atribuição Vencida
+
+Após o prazo, a atribuição é marcada como **vencida** mas o talento ainda pode concluir.
+
+### RN-CUR-023: Obrigatoriedade
+
+Cursos obrigatórios não concluídos no prazo são sinalizados ao RH e liderança.
+
+## Regras de Trilhas
+
+### RN-CUR-030: Conclusão de Trilha
+
+Uma trilha é considerada concluída quando todos os cursos **obrigatórios** são finalizados.
+
+### RN-CUR-031: Validade do Certificado
+
+Certificados de trilha têm validade configurável (padrão: **sem validade**).
+
+### RN-CUR-032: Recertificação
+
+Se a trilha requer recertificação, o talento é notificado **30 dias** antes do vencimento.
+
+## Tabela Resumo
+
+| Código | Regra | Valor |
+|--------|-------|-------|
+| RN-CUR-001 | Estrutura mínima | 1 módulo, 1 conteúdo |
+| RN-CUR-003 | Nota de aprovação | 70% |
+| RN-CUR-004 | Tentativas de avaliação | 3 |
+| RN-CUR-010 | Vídeo - % para concluir | 90% |
+| RN-CUR-020 | Prazo mínimo de atribuição | 7 dias |
+| RN-CUR-032 | Aviso de recertificação | 30 dias |

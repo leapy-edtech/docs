@@ -1,0 +1,224 @@
+---
+title: "Convenções"
+description: "Padrões e convenções de código e desenvolvimento"
+---
+
+## Convenções de Código
+
+### Nomenclatura
+
+#### Arquivos e Pastas
+
+| Tipo | Convenção | Exemplo |
+|------|-----------|---------|
+| Componentes React | PascalCase | `TalentCard.tsx` |
+| Hooks | camelCase com `use` | `useTalents.ts` |
+| Utilitários | camelCase | `formatDate.ts` |
+| Constantes | SCREAMING_SNAKE_CASE | `API_ENDPOINTS.ts` |
+| Pastas | kebab-case | `talent-management/` |
+
+#### Variáveis e Funções
+
+```typescript
+// Variáveis: camelCase
+const talentCount = 10;
+const isActive = true;
+
+// Funções: camelCase, verbo + substantivo
+function getTalentById(id: string) {}
+function calculateScore(responses: Response[]) {}
+
+// Constantes: SCREAMING_SNAKE_CASE
+const MAX_RETRY_ATTEMPTS = 3;
+const DEFAULT_PAGE_SIZE = 20;
+
+// Types/Interfaces: PascalCase
+interface Talent {}
+type TalentStatus = "active" | "inactive";
+
+// Enums: PascalCase com valores SCREAMING_SNAKE_CASE
+enum PulseStatus {
+  DRAFT = "draft",
+  ACTIVE = "active",
+  CLOSED = "closed"
+}
+```
+
+### Estrutura de Pastas
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (auth)/            # Rotas autenticadas
+│   ├── api/               # API Routes
+│   └── layout.tsx
+├── components/
+│   ├── ui/                # Componentes base (shadcn)
+│   └── features/          # Componentes de features
+├── lib/
+│   ├── db/                # Database (drizzle)
+│   ├── auth/              # Autenticação
+│   └── utils/             # Utilitários
+├── hooks/                 # Custom hooks
+├── types/                 # TypeScript types
+└── inngest/               # Inngest functions
+```
+
+### Commits
+
+Formato: `type(scope): description`
+
+| Type | Uso |
+|------|-----|
+| `feat` | Nova funcionalidade |
+| `fix` | Correção de bug |
+| `docs` | Documentação |
+| `style` | Formatação |
+| `refactor` | Refatoração |
+| `test` | Testes |
+| `chore` | Manutenção |
+
+Exemplos:
+
+```
+feat(pulses): add reminder notifications
+fix(auth): resolve session timeout issue
+docs(api): update endpoint documentation
+refactor(talents): extract validation logic
+```
+
+### Branches
+
+| Padrão | Uso |
+|--------|-----|
+| `main` | Produção |
+| `develop` | Desenvolvimento |
+| `feature/XXX-description` | Features (XXX = ticket) |
+| `fix/XXX-description` | Correções |
+| `hotfix/description` | Hotfixes urgentes |
+
+## Convenções de API
+
+### REST Endpoints
+
+```
+GET    /api/talents           # Listar
+GET    /api/talents/:id       # Obter um
+POST   /api/talents           # Criar
+PATCH  /api/talents/:id       # Atualizar parcial
+DELETE /api/talents/:id       # Deletar
+```
+
+### Respostas
+
+**Sucesso:**
+
+```json
+{
+  "data": { ... },
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "limit": 20
+  }
+}
+```
+
+**Erro:**
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Email is required",
+    "details": [
+      { "field": "email", "message": "Required" }
+    ]
+  }
+}
+```
+
+### Status Codes
+
+| Code | Uso |
+|------|-----|
+| 200 | Sucesso |
+| 201 | Criado |
+| 204 | Sem conteúdo (delete) |
+| 400 | Erro de validação |
+| 401 | Não autenticado |
+| 403 | Não autorizado |
+| 404 | Não encontrado |
+| 500 | Erro interno |
+
+## Convenções de Banco
+
+### Tabelas
+
+| Convenção | Exemplo |
+|-----------|---------|
+| Plural, snake_case | `talents`, `pulse_responses` |
+| Prefixo de módulo | `pulse_`, `match_` |
+
+### Colunas
+
+| Convenção | Exemplo |
+|-----------|---------|
+| snake_case | `first_name`, `created_at` |
+| FKs com `_id` | `tenant_id`, `talent_id` |
+| Booleanos com `is_` | `is_active`, `is_anonymous` |
+| Timestamps padrão | `created_at`, `updated_at` |
+
+### Índices
+
+Nomenclatura: `idx_{table}_{columns}`
+
+```sql
+CREATE INDEX idx_talents_tenant_id ON talents(tenant_id);
+CREATE INDEX idx_talents_email ON talents(email);
+```
+
+## Convenções de Eventos
+
+### Nomenclatura
+
+Formato: `{domain}.{entity}.{action}`
+
+```typescript
+// Exemplos
+"pulse.created"
+"pulse.response.submitted"
+"talent.updated"
+"matchmaker.application.status_changed"
+```
+
+### Payload
+
+```typescript
+interface EventPayload {
+  // Identificadores obrigatórios
+  tenant_id: string;
+  
+  // Identificador da entidade
+  [entity]_id: string;
+  
+  // Dados adicionais
+  data?: Record<string, unknown>;
+  
+  // Metadados
+  triggered_by?: string;
+  timestamp?: string;
+}
+```
+
+## Code Review
+
+### Checklist
+
+- [ ] Código segue convenções
+- [ ] Testes adicionados/atualizados
+- [ ] Documentação atualizada
+- [ ] Sem console.logs
+- [ ] Sem credenciais hardcoded
+- [ ] Performance considerada
+- [ ] Acessibilidade considerada

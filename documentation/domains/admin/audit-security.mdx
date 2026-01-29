@@ -1,0 +1,143 @@
+---
+title: "Auditoria e Segurança"
+description: "Logs de auditoria e políticas de segurança da plataforma"
+---
+
+## Auditoria
+
+### O que é Auditado
+
+Todas as ações sensíveis são registradas:
+
+| Categoria | Eventos |
+|-----------|---------|
+| **Autenticação** | Login, logout, falhas de login |
+| **Usuários** | Criação, edição, suspensão, desativação |
+| **Permissões** | Atribuição e remoção de papéis |
+| **Dados** | Criação, edição, exclusão de registros |
+| **Configurações** | Alterações de configuração |
+| **Exportação** | Downloads e exportações de dados |
+
+### Estrutura do Log
+
+```json
+{
+  "id": "uuid",
+  "timestamp": "2024-01-15T14:30:00Z",
+  "tenant_id": "uuid",
+  "user_id": "uuid",
+  "action": "talent.update",
+  "resource_type": "talent",
+  "resource_id": "uuid",
+  "changes": {
+    "area_id": {
+      "old": "uuid-area-antiga",
+      "new": "uuid-area-nova"
+    }
+  },
+  "ip_address": "192.168.1.1",
+  "user_agent": "Mozilla/5.0...",
+  "session_id": "uuid"
+}
+```
+
+### Consulta de Logs
+
+Via Backoffice:
+
+1. Acesse **Admin > Auditoria**
+2. Aplique filtros (usuário, ação, período)
+3. Visualize ou exporte os resultados
+
+Via API:
+
+```bash
+GET /audit-logs?user_id=...&action=...&start_date=...&end_date=...
+```
+
+### Retenção
+
+| Tipo de Log | Retenção |
+|-------------|----------|
+| Autenticação | 1 ano |
+| Ações de usuário | 2 anos |
+| Alterações de dados | 5 anos |
+| Configurações | Indefinido |
+
+## Segurança
+
+### Autenticação
+
+**Métodos suportados:**
+
+- Email + Senha
+- SSO (Google, Microsoft, SAML)
+- Autenticação em dois fatores (2FA)
+
+**Políticas disponíveis:**
+
+| Política | Descrição |
+|----------|-----------|
+| Forçar SSO | Exigir login via SSO |
+| Exigir 2FA | Obrigatório para todos/admins |
+| Bloqueio por falhas | Bloquear após N tentativas |
+| Sessão única | Apenas uma sessão por vez |
+
+### Autenticação em Dois Fatores (2FA)
+
+Métodos disponíveis:
+
+- **TOTP**: Aplicativos como Google Authenticator
+- **SMS**: Código via mensagem de texto
+- **Email**: Código via email
+
+Configuração:
+
+1. Usuário acessa **Perfil > Segurança**
+2. Clica em **Ativar 2FA**
+3. Escolhe o método
+4. Segue as instruções de configuração
+5. Confirma com código de verificação
+
+### Proteção contra Ataques
+
+| Proteção | Implementação |
+|----------|---------------|
+| Brute force | Rate limiting + bloqueio temporário |
+| CSRF | Tokens em todas as requisições |
+| XSS | Sanitização de inputs |
+| SQL Injection | Queries parametrizadas |
+| Sessão | Tokens seguros, expiração |
+
+### Criptografia
+
+| Dado | Método |
+|------|--------|
+| Senhas | bcrypt (cost 12) |
+| Tokens | AES-256 |
+| Em trânsito | TLS 1.3 |
+| Em repouso | AES-256 (banco) |
+
+### Compliance
+
+A plataforma segue práticas de:
+
+- **LGPD**: Lei Geral de Proteção de Dados
+- **SOC 2**: Controles de segurança
+- **ISO 27001**: Gestão de segurança da informação
+
+## Alertas de Segurança
+
+Alertas configuráveis para eventos suspeitos:
+
+| Evento | Destinatário |
+|--------|--------------|
+| Login de nova localização | Usuário |
+| Múltiplas falhas de login | Admin, Usuário |
+| Alteração de permissões | Admin |
+| Exportação em massa | Admin |
+| Acesso fora do horário | Admin |
+
+<Warning>
+  Alertas de segurança não podem ser desabilitados por usuários comuns.
+</Warning>

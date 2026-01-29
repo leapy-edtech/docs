@@ -1,0 +1,125 @@
+---
+title: "Operações - Pulsos"
+description: "Guia de operações e troubleshooting do módulo de Pulsos"
+---
+
+## Operações Comuns
+
+### Reenviar Notificações
+
+Quando talentos reportam não ter recebido a notificação do pulso:
+
+1. Acesse o Backoffice (Directus)
+2. Navegue até **Pulses > Pulse Recipients**
+3. Filtre pelo `pulse_id` e `talent_id`
+4. Verifique o campo `notified_at`
+5. Se necessário, dispare o job de reenvio via Inngest
+
+```bash
+# Via Inngest Dashboard
+inngest.send({
+  name: "pulse/notify-recipient",
+  data: { pulse_id: "...", talent_id: "..." }
+})
+```
+
+### Fechar Pulso Manualmente
+
+Para fechar um pulso antes do prazo:
+
+1. Acesse o Backoffice
+2. Navegue até **Pulses**
+3. Localize o pulso e altere `status` para `closed`
+4. O job de fechamento será disparado automaticamente
+
+<Warning>
+  Ao fechar manualmente, certifique-se de que há respostas suficientes para garantir o anonimato.
+</Warning>
+
+### Estender Prazo
+
+Para estender o prazo de um pulso ativo:
+
+1. Acesse o Backoffice
+2. Localize o pulso em **Pulses**
+3. Atualize o campo `end_date`
+4. Notificações de lembrete serão reajustadas automaticamente
+
+## Troubleshooting
+
+### Pulso não aparece para o talento
+
+**Possíveis causas:**
+
+1. Talento não está na lista de destinatários
+2. Pulso ainda está em status `draft`
+3. Data de início ainda não chegou
+
+**Diagnóstico:**
+
+```sql
+-- Verificar se talento é destinatário
+SELECT * FROM pulse_recipients 
+WHERE pulse_id = '...' AND talent_id = '...';
+
+-- Verificar status do pulso
+SELECT status, start_date, end_date 
+FROM pulses WHERE id = '...';
+```
+
+### Resposta não foi salva
+
+**Possíveis causas:**
+
+1. Timeout durante envio
+2. Erro de validação
+3. Pulso foi fechado durante resposta
+
+**Diagnóstico:**
+
+1. Verificar logs no painel de Observabilidade
+2. Buscar erros no Inngest Dashboard
+3. Verificar se existe resposta parcial em `responses`
+
+### Taxa de resposta incorreta
+
+**Possíveis causas:**
+
+1. Cache desatualizado
+2. Contagem de destinatários incorreta
+3. Respostas duplicadas
+
+**Correção:**
+
+```bash
+# Recalcular métricas do pulso
+inngest.send({
+  name: "pulse/recalculate-metrics",
+  data: { pulse_id: "..." }
+})
+```
+
+## Monitoramento
+
+### Métricas Importantes
+
+| Métrica | Descrição | Alerta |
+|---------|-----------|--------|
+| `pulse.response_rate` | Taxa de resposta | < 30% após 50% do prazo |
+| `pulse.notification_failures` | Falhas de notificação | > 5% |
+| `pulse.response_time_p95` | Tempo de resposta P95 | > 5s |
+
+### Dashboards
+
+- **Grafana**: Métricas de performance e erros
+- **Inngest**: Status de jobs e filas
+- **Sentry**: Erros de aplicação
+
+## Jobs Relacionados
+
+| Job | Descrição | Frequência |
+|-----|-----------|------------|
+| `pulse/activate` | Ativa pulsos agendados | A cada minuto |
+| `pulse/send-reminders` | Envia lembretes | Diário, 10h |
+| `pulse/close-expired` | Fecha pulsos expirados | A cada hora |
+| `pulse/calculate-metrics` | Calcula métricas | A cada 15 min |

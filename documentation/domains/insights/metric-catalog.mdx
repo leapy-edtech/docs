@@ -1,0 +1,135 @@
+---
+title: "Catálogo de Métricas"
+description: "Catálogo completo de métricas disponíveis no módulo de Insights"
+---
+
+## Métricas de Engajamento
+
+### eNPS - Employee Net Promoter Score
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | % Promotores - % Detratores |
+| **Fonte** | Módulo Pulsos |
+| **Frequência** | Por ciclo de pulso |
+| **Granularidade** | Empresa, Área, Equipe |
+
+### Taxa de Participação em Pulsos
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Respostas / Destinatários × 100 |
+| **Fonte** | Módulo Pulsos |
+| **Frequência** | Por pulso |
+| **Granularidade** | Empresa, Área, Equipe |
+
+### Índice de Engajamento
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Média ponderada das dimensões de clima |
+| **Fonte** | Módulo Pulsos |
+| **Frequência** | Por ciclo de clima |
+| **Granularidade** | Empresa, Área, Equipe |
+
+## Métricas de People Analytics
+
+### Headcount
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Contagem de talentos ativos |
+| **Fonte** | Módulo Talentos |
+| **Frequência** | Tempo real |
+| **Granularidade** | Empresa, Área, Cargo |
+
+### Turnover
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Desligamentos / Headcount médio × 100 |
+| **Fonte** | Módulo Talentos |
+| **Frequência** | Mensal |
+| **Granularidade** | Empresa, Área, Tipo |
+
+### Tempo Médio de Casa
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Média (Data atual - Data admissão) |
+| **Fonte** | Módulo Talentos |
+| **Frequência** | Tempo real |
+| **Granularidade** | Empresa, Área, Cargo |
+
+## Métricas de Mobilidade
+
+### Taxa de Preenchimento Interno
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Vagas preenchidas internamente / Total vagas × 100 |
+| **Fonte** | Módulo Matchmaker |
+| **Frequência** | Mensal |
+| **Granularidade** | Empresa, Área |
+
+### Time to Fill
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Média (Data preenchimento - Data publicação) |
+| **Fonte** | Módulo Matchmaker |
+| **Frequência** | Por oportunidade |
+| **Granularidade** | Empresa, Área, Tipo |
+
+## Métricas de Desenvolvimento
+
+### Horas de Treinamento
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Soma de horas de cursos concluídos |
+| **Fonte** | Módulo Cursos |
+| **Frequência** | Mensal |
+| **Granularidade** | Empresa, Área, Individual |
+
+### Taxa de Conclusão de Cursos
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Cursos concluídos / Cursos iniciados × 100 |
+| **Fonte** | Módulo Cursos |
+| **Frequência** | Mensal |
+| **Granularidade** | Empresa, Área, Curso |
+
+## Métricas de Presença
+
+### Taxa de Presença
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Presenças / Esperado × 100 |
+| **Fonte** | Módulo Presenças |
+| **Frequência** | Diário/Mensal |
+| **Granularidade** | Empresa, Área, Individual |
+
+### Absenteísmo
+
+| Atributo | Valor |
+|----------|-------|
+| **Fórmula** | Ausências / Dias úteis × 100 |
+| **Fonte** | Módulo Presenças |
+| **Frequência** | Mensal |
+| **Granularidade** | Empresa, Área |
+
+## Dimensões de Filtro
+
+Todas as métricas podem ser filtradas por:
+
+| Dimensão | Descrição |
+|----------|-----------|
+| Período | Data/intervalo de tempo |
+| Área | Departamento/área |
+| Localidade | Unidade/cidade |
+| Cargo | Nível/função |
+| Tipo de Contrato | CLT, PJ, Estágio |
+| Tempo de Casa | Faixas de antiguidade |

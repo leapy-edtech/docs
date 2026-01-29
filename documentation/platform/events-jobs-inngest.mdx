@@ -1,0 +1,174 @@
+---
+title: "Eventos e Jobs - Inngest"
+description: "Sistema de eventos e jobs assíncronos com Inngest"
+---
+
+## Visão Geral
+
+O Inngest é a plataforma de orquestração de eventos e jobs da Leapy, responsável por processamento assíncrono, workflows e automações.
+
+## Conceitos
+
+### Eventos
+
+Eventos são disparados quando algo acontece no sistema:
+
+```typescript
+// Disparar um evento
+await inngest.send({
+  name: "pulse.response.submitted",
+  data: {
+    pulse_id: "uuid",
+    talent_id: "uuid",
+    response_id: "uuid"
+  }
+});
+```
+
+### Functions
+
+Functions são handlers que respondem a eventos:
+
+```typescript
+const processResponse = inngest.createFunction(
+  { id: "process-pulse-response" },
+  { event: "pulse.response.submitted" },
+  async ({ event, step }) => {
+    // Processar a resposta
+    await step.run("validate-response", async () => {
+      return validateResponse(event.data.response_id);
+    });
+    
+    await step.run("update-metrics", async () => {
+      return updatePulseMetrics(event.data.pulse_id);
+    });
+  }
+);
+```
+
+### Steps
+
+Steps são unidades atômicas dentro de uma function:
+
+```typescript
+// Step com retry automático
+await step.run("send-notification", async () => {
+  return await sendEmail(recipient, template);
+});
+
+// Step com delay
+await step.sleep("wait-1-hour", "1h");
+
+// Step com timeout
+await step.run("process-data", { timeout: "5m" }, async () => {
+  return await heavyProcessing();
+});
+```
+
+## Padrões Comuns
+
+### Event Fan-out
+
+Um evento disparando múltiplos processamentos:
+
+```typescript
+// Evento principal
+await inngest.send({ name: "talent.created", data: { talent_id } });
+
+// Múltiplos handlers
+inngest.createFunction(
+  { id: "sync-talent-to-hris" },
+  { event: "talent.created" },
+  async ({ event }) => { /* ... */ }
+);
+
+inngest.createFunction(
+  { id: "send-welcome-email" },
+  { event: "talent.created" },
+  async ({ event }) => { /* ... */ }
+);
+```
+
+### Scheduled Jobs
+
+Jobs executados em horários específicos:
+
+```typescript
+inngest.createFunction(
+  { id: "daily-pulse-reminders" },
+  { cron: "0 10 * * *" }, // 10h todos os dias
+  async () => {
+    const activePulses = await getActivePulses();
+    for (const pulse of activePulses) {
+      await sendReminders(pulse);
+    }
+  }
+);
+```
+
+### Retry e Error Handling
+
+```typescript
+inngest.createFunction(
+  { 
+    id: "process-webhook",
+    retries: 5,
+    onFailure: async ({ event, error }) => {
+      await notifyTeam(error);
+    }
+  },
+  { event: "webhook.received" },
+  async ({ event }) => {
+    // Processo que pode falhar
+  }
+);
+```
+
+## Eventos do Sistema
+
+### Pulsos
+
+| Evento | Descrição |
+|--------|-----------|
+| `pulse.created` | Pulso criado |
+| `pulse.activated` | Pulso ativado |
+| `pulse.response.submitted` | Resposta enviada |
+| `pulse.closed` | Pulso encerrado |
+
+### Talentos
+
+| Evento | Descrição |
+|--------|-----------|
+| `talent.created` | Talento criado |
+| `talent.updated` | Talento atualizado |
+| `talent.terminated` | Talento desligado |
+
+### Matchmaker
+
+| Evento | Descrição |
+|--------|-----------|
+| `opportunity.published` | Oportunidade publicada |
+| `application.submitted` | Candidatura enviada |
+| `application.status_changed` | Status alterado |
+
+## Dashboard Inngest
+
+O dashboard permite:
+
+- Visualizar eventos em tempo real
+- Monitorar execução de functions
+- Ver logs detalhados
+- Reprocessar eventos com falha
+- Cancelar execuções
+
+<Note>
+  Acesse o dashboard em: [Inngest Dashboard](https://app.inngest.com)
+</Note>
+
+## Boas Práticas
+
+1. **Idempotência**: Functions devem ser idempotentes
+2. **Steps granulares**: Divida em steps pequenos para retry eficiente
+3. **Timeouts**: Sempre defina timeouts em operações externas
+4. **Logs**: Use logs estruturados para debugging
+5. **Alertas**: Configure alertas para falhas críticas

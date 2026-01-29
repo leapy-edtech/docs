@@ -1,0 +1,71 @@
+---
+title: "Jornadas - Pulsos"
+description: "Fluxos de uso e jornadas do usuário no módulo de Pulsos"
+---
+
+## Jornada do RH
+
+### Criar e Configurar um Pulso
+
+```mermaid
+flowchart LR
+    A[Acessar Pulsos] --> B[Criar Novo Pulso]
+    B --> C[Definir Perguntas]
+    C --> D[Configurar Público]
+    D --> E[Agendar Disparo]
+    E --> F[Ativar Pulso]
+```
+
+**Passos detalhados:**
+
+1. **Acessar o módulo de Pulsos** no menu lateral
+2. **Criar novo pulso** clicando no botão "+ Novo Pulso"
+3. **Definir as perguntas** usando templates ou criando do zero
+4. **Configurar o público-alvo** (toda empresa, área, equipe específica)
+5. **Agendar o disparo** (imediato ou programado)
+6. **Ativar o pulso** para iniciar a coleta
+
+### Analisar Resultados
+
+```mermaid
+flowchart LR
+    A[Acessar Dashboard] --> B[Selecionar Pulso]
+    B --> C[Visualizar Métricas]
+    C --> D[Aplicar Filtros]
+    D --> E[Exportar Relatório]
+```
+
+## Jornada do Talento
+
+### Responder um Pulso
+
+```mermaid
+flowchart LR
+    A[Receber Notificação] --> B[Acessar Pulso]
+    B --> C[Responder Perguntas]
+    C --> D[Enviar Respostas]
+    D --> E[Confirmação]
+```
+
+**Pontos importantes:**
+
+- O talento recebe notificação por email e/ou app
+- As respostas podem ser anônimas conforme configuração
+- O prazo para resposta é definido pelo RH
+- Após envio, não é possível alterar as respostas
+
+## Jornada da Liderança
+
+### Acompanhar Pulsos da Equipe
+
+```mermaid
+flowchart LR
+    A[Acessar Dashboard] --> B[Visualizar Taxa de Resposta]
+    B --> C[Acompanhar Resultados]
+    C --> D[Identificar Pontos de Atenção]
+    D --> E[Planejar Ações]
+```
+
+<Note>
+  A liderança só visualiza resultados agregados da equipe, preservando o anonimato individual.
+</Note>

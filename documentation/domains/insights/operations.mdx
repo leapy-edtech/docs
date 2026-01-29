@@ -1,0 +1,163 @@
+---
+title: "Operações - Insights"
+description: "Guia de operações e troubleshooting do módulo de Insights"
+---
+
+## Operações Comuns
+
+### Forçar Recálculo de Métricas
+
+Quando métricas parecem desatualizadas ou incorretas:
+
+```bash
+# Recalcular métricas de um tenant
+inngest.send({
+  name: "insights/recalculate-all",
+  data: { tenant_id: "..." }
+})
+
+# Recalcular métrica específica
+inngest.send({
+  name: "insights/recalculate-metric",
+  data: { 
+    tenant_id: "...",
+    metric: "turnover",
+    period: "2024-01"
+  }
+})
+```
+
+### Limpar Cache
+
+Se dados em cache estão incorretos:
+
+1. Acesse o Redis via CLI ou ferramenta de gestão
+2. Identifique as chaves do tenant: `insights:{tenant_id}:*`
+3. Delete as chaves afetadas
+
+```bash
+# Via Redis CLI
+redis-cli KEYS "insights:tenant_id:*" | xargs redis-cli DEL
+```
+
+<Warning>
+  Após limpar o cache, as próximas requisições serão mais lentas até o cache ser reconstruído.
+</Warning>
+
+### Reprocessar Período
+
+Para reprocessar dados de um período específico:
+
+```bash
+inngest.send({
+  name: "insights/reprocess-period",
+  data: { 
+    tenant_id: "...",
+    start_date: "2024-01-01",
+    end_date: "2024-01-31"
+  }
+})
+```
+
+## Troubleshooting
+
+### Dashboard mostra dados zerados
+
+**Possíveis causas:**
+
+1. Cache expirado ou corrompido
+2. Período sem dados
+3. Filtros muito restritivos
+4. Erro no pipeline de processamento
+
+**Diagnóstico:**
+
+```sql
+-- Verificar se existem dados no período
+SELECT COUNT(*) FROM metric_snapshots 
+WHERE tenant_id = '...' 
+AND metric_name = '...'
+AND period_date BETWEEN '...' AND '...';
+
+-- Verificar último processamento
+SELECT * FROM pipeline_runs 
+WHERE tenant_id = '...'
+ORDER BY created_at DESC LIMIT 5;
+```
+
+### Métricas inconsistentes entre dashboards
+
+**Possíveis causas:**
+
+1. Cache em diferentes estágios de atualização
+2. Filtros aplicados de forma diferente
+3. Período de referência diferente
+
+**Solução:**
+
+1. Verificar filtros aplicados em cada dashboard
+2. Comparar timestamp dos dados
+3. Se necessário, forçar recálculo
+
+### Lentidão nos dashboards
+
+**Possíveis causas:**
+
+1. Queries não otimizadas
+2. Cache frio
+3. Volume de dados muito grande
+4. Filtros complexos
+
+**Ações:**
+
+1. Verificar métricas de performance no Grafana
+2. Analisar queries lentas no banco
+3. Avaliar necessidade de índices adicionais
+4. Considerar pré-agregação de métricas
+
+## Monitoramento
+
+### Métricas do Pipeline
+
+| Métrica | Descrição | Alerta |
+|---------|-----------|--------|
+| `insights.pipeline.lag` | Atraso no processamento | > 5 min |
+| `insights.pipeline.errors` | Taxa de erros | > 1% |
+| `insights.cache.hit_rate` | Taxa de acerto do cache | < 80% |
+| `insights.query.p95` | Latência P95 de queries | > 2s |
+
+### Dashboards de Operação
+
+- **Pipeline Health**: Status dos jobs de processamento
+- **Data Quality**: Indicadores de qualidade de dados
+- **Performance**: Latência e throughput
+
+## Jobs Relacionados
+
+| Job | Descrição | Frequência |
+|-----|-----------|------------|
+| `insights/process-events` | Processa eventos em tempo real | Contínuo |
+| `insights/aggregate-hourly` | Agregação horária | A cada hora |
+| `insights/aggregate-daily` | Agregação diária | 1h (noturno) |
+| `insights/cleanup-old-data` | Limpeza de dados antigos | Semanal |
+| `insights/rebuild-cache` | Reconstrói cache | Sob demanda |
+
+## Manutenção Preventiva
+
+### Diária
+
+- Verificar status dos jobs no Inngest
+- Monitorar latência dos dashboards
+- Revisar alertas disparados
+
+### Semanal
+
+- Analisar tendências de volume de dados
+- Verificar espaço em disco
+- Revisar logs de erros
+
+### Mensal
+
+- Avaliar performance de queries
+- Revisar políticas de retenção
+- Atualizar documentação de métricas

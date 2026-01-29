@@ -1,0 +1,149 @@
+---
+title: "Runbook: Dashboard com Dados Inconsistentes"
+description: "Procedimento para resolver inconsistências em dashboards"
+---
+
+## Descrição do Problema
+
+Dashboard mostra dados incorretos ou diferentes do esperado.
+
+## Sintomas
+
+- Números não batem com o esperado
+- Dados desatualizados
+- Gráficos vazios ou com valores zerados
+- Diferença entre dashboards
+
+## Diagnóstico
+
+### 1. Identificar a Discrepância
+
+Coletar informações:
+
+- Qual dashboard/métrica?
+- Qual tenant?
+- Qual período?
+- Qual o valor esperado vs. exibido?
+
+### 2. Verificar Fonte de Dados
+
+```sql
+-- Exemplo: Verificar contagem de respostas
+SELECT 
+  COUNT(*) as total_responses,
+  COUNT(CASE WHEN is_complete = true THEN 1 END) as complete_responses
+FROM responses
+WHERE pulse_id = '[PULSE_ID]';
+```
+
+### 3. Verificar Cache
+
+O dashboard pode estar mostrando dados em cache:
+
+```bash
+# Verificar timestamp do cache
+redis-cli GET "insights:{tenant_id}:{metric}:timestamp"
+```
+
+### 4. Verificar Pipeline
+
+```sql
+-- Verificar último processamento
+SELECT * FROM pipeline_runs
+WHERE tenant_id = '[TENANT_ID]'
+AND metric_name = '[METRIC]'
+ORDER BY created_at DESC
+LIMIT 5;
+```
+
+## Causa Raiz Comum
+
+| Causa | Frequência |
+|-------|------------|
+| Cache desatualizado | 40% |
+| Pipeline atrasado | 30% |
+| Filtro incorreto | 15% |
+| Bug no cálculo | 10% |
+| Dados inconsistentes | 5% |
+
+## Resolução
+
+### Opção 1: Limpar Cache
+
+```bash
+# Limpar cache específico
+redis-cli DEL "insights:{tenant_id}:{metric}:*"
+
+# Ou via job
+inngest.send({
+  name: "insights/invalidate-cache",
+  data: { 
+    tenant_id: "[TENANT_ID]",
+    metrics: ["metric_name"]
+  }
+})
+```
+
+### Opção 2: Forçar Recálculo
+
+```bash
+inngest.send({
+  name: "insights/recalculate-metric",
+  data: { 
+    tenant_id: "[TENANT_ID]",
+    metric: "[METRIC_NAME]",
+    period: "2024-01"
+  }
+})
+```
+
+### Opção 3: Reprocessar Período
+
+```bash
+inngest.send({
+  name: "insights/reprocess-period",
+  data: { 
+    tenant_id: "[TENANT_ID]",
+    start_date: "2024-01-01",
+    end_date: "2024-01-31"
+  }
+})
+```
+
+### Opção 4: Verificar e Corrigir Dados Base
+
+Se os dados base estão incorretos:
+
+1. Identificar registros problemáticos
+2. Corrigir via Backoffice
+3. Reprocessar métricas afetadas
+
+## Verificação Pós-Correção
+
+- [ ] Dashboard mostra valores corretos
+- [ ] Cache atualizado
+- [ ] Valores consistentes entre dashboards
+- [ ] Cliente notificado (se aplicável)
+
+## Prevenção
+
+1. **Monitoramento de pipeline**: Alertas para atrasos
+2. **Validação de dados**: Checks automáticos de consistência
+3. **TTL de cache**: Garantir expiração adequada
+4. **Testes de métricas**: Validar cálculos em CI/CD
+
+## Documentação da Correção
+
+Ao resolver, documentar:
+
+```markdown
+## Incidente: Dashboard Inconsistente
+
+**Data**: YYYY-MM-DD
+**Tenant**: [TENANT]
+**Métrica**: [METRIC]
+**Causa**: [CAUSA]
+**Resolução**: [RESOLUÇÃO]
+**Tempo de resolução**: X minutos
+**Impacto**: [IMPACTO]
+```

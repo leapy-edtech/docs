@@ -1,0 +1,144 @@
+---
+title: "Métricas - Matchmaker"
+description: "Métricas e indicadores do módulo Matchmaker"
+---
+
+## Métricas Principais
+
+### Time to Fill (Tempo para Preenchimento)
+
+Tempo médio entre publicação da oportunidade e confirmação da conexão.
+
+**Cálculo:**
+
+```
+Time to Fill = confirmed_at - published_at
+```
+
+**Benchmarks:**
+
+| Tempo | Avaliação |
+|-------|-----------|
+| < 15 dias | Excelente |
+| 15-30 dias | Bom |
+| 30-45 dias | Regular |
+| > 45 dias | Crítico |
+
+### Taxa de Preenchimento
+
+Percentual de oportunidades que foram preenchidas com sucesso.
+
+**Cálculo:**
+
+```
+Taxa = (Oportunidades Preenchidas / Total Publicadas) × 100
+```
+
+### Score Médio de Candidatos
+
+Score médio de compatibilidade dos candidatos por oportunidade.
+
+```
+Score Médio = Σ(score dos candidatos) / Total Candidatos
+```
+
+### Taxa de Conversão do Funil
+
+```mermaid
+funnel
+    title Funil de Candidaturas
+    "Visualizações" : 1000
+    "Candidaturas" : 200
+    "Em Análise" : 100
+    "Entrevistas" : 40
+    "Selecionados" : 10
+    "Confirmados" : 8
+```
+
+| Etapa | Métrica |
+|-------|---------|
+| Visualização → Candidatura | Taxa de interesse |
+| Candidatura → Entrevista | Taxa de qualificação |
+| Entrevista → Seleção | Taxa de aprovação |
+| Seleção → Confirmação | Taxa de aceite |
+
+## Métricas de Qualidade
+
+### Satisfação Pós-Conexão
+
+Medida através de pulso enviado 30/60/90 dias após a conexão.
+
+| Pergunta | Métrica |
+|----------|---------|
+| "A oportunidade atendeu suas expectativas?" | Score 0-10 |
+| "Você recomendaria o processo?" | NPS |
+| "A transição foi bem conduzida?" | Score 0-10 |
+
+### Retenção Pós-Transferência
+
+Taxa de permanência de talentos após transferência interna.
+
+| Período | Benchmark |
+|---------|-----------|
+| 6 meses | > 95% |
+| 12 meses | > 90% |
+| 24 meses | > 80% |
+
+## Métricas Operacionais
+
+### Distribuição por Tipo
+
+| Tipo | % Típico |
+|------|----------|
+| Vagas Internas | 40% |
+| Projetos | 35% |
+| Job Rotation | 15% |
+| Mentoria | 10% |
+
+### Tempo Médio por Etapa
+
+| Etapa | Tempo Médio | SLA |
+|-------|-------------|-----|
+| Triagem inicial | 2 dias | 5 dias |
+| Análise de perfil | 3 dias | 7 dias |
+| Entrevistas | 7 dias | 14 dias |
+| Aprovação gestor | 3 dias | 5 dias |
+| Transição | 15 dias | 30 dias |
+
+## Dashboards Disponíveis
+
+<CardGroup cols={2}>
+  <Card title="Visão Geral" icon="gauge">
+    KPIs principais e tendências
+  </Card>
+  <Card title="Pipeline" icon="filter">
+    Status de todas as oportunidades e candidaturas
+  </Card>
+  <Card title="Análise de Matching" icon="diagram-project">
+    Efetividade do algoritmo de matching
+  </Card>
+  <Card title="Por Área" icon="building">
+    Métricas segmentadas por área/departamento
+  </Card>
+</CardGroup>
+
+## Relatórios
+
+### Relatório Mensal de Mobilidade
+
+Inclui:
+
+- Movimentações realizadas no período
+- Time to fill médio
+- Taxa de preenchimento
+- Satisfação pós-conexão
+- Comparativo com período anterior
+
+### Relatório de Oportunidades
+
+Status de todas as oportunidades:
+
+- Abertas e em andamento
+- Próximas do vencimento
+- Sem candidaturas
+- Aguardando aprovação

@@ -1,0 +1,74 @@
+---
+title: "Papéis e Permissões"
+description: "Visão geral dos papéis de usuário e suas permissões na plataforma Leapy"
+---
+
+## Papéis de Usuário
+
+A plataforma Leapy possui diferentes papéis de usuário, cada um com permissões específicas.
+
+### Super Admin
+
+Acesso completo à plataforma, incluindo configurações de sistema e gestão de tenants.
+
+<Note>
+  Este papel é restrito à equipe Leapy e não está disponível para clientes.
+</Note>
+
+### Admin
+
+Administrador do tenant com acesso completo às funcionalidades da organização.
+
+- Gestão de usuários e permissões
+- Configurações do tenant
+- Acesso a todos os módulos
+- Visualização de logs de auditoria
+
+### RH
+
+Usuário de Recursos Humanos com acesso às funcionalidades de gestão de pessoas.
+
+- Gestão de talentos
+- Criação e gestão de pulsos
+- Acesso aos dashboards
+- Gestão de oportunidades
+
+### Liderança
+
+Gestores e líderes com acesso às informações de suas equipes.
+
+- Visualização de talentos da equipe
+- Acompanhamento de pulsos
+- Dashboards da equipe
+- Aprovação de solicitações
+
+### Talento
+
+Colaborador com acesso às funcionalidades de autoatendimento.
+
+- Perfil pessoal
+- Resposta a pulsos
+- Busca de oportunidades
+- Acompanhamento de desenvolvimento
+
+## Matriz de Permissões
+
+| Funcionalidade | Super Admin | Admin | RH | Liderança | Talento |
+|----------------|:-----------:|:-----:|:--:|:---------:|:-------:|
+| Gestão de Tenants | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Gestão de Usuários | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Criar Pulsos | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Responder Pulsos | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Dashboards Globais | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Dashboards de Equipe | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Gestão de Talentos | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Perfil Pessoal | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+## Escopos de Dados
+
+Além dos papéis, a plataforma controla o escopo de visibilidade dos dados:
+
+- **Global**: Acesso a dados de toda a organização
+- **Área**: Acesso a dados de uma área/departamento específico
+- **Equipe**: Acesso a dados da equipe direta
+- **Individual**: Acesso apenas aos próprios dados
