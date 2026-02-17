@@ -49,7 +49,22 @@ Preciso criar documentação completa para a feature [NOME_DA_FEATURE].
 1. Explore os repositórios usando Glob, Grep e SemanticSearch para coletar informações
 2. Use Task (explore subagent) para explorar múltiplos repos em paralelo
 3. Se necessário, use MCP tools (GitHub, Supabase) para acessar schemas e códigos
-4. Para cada arquivo criado:
+4. **IMPORTANTE - Se o backend for Directus**: Explore extensions customizadas:
+   - Verificar `extensions/hooks/src/` para hooks CRON e event listeners
+   - Verificar `extensions/endpoints/src/` para endpoints customizados (além dos CRUD padrão)
+   - Verificar `extensions/endpoints-workflows/src/` para workflows/operações especiais
+   - Verificar `extensions/operations/src/` para operações customizadas
+   - Verificar `extensions/shared/` para utilities compartilhadas
+   
+   Para cada extension encontrada:
+   - Documentar rotas/endpoints customizados com método HTTP, parâmetros, validações e exemplos
+   - Documentar hooks CRON com horários de execução, lógica e eventos disparados
+   - Documentar eventos customizados que são enviados para Inngest ou outros sistemas
+   - Incluir diagrama de fluxo mostrando: Hook CRON → Evento → Job Inngest
+   - Adicionar seção "Extensions do Directus" em `integrations.mdx`
+   - Adicionar seção "Hooks CRON" em `operations.mdx`
+   - Criar arquivo separado para endpoints customizados: `api-reference/[modulo]/[feature]-endpoints-custom.mdx`
+5. Para cada arquivo criado:
    - Use exemplos reais do código (com CodeGroup para múltiplas linguagens)
    - Inclua diagramas Mermaid quando apropriado (arquitetura, fluxos, ER)
    - Adicione Warnings, Tips e Notes para destacar informações importantes
@@ -60,10 +75,16 @@ Preciso criar documentação completa para a feature [NOME_DA_FEATURE].
 **Output esperado:**
 
 Mínimo de 20 arquivos (pode chegar a 30+):
-- ~5-7 arquivos de API Reference
+- ~5-7 arquivos de API Reference (incluindo endpoints customizados se houver)
 - ~8-12 arquivos de Guias (divididos entre usuários finais e internos)
-- ~5-8 arquivos de Documentação Técnica
+- ~5-8 arquivos de Documentação Técnica (incluindo seções sobre extensions)
 - 1 atualização do docs.json
+
+**Se o backend for Directus com extensions customizadas, adicione:**
+- 1 arquivo `[feature]-endpoints-custom.mdx` em API Reference
+- Seção "Hooks CRON" em `operations.mdx`
+- Seção "Extensions do Directus" em `integrations.mdx`
+- Diagrama de fluxo Hook → Evento → Job
 
 Siga a estrutura usada na documentação de Pulsos como referência de qualidade e organização.
 ```
@@ -122,6 +143,59 @@ Preciso documentar a feature [NOME_DA_FEATURE] que tem interface de usuário com
 Incluir screenshots ou descrições detalhadas das telas.
 ```
 
+### Para Feature com Extensions do Directus
+
+```
+Preciso documentar a feature [NOME_DA_FEATURE] que usa Directus com extensions customizadas.
+
+**Repositório do Backend:**
+[Nome do repo, ex: directus-backoffice-with-extensions]
+
+**Tipos de extensions a explorar:**
+- Hooks CRON em `extensions/hooks/src/hook-cron-*`
+- Endpoints customizados em `extensions/endpoints/src/`
+- Workflows em `extensions/endpoints-workflows/src/`
+- Shared utilities em `extensions/shared/`
+
+**Foco em:**
+1. Criar api-reference/[modulo]/[feature]-endpoints-custom.mdx com:
+   - Todos os endpoints customizados (método HTTP, params, validações)
+   - Exemplos em cURL e TypeScript
+   - Casos de uso práticos
+   - Tratamento de erros com códigos específicos
+
+2. Atualizar documentation/domains/[dominio]/operations.mdx com:
+   - Seção "Hooks CRON" detalhando horários e lógica
+   - Diagrama Mermaid: Hook CRON → Evento → Job Inngest
+   - Instruções de troubleshooting para cada hook
+   - Como testar e fazer deploy de alterações
+
+3. Atualizar documentation/domains/[dominio]/integrations.mdx com:
+   - Seção "Arquitetura de Extensions do Directus"
+   - Diagrama mostrando dependências entre extensions
+   - Exemplos de código real das extensions
+   - Fluxo de integração com Inngest/outros serviços
+
+4. Atualizar guides/backoffice/[feature]-acessar-via-api.mdx com:
+   - Seção "Endpoints Avançados" com 5-7 exemplos práticos
+   - Uso em contexto real (dashboard, interface)
+   - Tratamento de erros de validação
+
+5. Atualizar api-reference/[modulo]/index.mdx:
+   - Adicionar card/seção sobre endpoints customizados
+   - Link para o novo arquivo de documentação
+
+6. Atualizar docs.json:
+   - Adicionar [feature]-endpoints-custom na navegação
+
+**Instruções específicas:**
+- Use Glob/Grep para encontrar todas as extensions relacionadas à feature
+- Para cada endpoint customizado, documente validações e regras de negócio
+- Para hooks CRON, inclua horários exatos (UTC) e frequência
+- Documente eventos disparados para Inngest com payload completo
+- Inclua diagramas de sequência para fluxos complexos
+```
+
 ## Checklist Pós-Criação
 
 Após criar a documentação, valide:
@@ -134,6 +208,9 @@ Após criar a documentação, valide:
 - [ ] Navegação faz sentido (ordem lógica, agrupamentos corretos)
 - [ ] Exemplos de código são completos e executáveis
 - [ ] Não há informações sensíveis (tokens, senhas, IPs internos)
+- [ ] **Se Directus**: Extensions customizadas foram documentadas (hooks, endpoints, workflows)
+- [ ] **Se Directus**: Arquivo de endpoints customizados criado e adicionado ao docs.json
+- [ ] **Se Directus**: Diagrama de fluxo Hook → Evento → Job incluído em operations.mdx
 
 ## Estrutura de Pastas Padrão
 
@@ -145,6 +222,7 @@ Após criar a documentação, valide:
 │   │   └── [feature]/
 │   │       ├── [entidade-1].mdx
 │   │       ├── [entidade-2].mdx
+│   │       ├── [feature]-endpoints-custom.mdx  ← SE HOUVER EXTENSIONS
 │   │       ├── webhooks.mdx
 │   │       └── examples.mdx
 │   └── [outro-modulo]/
