@@ -157,6 +157,8 @@ Eventos que disparam criação de novos pulsos.
 
 Disparado quando um jovem (talento) é criado no sistema. Cria automaticamente 5 pulsos para o jovem e 5 pulsos para a liderança.
 
+**Trigger**: Directus Hook `items.create` na collection `jovem`
+
 **Payload:**
 
 ```json
@@ -180,6 +182,8 @@ Disparado quando um jovem (talento) é criado no sistema. Cria automaticamente 5
 
 Disparado quando um jovem é selecionado/ativado. Processa e cria/atualiza pulsos conforme configuração.
 
+**Trigger**: Directus Hook `items.update` na collection `jovem` (quando campo `status` muda para "selected")
+
 **Payload:**
 
 ```json
@@ -198,6 +202,8 @@ Disparado quando um jovem é selecionado/ativado. Processa e cria/atualiza pulso
 ### `backoffice-inngest-functions/pulsos-liderancas-leapy.create`
 
 Disparado internamente para criar pulsos de avaliação da Leapy para lideranças.
+
+**Trigger**: Inngest Job interno (chamado por outros jobs)
 
 **Payload:**
 
@@ -225,6 +231,8 @@ Eventos que atualizam o status dos pulsos.
 
 Disparado quando o status de um pulso de liderança muda.
 
+**Trigger**: Hook CRON `hook-cron-update-pulsos-liderancas-to-pendente` (diário)
+
 **Payload:**
 
 ```json
@@ -245,6 +253,8 @@ Disparado quando o status de um pulso de liderança muda.
 
 Disparado para marcar pulsos de liderança como vencidos.
 
+**Trigger**: Hook CRON `hook-cron-update-pulsos-liderancas-to-vencidos` (diário)
+
 **Payload:**
 
 ```json
@@ -264,6 +274,8 @@ Disparado para marcar pulsos de liderança como vencidos.
 
 Atualiza pulsos de jovens para status pendente.
 
+**Trigger**: Hook CRON `hook-cron-update-pulsos-jovens-to-pendente` (diário)
+
 **Payload:**
 
 ```json
@@ -281,6 +293,8 @@ Atualiza pulsos de jovens para status pendente.
 ### `backoffice/pulsos-jovens.update-to-vencidos`
 
 Atualiza pulsos de jovens para status vencido.
+
+**Trigger**: Hook CRON `hook-cron-update-pulsos-jovens-to-vencidos` (diário)
 
 **Payload:**
 
@@ -305,6 +319,8 @@ Eventos que disparam envio de notificações por email/WhatsApp.
 ### `backoffice/pulsos_jovens/lembrete-to-jovens.send`
 
 Envia lembrete de pulso pendente para jovens via email.
+
+**Trigger**: Endpoint Workflow `/pulsos/send-lembrete` (chamado por Hook CRON `hook-cron-send-lembrete` às 5:00)
 
 **Payload:**
 
@@ -333,6 +349,8 @@ Envia lembrete de pulso pendente para jovens via email.
 
 Envia lembrete de pulso pendente para lideranças.
 
+**Trigger**: Endpoint Workflow `/pulsos/send-lembrete` (chamado por Hook CRON `hook-cron-send-lembrete` às 5:00)
+
 **Payload:**
 
 ```json
@@ -360,6 +378,8 @@ Envia lembrete de pulso pendente para lideranças.
 
 Envia lembrete para RH sobre pulsos pendentes (jovens ou lideranças).
 
+**Trigger**: Endpoint Workflow `/pulsos/send-lembrete` (chamado por Hook CRON `hook-cron-send-lembrete` às 5:00)
+
 **Payload:**
 
 ```json
@@ -385,6 +405,8 @@ Envia lembrete para RH sobre pulsos pendentes (jovens ou lideranças).
 
 Notifica RH sobre liberação de novos pulsos de jovens.
 
+**Trigger**: Agendamento automático (Inngest Scheduled Job) quando novos pulsos são criados
+
 **Payload:**
 
 ```json
@@ -408,6 +430,8 @@ Notifica RH sobre liberação de novos pulsos de jovens.
 
 Notifica RH sobre liberação de novos pulsos de lideranças.
 
+**Trigger**: Agendamento automático (Inngest Scheduled Job) quando novos pulsos são criados
+
 **Job executado:**
 - `sendPulsosLiderancasLiberacaotoRh`
 
@@ -417,6 +441,8 @@ Notifica RH sobre liberação de novos pulsos de lideranças.
 
 Notifica RH sobre liberação de pulsos para o próprio RH.
 
+**Trigger**: Endpoint Workflow `/pulsos/send-liberacao-pulsos-rh-to-rh` (chamado por Hook CRON `hook-cron-send-liberacao-pulsos-rh-to-rh` às 8:00)
+
 **Job executado:**
 - `sendLiberacaoPulsosRhToRh`
 
@@ -425,6 +451,8 @@ Notifica RH sobre liberação de pulsos para o próprio RH.
 ### `backoffice/pulsos_rh/lembrete-rh.send`
 
 Envia lembrete de pulsos de RH pendentes.
+
+**Trigger**: Endpoint Workflow `/pulsos/send-lembrete-pulsos-rh-to-rh` (chamado por Hook CRON `hook-cron-send-lembrete-pulsos-rh-to-rh` às 8:00)
 
 **Job executado:**
 - `sendLembretePulsosRhToRh`
@@ -438,6 +466,8 @@ Envia lembrete de pulsos de RH pendentes.
 ### `emails/resend.send`
 
 Evento genérico para envio de emails via Resend. Todos os jobs de notificação disparam este evento.
+
+**Trigger**: Inngest Jobs internos (chamado por outros jobs de notificação)
 
 **Payload:**
 
