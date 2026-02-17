@@ -1,0 +1,210 @@
+---
+title: "Quickstart: Configurar Pulsos (RH)"
+description: "Configure seu primeiro pulso em 5 minutos"
+---
+
+## Visão Geral
+
+Este guia mostra como configurar e ativar pulsos para sua turma de talentos de forma rápida e simples.
+
+<Tip>
+  **Tempo estimado**: 5 minutos  
+  **Pré-requisito**: Acesso de RH ou Admin no sistema
+</Tip>
+
+---
+
+## Passo 1: Acessar Configuração
+
+1. No menu lateral, clique em **Pulsos**
+2. Clique na aba **Configuração**
+3. Você verá 3 seções: Perfis, Agendamento e Perguntas
+
+**Rota**: `/pulsos/configuracao`
+
+---
+
+## Passo 2: Habilitar Perfis
+
+Escolha quais tipos de pulsos você quer ativar:
+
+<CardGroup cols={3}>
+  <Card title="Pulsos de Jovens" icon="user">
+    Pesquisas respondidas pelos talentos
+  </Card>
+  <Card title="Pulsos de Lideranças" icon="users">
+    Avaliações feitas pelas lideranças
+  </Card>
+  <Card title="Pulsos de RH" icon="briefcase">
+    Pesquisas com o time de RH
+  </Card>
+</CardGroup>
+
+**Como fazer:**
+
+1. Na seção **"Perfis Habilitados"**, marque os checkboxes
+2. Recomendamos habilitar **Jovens** e **Lideranças** juntos
+3. Clique em **Salvar**
+
+<Note>
+  Você pode habilitar/desabilitar perfis a qualquer momento sem perder configurações.
+</Note>
+
+---
+
+## Passo 3: Configurar Agendamento
+
+Defina quando os pulsos serão criados automaticamente:
+
+### Cadência (Frequência)
+
+| Opção | Quando usar |
+|-------|-------------|
+| **Mensal** | Para acompanhamento intensivo |
+| **Bimestral** | Equilíbrio entre frequência e sobrecarga |
+| **Trimestral** | ✅ Recomendado para programas de 18-24 meses |
+| **Semestral** | Para programas longos (24+ meses) |
+
+### Próxima Data
+
+- Escolha a data de criação do próximo pulso
+- Recomendamos sempre o **primeiro dia do mês**
+- O sistema calculará automaticamente os próximos ciclos
+
+**Exemplo:**
+
+```
+Cadência: Trimestral (3 meses)
+Próxima data: 01/04/2024
+
+O sistema criará pulsos em:
+- 01/04/2024 (Pulso 1)
+- 01/07/2024 (Pulso 2)
+- 01/10/2024 (Pulso 3)
+- 01/01/2025 (Pulso 4)
+- 01/04/2025 (Pulso 5)
+```
+
+---
+
+## Passo 4: Selecionar Perguntas
+
+Escolha quais perguntas estarão habilitadas para cada perfil:
+
+### Perguntas de Jovens
+
+<AccordionGroup>
+  <Accordion title="Satisfação (Escalas 0-10)">
+    - NPS Leapy
+    - NPS Empresa
+    - Relação com a liderança
+    - Ambiente da empresa
+    - Avaliação de tarefas e desafios
+    - Apoio ao desenvolvimento
+  </Accordion>
+  
+  <Accordion title="Autoavaliação">
+    - Sei o que é esperado de mim
+    - Sinto que sou desafiado todos os dias
+    - Estou satisfeito com minha área
+    - Consigo gerar valor para o time
+  </Accordion>
+  
+  <Accordion title="Efetivação">
+    - Quanto você quer ser efetivado (0-10)
+    - Áreas de interesse
+    - Interesse em continuar na área atual
+  </Accordion>
+  
+  <Accordion title="Feedbacks Abertos">
+    - Feedback para Leapy
+    - Depoimento para empresa
+  </Accordion>
+</AccordionGroup>
+
+### Perguntas de Lideranças
+
+- Performance do talento
+- Probabilidade de efetivação
+- Recontrataria?
+- Depoimento detalhado
+- Pontos fortes e de melhoria
+
+### Perguntas de RH
+
+- NPS Leapy
+- Qualidade de reports
+- Uso da plataforma
+- Probabilidade de recontratação
+
+<Tip>
+  Comece com um conjunto reduzido de perguntas (5-7) no primeiro pulso. Você pode adicionar mais perguntas nos próximos ciclos.
+</Tip>
+
+---
+
+## Passo 5: Salvar e Ativar
+
+1. Revise todas as configurações
+2. Clique em **Salvar Configurações**
+3. O sistema confirmará e mostrará:
+   - ✅ Perfis habilitados
+   - ✅ Próxima data de criação
+   - ✅ Total de perguntas ativas
+
+---
+
+## O que acontece depois?
+
+### Criação Automática
+
+No dia configurado (ex: 01/04/2024), o sistema automaticamente:
+
+1. ✅ Cria pulsos para todos os jovens ativos
+2. ✅ Cria pulsos para lideranças avaliarem seus liderados
+3. ✅ Envia notificações por email
+4. ✅ Atualiza status para "pendente"
+
+### Acompanhamento
+
+Você pode acompanhar em tempo real:
+
+- **Taxa de resposta** no dashboard
+- **Pulsos pendentes** por talento
+- **Pulsos vencidos** que precisam atenção
+
+### Próximos Ciclos
+
+O sistema calculará automaticamente as próximas datas e criará novos pulsos conforme a cadência configurada.
+
+---
+
+## Checklist Rápido
+
+Antes de ativar, verifique:
+
+- [ ] Perfis habilitados (jovens e lideranças)
+- [ ] Cadência definida (recomendado: trimestral)
+- [ ] Próxima data configurada (início do mês)
+- [ ] Perguntas selecionadas (5-7 por perfil)
+- [ ] Talentos cadastrados no sistema
+- [ ] Lideranças vinculadas aos talentos
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Visualizar e Editar" icon="table" href="/guides/app-rh/pulsos-visualizar-editar">
+    Gerenciar pulsos existentes
+  </Card>
+  <Card title="Analisar Resultados" icon="chart-pie" href="/guides/app-rh/pulsos-analisar-resultados">
+    Interpretar dados e dashboards
+  </Card>
+  <Card title="Guia do Talento" icon="user" href="/guides/app-rh/pulsos-responder-talento">
+    Como talentos respondem
+  </Card>
+  <Card title="FAQ" icon="question" href="/guides/app-rh/pulsos-faq">
+    Perguntas frequentes
+  </Card>
+</CardGroup>

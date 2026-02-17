@@ -29,12 +29,13 @@
                 "group": "Pulsos",
                 "pages": [
                   "documentation/domains/pulses/index",
+                  "documentation/domains/pulses/data-model",
+                  "documentation/domains/pulses/jobs-inngest",
+                  "documentation/domains/pulses/integrations",
+                  "documentation/domains/pulses/metrics",
                   "documentation/domains/pulses/journeys",
                   "documentation/domains/pulses/business-rules",
-                  "documentation/domains/pulses/data-model",
-                  "documentation/domains/pulses/integrations",
-                  "documentation/domains/pulses/operations",
-                  "documentation/domains/pulses/metrics"
+                  "documentation/domains/pulses/operations"
                 ]
               },
               {
@@ -155,7 +156,16 @@
               "guides/backoffice/index",
               "guides/backoffice/collections",
               "guides/backoffice/flows-hooks",
-              "guides/backoffice/manual-fixes"
+              "guides/backoffice/manual-fixes",
+              {
+                "group": "Pulsos",
+                "pages": [
+                  "guides/backoffice/pulsos-operacoes",
+                  "guides/backoffice/pulsos-troubleshooting",
+                  "guides/backoffice/pulsos-manual-tecnico",
+                  "guides/backoffice/pulsos-acessar-via-api"
+                ]
+              }
             ]
           },
           {
@@ -164,7 +174,20 @@
               "guides/app-rh/index",
               "guides/app-rh/rh-workflows",
               "guides/app-rh/leadership-workflows",
-              "guides/app-rh/talent-workflows"
+              "guides/app-rh/talent-workflows",
+              {
+                "group": "Pulsos",
+                "pages": [
+                  "guides/app-rh/pulsos-introducao",
+                  "guides/app-rh/pulsos-quickstart-rh",
+                  "guides/app-rh/pulsos-configurar-agendamento",
+                  "guides/app-rh/pulsos-visualizar-editar",
+                  "guides/app-rh/pulsos-responder-talento",
+                  "guides/app-rh/pulsos-responder-lideranca",
+                  "guides/app-rh/pulsos-analisar-resultados",
+                  "guides/app-rh/pulsos-faq"
+                ]
+              }
             ]
           }
         ]
@@ -175,7 +198,18 @@
           {
             "dropdown": "Backoffice",
             "pages": [
-              "api-reference/backoffice/index"
+              "api-reference/backoffice/index",
+              {
+                "group": "Pulsos",
+                "pages": [
+                  "api-reference/backoffice/pulsos-jovens",
+                  "api-reference/backoffice/pulsos-liderancas",
+                  "api-reference/backoffice/pulsos-rh",
+                  "api-reference/backoffice/pulsos-configuracao",
+                  "api-reference/backoffice/pulsos-webhooks",
+                  "api-reference/backoffice/pulsos-examples"
+                ]
+              }
             ]
           },
           {

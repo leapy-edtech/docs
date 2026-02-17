@@ -1,0 +1,329 @@
+---
+title: "Analisar Resultados de Pulsos"
+description: "Como interpretar dashboards, métricas e tomar ações baseadas nos dados"
+---
+
+## Visão Geral
+
+Após os pulsos serem respondidos, você tem acesso a dashboards interativos com métricas agregadas e insights sobre engajamento e satisfação.
+
+**Onde acessar**: `/pulsos/talentos` ou `/pulsos/lideranca`
+
+---
+
+## Dashboard Principal
+
+### Métricas no Topo
+
+<CardGroup cols={2}>
+  <Card title="eNPS" icon="gauge">
+    Indicador de satisfação geral (-100 a +100)
+  </Card>
+  <Card title="Taxa de Resposta" icon="percentage">
+    % de pulsos respondidos
+  </Card>
+  <Card title="Pulsos Pendentes" icon="clock">
+    Quantidade aguardando resposta
+  </Card>
+  <Card title="Tendência" icon="chart-line">
+    Evolução em relação ao pulso anterior
+  </Card>
+</CardGroup>
+
+### Gráfico de Status
+
+Visualização da distribuição dos pulsos:
+
+```
+📊 Status dos Pulsos
+
+■■■■■■■■■■ Respondidos (120) - 69%
+■■■■ Pendentes (45) - 26%
+■■ Vencidos (8) - 5%
+```
+
+### Gráfico de Histórico
+
+Evolução do eNPS ao longo dos pulsos:
+
+```
+eNPS ao longo do tempo
+
+10 ┤
+ 8 ┤     ●——●
+ 6 ┤   ●        ●
+ 4 ┤ ●
+ 2 ┤
+   └──────────────
+   P1  P2  P3  P4  P5
+```
+
+---
+
+## Interpretando o eNPS
+
+### O que é eNPS?
+
+Employee Net Promoter Score mede a lealdade e satisfação dos colaboradores.
+
+**Cálculo:**
+
+```
+eNPS = % Promotores - % Detratores
+```
+
+| Classificação | Nota (0-10) |
+|---------------|-------------|
+| **Promotores** | 9-10 |
+| **Neutros** | 7-8 |
+| **Detratores** | 0-6 |
+
+### Escala de Interpretação
+
+| eNPS | Classificação | Ação Recomendada |
+|------|---------------|------------------|
+| **75 a 100** | 🟢 Excelente | Manter estratégias, usar como caso de sucesso |
+| **50 a 74** | 🟢 Muito Bom | Continuar investindo, identificar best practices |
+| **0 a 49** | 🟡 Bom | Investigar neutros, entender barreiras para promotores |
+| **-1 a -49** | 🟠 Atenção | Plano de ação imediato, entrevistar detratores |
+| **-50 a -100** | 🔴 Crítico | Intervenção urgente, revisar todo programa |
+
+### eNPS por Tipo
+
+Você terá dois eNPS:
+
+- **eNPS Leapy**: Satisfação com a Leapy (programa, conteúdo, suporte)
+- **eNPS Empresa**: Satisfação com a empresa (ambiente, liderança, oportunidades)
+
+<Tip>
+  Se eNPS Leapy está alto mas eNPS Empresa está baixo, o problema pode estar na experiência na empresa, não no programa. Converse com lideranças.
+</Tip>
+
+---
+
+## Filtros para Análise
+
+### Filtrar por Status
+
+<CardGroup cols={3}>
+  <Card title="Respondidos" icon="check">
+    Ver apenas dados coletados
+  </Card>
+  <Card title="Pendentes" icon="clock">
+    Acompanhar quem falta
+  </Card>
+  <Card title="Vencidos" icon="x">
+    Identificar não-respondentes
+  </Card>
+</CardGroup>
+
+### Filtrar por NPS
+
+Use para identificar:
+
+- **NPS ≥ 9**: Promotores (potencial de embaixadores)
+- **NPS ≤ 6**: Detratores (risco de evasão)
+- **NPS 7-8**: Neutros (oportunidade de melhoria)
+
+### Filtrar por Período
+
+Compare diferentes pulsos:
+
+- Pulso 1 vs Pulso 3: Houve evolução?
+- Primeiro trimestre vs último trimestre
+- Antes vs depois de mudança na gestão
+
+---
+
+## Identificando Insights
+
+### Sinais de Alerta 🚨
+
+Fique atento a:
+
+| Indicador | Valor de Alerta | O que fazer |
+|-----------|----------------|-------------|
+| eNPS Geral | < 0 | Plano de ação urgente |
+| Taxa de resposta | < 50% | Investigar engajamento |
+| eNPS caindo | -10 pontos | Identificar causa da queda |
+| Vencidos | > 20% | Melhorar comunicação |
+| eNPS Liderança | < 5 | Conversar com liderança |
+
+### Padrões Positivos 🌟
+
+Celebre quando:
+
+- eNPS > 50 por 2 pulsos consecutivos
+- Taxa de resposta > 80%
+- Tendência crescente de satisfação
+- Zero pulsos vencidos
+
+### Comparação por Área
+
+Se você tem talentos em múltiplas áreas:
+
+1. Use o filtro **"Área"** (se disponível)
+2. Compare eNPS entre áreas
+3. Identifique áreas de referência
+4. Investigue áreas com baixo eNPS
+
+---
+
+## Análise de Feedbacks Abertos
+
+### Categorizar Feedbacks
+
+Ao ler depoimentos e feedbacks, categorize por tema:
+
+<AccordionGroup>
+  <Accordion title="Liderança">
+    - Qualidade do feedback
+    - Disponibilidade do gestor
+    - Clareza de expectativas
+  </Accordion>
+  
+  <Accordion title="Tarefas e Desafios">
+    - Complexidade adequada
+    - Alinhamento com aprendizado
+    - Autonomia vs suporte
+  </Accordion>
+  
+  <Accordion title="Ambiente">
+    - Integração com time
+    - Cultura da empresa
+    - Recursos e ferramentas
+  </Accordion>
+  
+  <Accordion title="Leapy">
+    - Qualidade do conteúdo
+    - Suporte do CSM
+    - Plataforma e tecnologia
+  </Accordion>
+</AccordionGroup>
+
+### Identificar Padrões
+
+Se **3+ talentos** mencionam o mesmo problema:
+
+1. 🚨 É um padrão, não caso isolado
+2. 📋 Documente o problema
+3. 💬 Discuta com lideranças
+4. 📝 Crie plano de ação
+5. 📊 Monitore no próximo pulso
+
+---
+
+## Tomar Ações Baseadas em Dados
+
+### Quando eNPS está baixo (< 30)
+
+<Steps>
+  <Step title="Identificar Causa Raiz">
+    Leia todos os feedbacks abertos e identifique temas recorrentes
+  </Step>
+  
+  <Step title="Conversar Individualmente">
+    Agende 1:1 com detratores para entender melhor
+  </Step>
+  
+  <Step title="Reunião com Lideranças">
+    Compartilhe resultados (agregados) e alinhe ações
+  </Step>
+  
+  <Step title="Plano de Ação">
+    Defina ações concretas com prazos:
+    - Melhorar qualidade de tarefas
+    - Aumentar frequência de feedback
+    - Ajustar carga de trabalho
+  </Step>
+  
+  <Step title="Comunicar">
+    Informe as ações que serão tomadas (sem expor quem reclamou)
+  </Step>
+  
+  <Step title="Monitorar">
+    Verifique se o próximo pulso mostra melhoria
+  </Step>
+</Steps>
+
+### Quando Taxa de Resposta está baixa (< 50%)
+
+**Possíveis causas:**
+
+- Comunicação insuficiente
+- Talentos não veem valor nos pulsos
+- Problema técnico de acesso
+- Período inadequado (final de mês, feriados)
+
+**Ações:**
+
+1. Enviar lembretes personalizados
+2. Reforçar importância dos pulsos em reunião
+3. Verificar se há problemas técnicos
+4. Considerar estender prazo em 3-5 dias
+
+---
+
+## Exportar para Apresentações
+
+### Formato PDF
+
+1. Clique em **"Exportar"** > **"Relatório PDF"**
+2. Relatório formatado com:
+   - Métricas principais
+   - Gráficos visuais
+   - Top insights
+   - Recomendações
+
+Ideal para apresentar em reuniões de liderança.
+
+### Formato Excel
+
+1. Clique em **"Exportar"** > **"Dados Excel"**
+2. Múltiplas abas:
+   - Resumo (métricas)
+   - Dados brutos (todas as respostas)
+   - Análise por área
+   - Tendências temporais
+
+Ideal para análise profunda e cruzamento de dados.
+
+### Formato CSV
+
+Dados brutos para análise customizada em ferramentas de BI.
+
+---
+
+## Dashboards Auxiliares
+
+### Views Disponíveis no Banco
+
+O sistema possui views pré-calculadas:
+
+| View | O que mostra |
+|------|--------------|
+| `chart_nps_pulsos_jovens` | NPS de jovens por pulso |
+| `chart_nps_pulsos_liderancas` | NPS de avaliações de lideranças |
+| `chart_satisfacao_empresa_por_pulsos` | Satisfação com empresa |
+| `chart_satisfacao_leapy_por_pulsos` | Satisfação com Leapy |
+
+Essas views são usadas nos gráficos do dashboard.
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Visualizar e Editar" icon="table" href="/guides/app-rh/pulsos-visualizar-editar">
+    Gerenciar pulsos ativos
+  </Card>
+  <Card title="FAQ" icon="question" href="/guides/app-rh/pulsos-faq">
+    Perguntas frequentes
+  </Card>
+  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+    Estrutura técnica dos dados
+  </Card>
+  <Card title="Métricas" icon="chart-bar" href="/documentation/domains/pulses/metrics">
+    Documentação de métricas
+  </Card>
+</CardGroup>

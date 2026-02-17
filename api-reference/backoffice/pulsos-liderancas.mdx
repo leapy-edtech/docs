@@ -1,0 +1,284 @@
+---
+title: "Pulsos de Lideranças"
+description: "API para gerenciar avaliações de lideranças sobre seus liderados"
+---
+
+## Visão Geral
+
+A API de Pulsos de Lideranças permite que gestores avaliem o desempenho, engajamento e probabilidade de efetivação de seus liderados.
+
+**Collection**: `Pulsos` (⚠️ nota: nome com P maiúsculo)  
+**Base URL**: `/items/Pulsos`
+
+## Schema
+
+### Campos Principais
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | integer | Identificador único |
+| `pulso` | integer | Número do pulso (1-5) |
+| `jovem_id` | integer | ID do talento avaliado |
+| `lideranca_id` | integer | ID da liderança avaliadora |
+| `status` | string | Status atual |
+| `data_aplicacao` | datetime | Data de disponibilização |
+| `data_vencimento` | datetime | Data limite |
+| `data_resposta` | datetime | Data de resposta |
+| `respondido_por` | string | "lideranca" ou "rh" |
+
+### Campos de Avaliação
+
+| Campo | Tipo | Valores |
+|-------|------|---------|
+| `performance` | string | "Abaixo", "Dentro", "Acima" |
+| `prob_efetivacao` | string | "Alta", "Média", "Baixa", "Nenhuma" |
+| `recontrataria` | string | "Sim", "Não", "Talvez" |
+| `depoimento` | text | Depoimento detalhado |
+| `pontos_fortes` | text | Principais pontos fortes |
+| `pontos_melhoria` | text | Áreas de desenvolvimento |
+
+## Endpoints
+
+### Listar Pulsos de Lideranças
+
+<Note>
+  O nome da collection é `Pulsos` com P maiúsculo, diferente das demais collections.
+</Note>
+
+```bash
+GET /items/Pulsos
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://backoffice.leapy.com/items/Pulsos?filter[lideranca_id][_eq]=123&filter[status][_eq]=pendente" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://backoffice.leapy.com/items/Pulsos?filter[lideranca_id][_eq]=123&filter[status][_eq]=pendente',
+  {
+    headers: {
+      'Authorization': 'Bearer SEU_TOKEN'
+    }
+  }
+);
+
+const { data } = await response.json();
+```
+
+</CodeGroup>
+
+### Obter com Relacionamentos
+
+```bash
+GET /items/Pulsos/{id}?fields=*,jovem_id.*,lideranca_id.*
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://backoffice.leapy.com/items/Pulsos/5678?fields=*,jovem_id.nome,lideranca_id.nome" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://backoffice.leapy.com/items/Pulsos/5678?fields=*,jovem_id.nome,lideranca_id.nome',
+  {
+    headers: {
+      'Authorization': 'Bearer SEU_TOKEN'
+    }
+  }
+);
+```
+
+</CodeGroup>
+
+**Resposta:**
+
+```json
+{
+  "data": {
+    "id": 5678,
+    "pulso": 3,
+    "jovem_id": {
+      "id": 789,
+      "nome": "João Silva",
+      "email": "joao@empresa.com"
+    },
+    "lideranca_id": {
+      "id": 123,
+      "nome": "Maria Santos",
+      "cargo": "Gerente de TI"
+    },
+    "status": "respondido",
+    "performance": "Acima",
+    "prob_efetivacao": "Alta",
+    "recontrataria": "Sim",
+    "depoimento": "Excelente profissional...",
+    "data_resposta": "2024-02-03T16:45:00Z"
+  }
+}
+```
+
+### Atualizar Avaliação
+
+```bash
+PATCH /items/Pulsos/{id}
+```
+
+<CodeGroup>
+
+```bash cURL
+curl -X PATCH "https://backoffice.leapy.com/items/Pulsos/5678" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "respondido",
+    "performance": "Acima",
+    "prob_efetivacao": "Alta",
+    "recontrataria": "Sim",
+    "depoimento": "Excelente profissional...",
+    "respondido_por": "lideranca",
+    "data_resposta": "2024-02-03T16:45:00Z"
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://backoffice.leapy.com/items/Pulsos/5678',
+  {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer SEU_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      status: 'respondido',
+      performance: 'Acima',
+      prob_efetivacao: 'Alta',
+      recontrataria: 'Sim',
+      depoimento: 'Excelente profissional...',
+      respondido_por: 'lideranca',
+      data_resposta: new Date().toISOString()
+    })
+  }
+);
+```
+
+</CodeGroup>
+
+## Pulsos de Avaliação da Leapy
+
+Collection separada para lideranças avaliarem a própria Leapy:
+
+**Collection**: `pulsos_liderancas_avaliacao_leapy`
+
+### Schema Simplificado
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | integer | Identificador único |
+| `lideranca_id` | integer | ID da liderança |
+| `empresa_id` | integer | ID da empresa |
+| `nps_leapy` | integer | NPS da Leapy (0-10) |
+| `visibilidade_leapy` | integer | Visibilidade (0-10) |
+| `frequencia_acesso_plataforma` | string | "Diário", "Semanal", "Mensal", "Raro" |
+| `melhorias_leapy` | text | Sugestões de melhoria |
+
+```bash
+GET /items/pulsos_liderancas_avaliacao_leapy?filter[lideranca_id][_eq]=123
+```
+
+## Filtros Úteis
+
+### Por Probabilidade de Efetivação
+
+```bash
+GET /items/Pulsos?filter[prob_efetivacao][_eq]=Alta&filter[status][_eq]=respondido
+```
+
+### Talentos com Avaliação "Acima"
+
+```bash
+GET /items/Pulsos?filter[performance][_eq]=Acima&filter[pulso][_gte]=3
+```
+
+### Por Equipe
+
+```bash
+GET /items/Pulsos?filter[lideranca_id][_in]=123,124,125&fields=*,jovem_id.nome
+```
+
+## Agregações
+
+### Taxa de Resposta por Liderança
+
+```bash
+GET /items/Pulsos?aggregate[count]=id&groupBy[]=lideranca_id,status
+```
+
+### Distribuição de Efetivação
+
+```bash
+GET /items/Pulsos?aggregate[count]=id&groupBy[]=prob_efetivacao&filter[status][_eq]=respondido
+```
+
+## Eventos Relacionados
+
+- `backoffice/jovem.created` - Cria 5 pulsos de liderança
+- `backoffice/pulsos.change_status` - Mudança de status
+- `backoffice/pulsos.vencidos_lideranca` - Pulsos vencidos
+- `backoffice/pulsos_liderancas/lembrete-to-liderancas.send` - Lembrete
+- `backoffice-inngest-functions/pulsos-liderancas-leapy.create` - Criação pulso Leapy
+
+## Boas Práticas
+
+### Privacidade
+
+<Warning>
+  Feedbacks confidenciais devem ser acessíveis apenas para o time de RH. Nunca exponha para o talento avaliado.
+</Warning>
+
+### Valores Permitidos
+
+```json
+{
+  "performance": ["Abaixo", "Dentro", "Acima"],
+  "prob_efetivacao": ["Alta", "Média", "Baixa", "Nenhuma"],
+  "recontrataria": ["Sim", "Não", "Talvez"]
+}
+```
+
+### Campos Obrigatórios
+
+```json
+{
+  "jovem_id": "obrigatório",
+  "lideranca_id": "obrigatório",
+  "pulso": "obrigatório (1-5)",
+  "status": "obrigatório",
+  "data_aplicacao": "obrigatório",
+  "data_vencimento": "obrigatório"
+}
+```
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Pulsos de RH" icon="briefcase" href="/api-reference/backoffice/pulsos-rh">
+    Pesquisas com RH
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/backoffice/pulsos-webhooks">
+    Sistema de eventos
+  </Card>
+  <Card title="Exemplos" icon="code" href="/api-reference/backoffice/pulsos-examples">
+    Casos de uso práticos
+  </Card>
+  <Card title="Guia Liderança" icon="users" href="/guides/app-rh/pulsos-responder-lideranca">
+    Como responder pulsos
+  </Card>
+</CardGroup>

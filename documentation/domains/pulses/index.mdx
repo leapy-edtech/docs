@@ -1,49 +1,177 @@
 ---
 title: "Pulsos"
-description: "Sistema de pesquisas e coleta de feedbacks para medir engajamento e clima organizacional"
+description: "Sistema de pesquisas periódicas para medir engajamento, satisfação e desempenho no programa de estágio/aprendizagem"
 ---
 
 ## Visão Geral
 
-O módulo de Pulsos é responsável pela criação, distribuição e análise de pesquisas organizacionais. Através dele, é possível medir o clima, engajamento e satisfação dos colaboradores.
+O sistema de Pulsos é um módulo crítico que coleta feedback contínuo ao longo do programa de estágio/aprendizagem através de pesquisas periódicas automatizadas. Diferente de avaliações pontuais, pulsos capturam a evolução dos talentos, lideranças e parceria Leapy ao longo do tempo.
+
+## Arquitetura
+
+```mermaid
+flowchart TB
+    subgraph Frontend[Frontend Next.js]
+        AppRH[App RH]
+    end
+    
+    subgraph Backend[Backend Directus]
+        API[REST/GraphQL API]
+        Collections[(Collections)]
+    end
+    
+    subgraph Database[Supabase PostgreSQL]
+        PJ[pulsos_jovens]
+        PL[Pulsos]
+        PR[pulsos_rh]
+        PS[pulsos_settings]
+    end
+    
+    subgraph Jobs[Inngest Jobs]
+        Create[Criar Pulsos]
+        Update[Atualizar Status]
+        Notify[Enviar Notificações]
+    end
+    
+    subgraph External[Serviços Externos]
+        Resend[Resend Email]
+        Agent[Agent WhatsApp]
+    end
+    
+    AppRH -->|API Calls| API
+    API -->|Read/Write| Collections
+    Collections -->|Store| PJ
+    Collections -->|Store| PL
+    Collections -->|Store| PR
+    Collections -->|Store| PS
+    
+    Jobs -->|Query| Database
+    Jobs -->|Update| API
+    Jobs -->|Send| Resend
+    Jobs -->|Send| Agent
+```
+
+## Tipos de Pulsos
+
+O sistema possui **3 tipos** de pulsos, cada um com propósito e público específico:
+
+| Tipo | Quem responde | Collection | O que mede |
+|------|---------------|------------|------------|
+| **Pulsos de Jovens** | Talentos (estagiários/aprendizes) | `pulsos_jovens` | Satisfação, engajamento, desejo de efetivação |
+| **Pulsos de Lideranças** | Gestores diretos | `Pulsos` | Performance, probabilidade de efetivação |
+| **Pulsos de RH** | Time de RH da empresa | `pulsos_rh` | Satisfação com parceria Leapy |
+
+### Pulsos de Jovens
+
+**Frequência**: Trimestral (5 pulsos ao longo do programa)  
+**Identificação**: Sim (liderança e RH veem quem respondeu)  
+**Prazo típico**: 7 dias
+
+**Principais perguntas:**
+- NPS Leapy e NPS Empresa (0-10)
+- Relação com liderança (0-10)
+- Avaliação de tarefas e desafios (0-10)
+- Desejo de efetivação (0-10)
+- Perguntas Sim/Não sobre expectativas e aprendizado
+- Feedbacks abertos
+
+### Pulsos de Lideranças
+
+**Frequência**: Trimestral (alinhado com pulsos de jovens)  
+**Identificação**: Confidencial (apenas RH tem acesso)  
+**Prazo típico**: 7 dias
+
+**Principais perguntas:**
+- Performance (Abaixo / Dentro / Acima)
+- Probabilidade de efetivação (Alta / Média / Baixa / Nenhuma)
+- Recontrataria? (Sim / Não / Talvez)
+- Depoimento detalhado
+- Pontos fortes e de melhoria
+
+### Pulsos de RH
+
+**Frequência**: Semestral ou anual  
+**Identificação**: Por empresa  
+**Prazo típico**: 14 dias
+
+**Principais perguntas:**
+- NPS Leapy (0-10)
+- Qualidade de reports e comunicação (0-10)
+- Uso da plataforma
+- Probabilidade de recontratação
+- Sugestões de melhoria
 
 ## Funcionalidades Principais
 
 <CardGroup cols={2}>
-  <Card title="Criação de Pesquisas" icon="file-plus">
-    Crie questionários personalizados com diferentes tipos de perguntas.
+  <Card title="Criação Automática" icon="calendar">
+    Jobs do Inngest criam pulsos automaticamente conforme cadência configurada
   </Card>
-  <Card title="Disparo Automatizado" icon="paper-plane">
-    Configure disparos recorrentes ou pontuais para diferentes públicos.
+  <Card title="Notificações Multi-Canal" icon="envelope">
+    Email (Resend) e WhatsApp (Agent System) para maximizar taxa de resposta
   </Card>
-  <Card title="Coleta de Respostas" icon="inbox">
-    Colete feedbacks de forma anônima ou identificada.
+  <Card title="Agendamento Flexível" icon="gear">
+    Configure cadência (mensal, trimestral, semestral) por perfil
   </Card>
-  <Card title="Análise de Resultados" icon="chart-pie">
-    Visualize métricas e tendências em dashboards interativos.
+  <Card title="Dashboards em Tempo Real" icon="chart-line">
+    Acompanhe taxa de resposta, eNPS e tendências
+  </Card>
+  <Card title="Gestão de Prazos" icon="clock">
+    Extensão de prazo, lembretes automáticos, vencimento automático
+  </Card>
+  <Card title="Privacidade" icon="shield">
+    Avaliações de lideranças são confidenciais
   </Card>
 </CardGroup>
 
-## Tipos de Pulso
+## Ciclo de Vida de um Pulso
 
-| Tipo | Descrição | Frequência Típica |
-|------|-----------|-------------------|
-| **eNPS** | Mede a satisfação geral dos colaboradores | Trimestral |
-| **Clima** | Avalia múltiplas dimensões do ambiente de trabalho | Semestral |
-| **Onboarding** | Feedback de novos colaboradores | 30/60/90 dias |
-| **Offboarding** | Entrevista de desligamento | No desligamento |
-| **Pulse Check** | Verificação rápida de engajamento | Semanal/Quinzenal |
+```mermaid
+stateDiagram-v2
+    [*] --> Agendado
+    Agendado --> Pendente: Data de aplicação chegou
+    Pendente --> Respondido: Usuário respondeu
+    Pendente --> Vencido: Prazo expirou
+    Respondido --> [*]
+    Vencido --> [*]
+```
+
+## Tecnologias Utilizadas
+
+| Componente | Tecnologia | Uso |
+|------------|------------|-----|
+| **Backend** | Directus (Node.js) | API REST/GraphQL, gerenciamento de collections |
+| **Database** | PostgreSQL (Supabase) | Armazenamento de dados |
+| **Jobs** | Inngest | Criação automática, notificações, atualização de status |
+| **Email** | Resend | Envio de notificações e lembretes |
+| **WhatsApp** | Agent System | Notificações alternativas |
+| **Frontend** | Next.js 13+ | Interface do usuário (App RH) |
 
 ## Próximos Passos
 
-<Cards>
-  <Card title="Jornadas" href="/documentation/domains/pulses/journeys">
-    Entenda os fluxos de uso do módulo
+<CardGroup cols={2}>
+  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+    Estrutura de tabelas e relacionamentos
   </Card>
-  <Card title="Regras de Negócio" href="/documentation/domains/pulses/business-rules">
-    Conheça as regras que governam o funcionamento
+  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+    Detalhes dos 15 jobs automáticos
   </Card>
-  <Card title="Modelo de Dados" href="/documentation/domains/pulses/data-model">
-    Explore a estrutura de dados
+  <Card title="Integrações" icon="plug" href="/documentation/domains/pulses/integrations">
+    Resend, Agent System, Inngest
   </Card>
-</Cards>
+  <Card title="Métricas" icon="chart-bar" href="/documentation/domains/pulses/metrics">
+    eNPS, taxa de resposta, tempo médio
+  </Card>
+  <Card title="Jornadas" icon="route" href="/documentation/domains/pulses/journeys">
+    Fluxos de uso por perfil
+  </Card>
+  <Card title="Regras de Negócio" icon="book" href="/documentation/domains/pulses/business-rules">
+    Regras que governam o sistema
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+    Documentação completa da API
+  </Card>
+  <Card title="Guia do RH" icon="user-tie" href="/guides/app-rh/pulsos-quickstart-rh">
+    Tutorial para usuários
+  </Card>
+</CardGroup>

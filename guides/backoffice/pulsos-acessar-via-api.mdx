@@ -1,0 +1,479 @@
+---
+title: "Acessar Pulsos via API"
+description: "Guia prático para integrar com a API de Pulsos"
+---
+
+## Visão Geral
+
+Este guia mostra como acessar e manipular dados de Pulsos através da API REST do Directus. Ideal para integrações, automações e ferramentas customizadas.
+
+<Note>
+  Para exemplos mais detalhados, consulte a [API Reference](/api-reference/backoffice/pulsos-examples).
+</Note>
+
+---
+
+## Autenticação
+
+### Obter Token
+
+```bash
+curl -X POST "https://backoffice.leapy.com/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "seu-email@empresa.com",
+    "password": "sua-senha"
+  }'
+```
+
+**Resposta:**
+
+```json
+{
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "abc123...",
+    "expires": 900000
+  }
+}
+```
+
+### Usar Token nas Requisições
+
+Todas as requisições devem incluir o header:
+
+```bash
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+---
+
+## Casos de Uso Comuns
+
+### 1. Listar Pulsos Pendentes
+
+**Requisição:**
+
+```bash
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?filter[status][_eq]=pendente&limit=20" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+**Resposta:**
+
+```json
+{
+  "data": [
+    {
+      "id": 12345,
+      "pulso": 3,
+      "jovem_id": 789,
+      "status": "pendente",
+      "data_aplicacao": "2024-03-01T09:00:00Z",
+      "data_vencimento": "2024-03-08T23:59:59Z"
+    }
+  ]
+}
+```
+
+---
+
+### 2. Obter Pulso com Dados do Talento
+
+Use o parâmetro `fields` para incluir relacionamentos:
+
+```bash
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens/12345?fields=*,jovem_id.nome,jovem_id.email,jovem_id.area.nome" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+**Resposta:**
+
+```json
+{
+  "data": {
+    "id": 12345,
+    "pulso": 3,
+    "status": "pendente",
+    "jovem_id": {
+      "id": 789,
+      "nome": "João Silva",
+      "email": "joao@empresa.com",
+      "area": {
+        "nome": "Tecnologia"
+      }
+    }
+  }
+}
+```
+
+---
+
+### 3. Criar Pulso
+
+```bash
+curl -X POST "https://backoffice.leapy.com/items/pulsos_jovens" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jovem_id": 789,
+    "pulso": 3,
+    "status": "pendente",
+    "data_aplicacao": "2024-03-01T09:00:00Z",
+    "data_vencimento": "2024-03-08T23:59:59Z"
+  }'
+```
+
+---
+
+### 4. Atualizar Status de Pulso
+
+```bash
+curl -X PATCH "https://backoffice.leapy.com/items/pulsos_jovens/12345" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "respondido",
+    "data_resposta": "2024-03-03T14:30:00Z"
+  }'
+```
+
+---
+
+### 5. Calcular Taxa de Resposta
+
+Usar agregação:
+
+```bash
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?aggregate[count]=id&groupBy[]=status&filter[pulso][_eq]=3" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+**Resposta:**
+
+```json
+{
+  "data": [
+    { "status": "pendente", "count": { "id": 45 } },
+    { "status": "respondido", "count": { "id": 120 } },
+    { "status": "vencido", "count": { "id": 8 } }
+  ]
+}
+```
+
+**Calcular taxa:**
+
+```javascript
+const total = 45 + 120 + 8; // 173
+const respondidos = 120;
+const taxa = (respondidos / total) * 100; // 69.4%
+```
+
+---
+
+### 6. Buscar Pulsos Vencidos
+
+```bash
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?filter[status][_eq]=vencido&filter[data_vencimento][_gte]=\$NOW(-7d)" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+Retorna pulsos vencidos nos últimos 7 dias.
+
+---
+
+### 7. Exportar Todos os Pulsos
+
+```bash
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?limit=-1&export=json" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -o pulsos_export.json
+```
+
+`limit=-1` remove o limite de paginação.
+
+---
+
+## Filtros Avançados
+
+### Operadores Disponíveis
+
+| Operador | Descrição | Exemplo |
+|----------|-----------|---------|
+| `_eq` | Igual a | `filter[status][_eq]=pendente` |
+| `_neq` | Diferente de | `filter[status][_neq]=vencido` |
+| `_lt` | Menor que | `filter[pulso][_lt]=3` |
+| `_lte` | Menor ou igual | `filter[pulso][_lte]=3` |
+| `_gt` | Maior que | `filter[nps_leapy][_gt]=8` |
+| `_gte` | Maior ou igual | `filter[nps_leapy][_gte]=9` |
+| `_in` | Está em | `filter[status][_in]=pendente,agendado` |
+| `_contains` | Contém (texto) | `filter[feedback_para_leapy][_contains]=plataforma` |
+| `_between` | Entre (datas) | `filter[data_aplicacao][_between]=2024-01-01,2024-12-31` |
+| `_null` | É nulo | `filter[data_resposta][_null]=true` |
+
+### Filtros Compostos
+
+Use `_and` e `_or` para lógica complexa:
+
+```bash
+# Pulsos pendentes OU vencidos nos últimos 3 dias
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?filter[_or][0][status][_eq]=pendente&filter[_or][1][_and][0][status][_eq]=vencido&filter[_or][1][_and][1][data_vencimento][_gte]=\$NOW(-3d)" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+---
+
+## Paginação
+
+### Limit e Offset
+
+```bash
+# Primeira página (0-19)
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?limit=20&offset=0"
+
+# Segunda página (20-39)
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?limit=20&offset=20"
+
+# Terceira página (40-59)
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?limit=20&offset=40"
+```
+
+### Metadata de Paginação
+
+Adicione `meta=*` para obter informações de paginação:
+
+```bash
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?limit=20&meta=*" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+**Resposta:**
+
+```json
+{
+  "data": [...],
+  "meta": {
+    "total_count": 173,
+    "filter_count": 173
+  }
+}
+```
+
+---
+
+## Ordenação
+
+Use `sort` para ordenar resultados:
+
+```bash
+# Ordenar por data de vencimento (ascendente)
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?sort=data_vencimento"
+
+# Ordenar por data de vencimento (descendente)
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?sort=-data_vencimento"
+
+# Ordenar por múltiplos campos
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?sort=status,-data_aplicacao"
+```
+
+---
+
+## Bibliotecas e SDKs
+
+### JavaScript/TypeScript
+
+```bash
+npm install @directus/sdk
+```
+
+```typescript
+import { createDirectus, rest, readItems } from '@directus/sdk';
+
+const directus = createDirectus('https://backoffice.leapy.com')
+  .with(rest());
+
+// Autenticar
+await directus.login('email@empresa.com', 'senha');
+
+// Listar pulsos
+const pulsos = await directus.request(
+  readItems('pulsos_jovens', {
+    filter: { status: { _eq: 'pendente' } },
+    limit: 20
+  })
+);
+
+console.log(pulsos);
+```
+
+### Python
+
+```bash
+pip install requests
+```
+
+```python
+import requests
+
+BASE_URL = 'https://backoffice.leapy.com'
+
+# Autenticar
+login_response = requests.post(
+    f'{BASE_URL}/auth/login',
+    json={'email': 'email@empresa.com', 'password': 'senha'}
+)
+token = login_response.json()['data']['access_token']
+headers = {'Authorization': f'Bearer {token}'}
+
+# Listar pulsos
+response = requests.get(
+    f'{BASE_URL}/items/pulsos_jovens',
+    headers=headers,
+    params={'filter[status][_eq]': 'pendente', 'limit': 20}
+)
+
+pulsos = response.json()['data']
+print(pulsos)
+```
+
+### PHP
+
+```php
+<?php
+$baseUrl = 'https://backoffice.leapy.com';
+
+// Autenticar
+$loginResponse = file_get_contents($baseUrl . '/auth/login', false, stream_context_create([
+    'http' => [
+        'method' => 'POST',
+        'header' => 'Content-Type: application/json',
+        'content' => json_encode([
+            'email' => 'email@empresa.com',
+            'password' => 'senha'
+        ])
+    ]
+]));
+$token = json_decode($loginResponse)->data->access_token;
+
+// Listar pulsos
+$pulsosResponse = file_get_contents(
+    $baseUrl . '/items/pulsos_jovens?filter[status][_eq]=pendente&limit=20',
+    false,
+    stream_context_create([
+        'http' => [
+            'header' => "Authorization: Bearer $token"
+        ]
+    ])
+);
+$pulsos = json_decode($pulsosResponse)->data;
+
+print_r($pulsos);
+?>
+```
+
+---
+
+## Rate Limiting
+
+A API do Directus possui rate limiting:
+
+- **Limite**: 100 requisições por minuto por IP
+- **Header de resposta**: `X-RateLimit-Remaining`
+
+Se exceder, você receberá:
+
+```json
+{
+  "errors": [{
+    "message": "Rate limit exceeded",
+    "extensions": { "code": "RATE_LIMIT_EXCEEDED" }
+  }]
+}
+```
+
+**Solução:** Implemente retry com exponential backoff.
+
+---
+
+## Erros Comuns
+
+### 401 Unauthorized
+
+**Causa:** Token inválido ou expirado.
+
+**Solução:** Refaça login e atualize o token.
+
+### 403 Forbidden
+
+**Causa:** Usuário não tem permissão para acessar o recurso.
+
+**Solução:** Verifique as permissões do role no Directus.
+
+### 404 Not Found
+
+**Causa:** Item não existe ou collection name está incorreta.
+
+**Solução:** Verifique o ID e o nome da collection.
+
+### 422 Unprocessable Entity
+
+**Causa:** Validação falhou (campos obrigatórios, tipo errado, etc).
+
+**Solução:** Revise o payload e corrija os dados.
+
+---
+
+## Webhooks
+
+Configure webhooks no Directus para receber notificações de eventos:
+
+### Criar Webhook
+
+1. Acesse Directus Admin
+2. Vá em **Settings > Webhooks**
+3. Clique em **Create Webhook**
+4. Configure:
+   - **Name**: "Webhook Pulsos"
+   - **Method**: POST
+   - **URL**: `https://seu-servidor.com/webhook/pulsos`
+   - **Status**: Active
+   - **Actions**: `items.create`, `items.update`
+   - **Collections**: `pulsos_jovens`, `Pulsos`
+
+### Receber Payload
+
+```json
+{
+  "event": "items.create",
+  "accountability": {
+    "user": "uuid-do-usuario",
+    "role": "uuid-do-role"
+  },
+  "payload": {
+    "id": 12345,
+    "jovem_id": 789,
+    "pulso": 3,
+    "status": "pendente"
+  },
+  "collection": "pulsos_jovens"
+}
+```
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Exemplos Completos" icon="code" href="/api-reference/backoffice/pulsos-examples">
+    Casos de uso práticos com código
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/backoffice/pulsos-jovens">
+    Documentação completa da API
+  </Card>
+  <Card title="Manual Técnico" icon="wrench" href="/guides/backoffice/pulsos-manual-tecnico">
+    Arquitetura e implementação
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/backoffice/pulsos-webhooks">
+    Sistema de eventos
+  </Card>
+</CardGroup>

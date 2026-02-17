@@ -1,0 +1,379 @@
+---
+title: "Operações: Gerenciar Pulsos (CS/Ops)"
+description: "Guia operacional para Customer Success e Operações"
+---
+
+## Visão Geral
+
+Este guia é para **CS (Customer Success)** e **Operações** que precisam realizar tarefas operacionais avançadas no sistema de Pulsos via Directus (Backoffice).
+
+<Warning>
+  Este guia assume conhecimento técnico intermediário. Se você não tem acesso ao Backoffice, consulte o [guia do App RH](/guides/app-rh/pulsos-quickstart-rh).
+</Warning>
+
+---
+
+## Acessar Collections no Directus
+
+### URL do Backoffice
+
+```
+https://backoffice.leapy.com/admin
+```
+
+### Collections de Pulsos
+
+| Collection | Descrição | Uso frequente |
+|------------|-----------|---------------|
+| `pulsos_jovens` | Respostas dos talentos | Editar, exportar, corrigir |
+| `Pulsos` | Avaliações de lideranças | Editar, exportar |
+| `pulsos_rh` | Respostas do RH | Editar, exportar |
+| `pulsos_settings` | Configuração de perguntas | Habilitar/desabilitar perguntas |
+| `pulsos_schedule_settings` | Agendamento automático | Ajustar cadência |
+| `pulsos_paramentros` | Parâmetros globais | Raramente alterado |
+
+---
+
+## Criar Pulso Manualmente
+
+### Quando usar
+
+Use criação manual apenas quando:
+
+- ✅ Talento entrou após a criação automática
+- ✅ Pulso foi deletado por erro
+- ✅ Teste de funcionalidade
+
+<Warning>
+  Evite criação manual em massa. Prefira ajustar o agendamento automático.
+</Warning>
+
+### Como criar
+
+<Steps>
+  <Step title="Acessar Collection">
+    No Directus, vá em **Collections > pulsos_jovens**
+  </Step>
+  
+  <Step title="Clicar em Create Item">
+    Botão **"+"** no canto superior direito
+  </Step>
+  
+  <Step title="Preencher Campos Obrigatórios">
+    ```json
+    {
+      "jovem_id": 789,
+      "pulso": 3,
+      "status": "pendente",
+      "data_aplicacao": "2024-03-01T09:00:00Z",
+      "data_vencimento": "2024-03-08T23:59:59Z"
+    }
+    ```
+  </Step>
+  
+  <Step title="Salvar">
+    O sistema disparará evento para enviar notificação
+  </Step>
+</Steps>
+
+### Validações Importantes
+
+- `jovem_id` deve existir na tabela `talents`
+- `pulso` deve ser entre 1-5
+- `data_vencimento` deve ser posterior a `data_aplicacao`
+- `status` inicial: `agendado` ou `pendente`
+
+---
+
+## Editar Pulsos em Lote
+
+### Estender Prazo para Grupo
+
+**Cenário:** Feriado prolongado, todos precisam de +5 dias
+
+<Steps>
+  <Step title="Filtrar Pulsos">
+    Em **pulsos_jovens**, use filtros:
+    - `status` = `vencido`
+    - `data_vencimento` > `$NOW(-7d)` (vencidos há menos de 7 dias)
+  </Step>
+  
+  <Step title="Selecionar Todos">
+    Checkbox no topo da tabela
+  </Step>
+  
+  <Step title="Editar em Lote">
+    Botão **"Edit Selected"** (ícone de lápis)
+  </Step>
+  
+  <Step title="Atualizar Campos">
+    - `status`: `pendente`
+    - `data_vencimento`: nova data (+5 dias)
+  </Step>
+  
+  <Step title="Salvar">
+    Sistema enviará notificações automaticamente
+  </Step>
+</Steps>
+
+### Via API REST
+
+Para automação, use a API:
+
+```bash
+# Atualizar múltiplos pulsos
+curl -X PATCH "https://backoffice.leapy.com/items/pulsos_jovens?filter[status][_eq]=vencido" \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "pendente",
+    "data_vencimento": "2024-03-15T23:59:59Z"
+  }'
+```
+
+---
+
+## Disparar Jobs Manualmente
+
+### Via Inngest Dashboard
+
+**URL:** https://app.inngest.com
+
+#### Jobs Disponíveis
+
+| Job | ID | Quando usar |
+|-----|----|-------------|
+| Criar Pulsos Jovens | `createPulsosJovens` | Forçar criação fora da data |
+| Atualizar Status | `updateStatusPulsosJovensParaPendentes` | Liberar pulsos agendados |
+| Enviar Lembretes | `sendPulsosLembretetoJovens` | Reenviar notificações |
+| Processar Pulsos | `processaPulsosJovensOuLiderancas` | Reprocessar lógica |
+
+#### Como Disparar
+
+1. Acesse Inngest Dashboard
+2. Vá em **Functions**
+3. Encontre o job desejado
+4. Clique em **"Trigger with Custom Event"**
+5. Preencha o payload:
+
+```json
+{
+  "name": "backoffice/pulsos_jovens/lembrete-to-jovens.send",
+  "data": {
+    "pulso_ids": [12345, 12346, 12347]
+  }
+}
+```
+
+6. Clique em **"Send Event"**
+7. Monitore execução na aba **"Runs"**
+
+<Tip>
+  Sempre teste com 1-2 pulsos antes de disparar em massa.
+</Tip>
+
+---
+
+## Exportar Dados para Análise
+
+### Via Interface do Directus
+
+1. Vá na collection desejada
+2. Aplique filtros se necessário
+3. Clique em **"Export"** (ícone de download)
+4. Escolha formato: **CSV** ou **JSON**
+5. Download inicia automaticamente
+
+### Via API para Automação
+
+```bash
+# Exportar todos os pulsos respondidos
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?filter[status][_eq]=respondido&fields=*&limit=-1&export=json" \
+  -H "Authorization: Bearer TOKEN" \
+  -o pulsos_respondidos.json
+```
+
+### SQL Direto (Supabase)
+
+Para análises complexas, use o editor SQL:
+
+```sql
+-- Taxa de resposta por área
+SELECT 
+  t.area_id,
+  COUNT(*) as total_pulsos,
+  SUM(CASE WHEN pj.status = 'respondido' THEN 1 ELSE 0 END) as respondidos,
+  ROUND(
+    SUM(CASE WHEN pj.status = 'respondido' THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric * 100,
+    2
+  ) as taxa_resposta
+FROM pulsos_jovens pj
+JOIN talents t ON pj.jovem_id = t.id
+WHERE pj.pulso = 3
+GROUP BY t.area_id
+ORDER BY taxa_resposta DESC;
+```
+
+---
+
+## Corrigir Inconsistências
+
+### Pulsos Duplicados
+
+**Identificar:**
+
+```sql
+SELECT jovem_id, pulso, COUNT(*)
+FROM pulsos_jovens
+GROUP BY jovem_id, pulso
+HAVING COUNT(*) > 1;
+```
+
+**Corrigir:**
+
+1. Identifique qual é o correto (mais recente, com respostas, etc)
+2. Delete os duplicados manualmente
+3. Investigue causa (job rodou 2x? criação manual?)
+
+### Status Inconsistente
+
+**Cenário:** Pulso está "pendente" mas prazo venceu
+
+**Corrigir em lote:**
+
+```sql
+UPDATE pulsos_jovens
+SET status = 'vencido'
+WHERE status = 'pendente'
+  AND data_vencimento < NOW();
+```
+
+### Pulso sem Notificação
+
+Se pulso foi criado mas notificação não foi enviada:
+
+1. Verifique se evento foi disparado (logs do Inngest)
+2. Reenvie manualmente via job `sendPulsosLembretetoJovens`
+3. Confira se email do talento está correto
+
+---
+
+## Monitorar Saúde do Sistema
+
+### Métricas Críticas
+
+Monitore diariamente:
+
+<CardGroup cols={2}>
+  <Card title="Taxa de Criação" icon="plus">
+    Pulsos criados na data esperada?
+  </Card>
+  <Card title="Taxa de Entrega" icon="envelope">
+    Emails sendo enviados com sucesso?
+  </Card>
+  <Card title="Taxa de Resposta" icon="check">
+    % de pulsos respondidos por empresa
+  </Card>
+  <Card title="Jobs Falhados" icon="x">
+    Erros no Inngest?
+  </Card>
+</CardGroup>
+
+### Dashboard do Inngest
+
+Acesse diariamente para verificar:
+
+- ✅ **Success Rate**: Deve estar > 95%
+- ⏱️ **Latency**: Médio < 5s
+- 🔄 **Retry Rate**: Deve estar < 5%
+- ❌ **Failed Jobs**: Investigar imediatamente
+
+### Alertas Automáticos
+
+Configure alertas no Inngest:
+
+- Taxa de erro > 10%
+- Job não executou na última 24h
+- Latência média > 30s
+
+---
+
+## Troubleshooting Rápido
+
+### Pulso não foi criado
+
+1. **Verifique agendamento**: `pulsos_schedule_settings` está `enabled: true`?
+2. **Confira data**: `next_pulso_date` está correto?
+3. **Veja logs**: Inngest > Function `createPulsosJovens` > Runs
+4. **Valide talentos**: Há talentos ativos no sistema?
+
+### Notificação não enviada
+
+1. **Verifique Resend**: Dashboard do Resend mostra envio?
+2. **Confira template**: Email template existe e está ativo?
+3. **Valide email**: Email do destinatário está correto?
+4. **Veja logs**: Inngest > Function `sendPulsosLembretetoJovens`
+
+### Job travado
+
+1. **Verifique status**: Inngest > Runs > Status = "Running"?
+2. **Tempo de execução**: Se > 5min, pode estar travado
+3. **Cancele manualmente**: Botão "Cancel" no Inngest
+4. **Re-execute**: Trigger novamente com mesmo payload
+
+Para mais detalhes, consulte [Troubleshooting Técnico](/guides/backoffice/pulsos-troubleshooting).
+
+---
+
+## Boas Práticas
+
+### Backup Antes de Edições em Massa
+
+Sempre exporte dados antes de editar em lote:
+
+```bash
+# Backup
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?limit=-1" \
+  -H "Authorization: Bearer TOKEN" \
+  > backup_pulsos_$(date +%Y%m%d).json
+```
+
+### Testar em Staging
+
+Para mudanças críticas:
+
+1. Teste primeiro em ambiente de staging
+2. Valide com 1-2 pulsos de teste
+3. Apenas depois aplique em produção
+
+### Documentar Mudanças
+
+Mantenha log de operações:
+
+```markdown
+## 2024-03-15 - Extensão de prazo
+
+- **Motivo**: Feriado prolongado
+- **Pulsos afetados**: 45 (IDs: 12300-12345)
+- **Ação**: data_vencimento de 08/03 → 15/03
+- **Operador**: João CS
+```
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Troubleshooting Técnico" icon="wrench" href="/guides/backoffice/pulsos-troubleshooting">
+    Resolver problemas técnicos
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+    Documentação completa da API
+  </Card>
+  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+    Detalhes dos jobs automáticos
+  </Card>
+  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+    Estrutura técnica
+  </Card>
+</CardGroup>

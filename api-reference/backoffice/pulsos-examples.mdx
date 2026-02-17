@@ -1,0 +1,669 @@
+---
+title: "Exemplos de Uso - Pulsos"
+description: "Casos de uso práticos com código completo para a API de Pulsos"
+---
+
+## Visão Geral
+
+Exemplos práticos de integração com a API de Pulsos do Directus. Todos os exemplos assumem que você já possui um token de autenticação válido.
+
+<Tip>
+  Para obter o token de autenticação, consulte a [documentação do Backoffice](/api-reference/backoffice/index#autenticacao).
+</Tip>
+
+---
+
+## Exemplo 1: Criar Pulso e Notificar Jovem
+
+Fluxo completo: criar pulso para um jovem, agendar para daqui 3 dias e enviar notificação.
+
+<CodeGroup>
+
+```typescript TypeScript
+import { DirectusClient } from '@directus/sdk';
+
+// Configurar cliente
+const directus = new DirectusClient('https://backoffice.leapy.com');
+await directus.auth.login('email@empresa.com', 'senha');
+
+// 1. Criar pulso
+const novoPulso = await directus.request(
+  createItem('pulsos_jovens', {
+    jovem_id: 789,
+    pulso: 3,
+    status: 'agendado',
+    data_aplicacao: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // Daqui 3 dias
+    data_vencimento: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // Daqui 10 dias
+  })
+);
+
+console.log('Pulso criado:', novoPulso.id);
+
+// 2. Aguardar data_aplicacao e atualizar para pendente
+// (Normalmente feito por job agendado, mas pode ser manual)
+setTimeout(async () => {
+  await directus.request(
+    updateItem('pulsos_jovens', novoPulso.id, {
+      status: 'pendente'
+    })
+  );
+  
+  // 3. Disparar evento de notificação (via Inngest)
+  await fetch('https://api.inngest.com/v1/events', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer INNGEST_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: 'backoffice/pulsos_jovens/lembrete-to-jovens.send',
+      data: {
+        pulso_ids: [novoPulso.id]
+      }
+    })
+  });
+  
+  console.log('Notificação enviada!');
+}, 3 * 24 * 60 * 60 * 1000);
+```
+
+```python Python
+import requests
+from datetime import datetime, timedelta
+
+BASE_URL = 'https://backoffice.leapy.com'
+
+# 1. Autenticar
+login_response = requests.post(
+    f'{BASE_URL}/auth/login',
+    json={'email': 'email@empresa.com', 'password': 'senha'}
+)
+token = login_response.json()['data']['access_token']
+headers = {'Authorization': f'Bearer {token}'}
+
+# 2. Criar pulso
+novo_pulso = requests.post(
+    f'{BASE_URL}/items/pulsos_jovens',
+    headers=headers,
+    json={
+        'jovem_id': 789,
+        'pulso': 3,
+        'status': 'agendado',
+        'data_aplicacao': (datetime.now() + timedelta(days=3)).isoformat(),
+        'data_vencimento': (datetime.now() + timedelta(days=10)).isoformat()
+    }
+).json()['data']
+
+print(f"Pulso criado: {novo_pulso['id']}")
+
+# 3. Atualizar para pendente (quando chegar a data)
+# Em produção, isso seria feito por um job agendado
+requests.patch(
+    f"{BASE_URL}/items/pulsos_jovens/{novo_pulso['id']}",
+    headers=headers,
+    json={'status': 'pendente'}
+)
+
+# 4. Disparar notificação
+requests.post(
+    'https://api.inngest.com/v1/events',
+    headers={'Authorization': 'Bearer INNGEST_TOKEN'},
+    json={
+        'name': 'backoffice/pulsos_jovens/lembrete-to-jovens.send',
+        'data': {'pulso_ids': [novo_pulso['id']]}
+    }
+)
+```
+
+</CodeGroup>
+
+---
+
+## Exemplo 2: Buscar Pulsos Pendentes por Área
+
+Buscar todos os pulsos pendentes de jovens de uma área específica com seus dados completos.
+
+<CodeGroup>
+
+```typescript TypeScript
+// Buscar pulsos pendentes da área de TI
+const pulsosPendentes = await directus.request(
+  readItems('pulsos_jovens', {
+    filter: {
+      _and: [
+        { status: { _eq: 'pendente' } },
+        { 'jovem_id.area_id': { _eq: 'uuid-area-ti' } }
+      ]
+    },
+    fields: [
+      '*',
+      'jovem_id.id',
+      'jovem_id.nome',
+      'jovem_id.email',
+      'jovem_id.senioridade',
+      'jovem_id.area.nome'
+    ],
+    sort: ['data_vencimento'],
+    limit: 50
+  })
+);
+
+// Agrupar por senioridade
+const porSenioridade = pulsosPendentes.reduce((acc, pulso) => {
+  const senioridade = pulso.jovem_id.senioridade;
+  acc[senioridade] = (acc[senioridade] || 0) + 1;
+  return acc;
+}, {});
+
+console.log('Pulsos pendentes por senioridade:', porSenioridade);
+```
+
+```python Python
+# Buscar pulsos pendentes da área de TI
+response = requests.get(
+    f'{BASE_URL}/items/pulsos_jovens',
+    headers=headers,
+    params={
+        'filter[status][_eq]': 'pendente',
+        'filter[jovem_id.area_id][_eq]': 'uuid-area-ti',
+        'fields': '*,jovem_id.nome,jovem_id.email,jovem_id.area.nome',
+        'sort': 'data_vencimento',
+        'limit': 50
+    }
+)
+
+pulsos = response.json()['data']
+
+# Agrupar por senioridade
+from collections import Counter
+senioridades = Counter([p['jovem_id']['senioridade'] for p in pulsos])
+print(f"Pulsos pendentes: {dict(senioridades)}")
+```
+
+```graphql GraphQL
+query PulsosPendentesPorArea {
+  pulsos_jovens(
+    filter: {
+      _and: [
+        { status: { _eq: "pendente" } }
+        { jovem_id: { area_id: { _eq: "uuid-area-ti" } } }
+      ]
+    }
+    sort: ["data_vencimento"]
+    limit: 50
+  ) {
+    id
+    pulso
+    data_vencimento
+    jovem_id {
+      nome
+      email
+      senioridade
+      area {
+        nome
+      }
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+---
+
+## Exemplo 3: Atualizar Status em Lote
+
+Atualizar múltiplos pulsos vencidos para "pendente", estendendo o prazo.
+
+<CodeGroup>
+
+```typescript TypeScript
+// 1. Buscar pulsos vencidos
+const pulsosVencidos = await directus.request(
+  readItems('pulsos_jovens', {
+    filter: {
+      _and: [
+        { status: { _eq: 'vencido' } },
+        { data_vencimento: { _gte: '$NOW(-7d)' } } // Vencidos há menos de 7 dias
+      ]
+    }
+  })
+);
+
+console.log(`Encontrados ${pulsosVencidos.length} pulsos vencidos recentes`);
+
+// 2. Atualizar em lote
+const novaDataVencimento = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+const promises = pulsosVencidos.map(pulso =>
+  directus.request(
+    updateItem('pulsos_jovens', pulso.id, {
+      status: 'pendente',
+      data_vencimento: novaDataVencimento
+    })
+  )
+);
+
+await Promise.all(promises);
+
+console.log(`${promises.length} pulsos atualizados com sucesso!`);
+
+// 3. Enviar notificação em lote
+await fetch('https://api.inngest.com/v1/events', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer INNGEST_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'backoffice/pulsos_jovens/lembrete-to-jovens.send',
+    data: {
+      pulso_ids: pulsosVencidos.map(p => p.id)
+    }
+  })
+});
+```
+
+```python Python
+# 1. Buscar pulsos vencidos recentes
+response = requests.get(
+    f'{BASE_URL}/items/pulsos_jovens',
+    headers=headers,
+    params={
+        'filter[status][_eq]': 'vencido',
+        'filter[data_vencimento][_gte]': '$NOW(-7d)'
+    }
+)
+pulsos_vencidos = response.json()['data']
+print(f"Encontrados {len(pulsos_vencidos)} pulsos vencidos")
+
+# 2. Atualizar em lote
+nova_data = (datetime.now() + timedelta(days=7)).isoformat()
+
+for pulso in pulsos_vencidos:
+    requests.patch(
+        f"{BASE_URL}/items/pulsos_jovens/{pulso['id']}",
+        headers=headers,
+        json={
+            'status': 'pendente',
+            'data_vencimento': nova_data
+        }
+    )
+
+print(f"{len(pulsos_vencidos)} pulsos atualizados!")
+
+# 3. Enviar notificações
+requests.post(
+    'https://api.inngest.com/v1/events',
+    headers={'Authorization': 'Bearer INNGEST_TOKEN'},
+    json={
+        'name': 'backoffice/pulsos_jovens/lembrete-to-jovens.send',
+        'data': {'pulso_ids': [p['id'] for p in pulsos_vencidos]}
+    }
+)
+```
+
+</CodeGroup>
+
+---
+
+## Exemplo 4: Exportar Dados de Pulso
+
+Exportar todos os dados de um pulso específico, incluindo respostas de todos os jovens.
+
+<CodeGroup>
+
+```typescript TypeScript
+// 1. Buscar todas as respostas do pulso 3
+const respostasPulso3 = await directus.request(
+  readItems('pulsos_jovens', {
+    filter: {
+      _and: [
+        { pulso: { _eq: 3 } },
+        { status: { _eq: 'respondido' } }
+      ]
+    },
+    fields: [
+      'id',
+      'jovem_id.nome',
+      'jovem_id.email',
+      'jovem_id.area.nome',
+      'jovem_id.senioridade',
+      'nps_leapy',
+      'nps_empresa',
+      'relacao_com_a_lideranca',
+      'ambiente_da_empresa',
+      'feedback_para_leapy',
+      'depoimento_para_empresa',
+      'data_resposta'
+    ],
+    limit: -1 // Sem limite
+  })
+);
+
+// 2. Calcular métricas
+const calcularNPS = (respostas: any[], campo: string) => {
+  const valores = respostas.map(r => r[campo]).filter(v => v !== null);
+  const promotores = valores.filter(v => v >= 9).length;
+  const detratores = valores.filter(v => v <= 6).length;
+  return ((promotores - detratores) / valores.length) * 100;
+};
+
+const npsLeapy = calcularNPS(respostasPulso3, 'nps_leapy');
+const npsEmpresa = calcularNPS(respostasPulso3, 'nps_empresa');
+
+// 3. Exportar para CSV
+import { stringify } from 'csv-stringify/sync';
+
+const csv = stringify(
+  respostasPulso3.map(r => ({
+    'Nome': r.jovem_id.nome,
+    'Área': r.jovem_id.area.nome,
+    'Senioridade': r.jovem_id.senioridade,
+    'NPS Leapy': r.nps_leapy,
+    'NPS Empresa': r.nps_empresa,
+    'Relação Liderança': r.relacao_com_a_lideranca,
+    'Ambiente': r.ambiente_da_empresa,
+    'Feedback': r.feedback_para_leapy,
+    'Data': new Date(r.data_resposta).toLocaleDateString('pt-BR')
+  })),
+  { header: true }
+);
+
+console.log(`eNPS Leapy: ${npsLeapy.toFixed(1)}`);
+console.log(`eNPS Empresa: ${npsEmpresa.toFixed(1)}`);
+console.log(`Taxa de resposta: ${respostasPulso3.length} respostas`);
+
+// Salvar CSV
+import fs from 'fs';
+fs.writeFileSync('pulso3_respostas.csv', csv);
+```
+
+```python Python
+import csv
+from datetime import datetime
+
+# 1. Buscar respostas
+response = requests.get(
+    f'{BASE_URL}/items/pulsos_jovens',
+    headers=headers,
+    params={
+        'filter[pulso][_eq]': 3,
+        'filter[status][_eq]': 'respondido',
+        'fields': 'id,jovem_id.nome,jovem_id.area.nome,nps_leapy,nps_empresa,feedback_para_leapy,data_resposta',
+        'limit': -1
+    }
+)
+respostas = response.json()['data']
+
+# 2. Calcular NPS
+def calcular_nps(respostas, campo):
+    valores = [r[campo] for r in respostas if r.get(campo) is not None]
+    promotores = len([v for v in valores if v >= 9])
+    detratores = len([v for v in valores if v <= 6])
+    return ((promotores - detratores) / len(valores)) * 100 if valores else 0
+
+nps_leapy = calcular_nps(respostas, 'nps_leapy')
+nps_empresa = calcular_nps(respostas, 'nps_empresa')
+
+print(f"eNPS Leapy: {nps_leapy:.1f}")
+print(f"eNPS Empresa: {nps_empresa:.1f}")
+print(f"Respostas: {len(respostas)}")
+
+# 3. Exportar CSV
+with open('pulso3_respostas.csv', 'w', newline='', encoding='utf-8') as f:
+    writer = csv.DictWriter(f, fieldnames=['Nome', 'Área', 'NPS Leapy', 'NPS Empresa', 'Feedback', 'Data'])
+    writer.writeheader()
+    
+    for r in respostas:
+        writer.writerow({
+            'Nome': r['jovem_id']['nome'],
+            'Área': r['jovem_id']['area']['nome'],
+            'NPS Leapy': r.get('nps_leapy', ''),
+            'NPS Empresa': r.get('nps_empresa', ''),
+            'Feedback': r.get('feedback_para_leapy', ''),
+            'Data': datetime.fromisoformat(r['data_resposta']).strftime('%d/%m/%Y')
+        })
+
+print("CSV exportado: pulso3_respostas.csv")
+```
+
+</CodeGroup>
+
+---
+
+## Exemplo 5: Dashboard de Taxa de Resposta
+
+Criar um dashboard com taxa de resposta em tempo real.
+
+<CodeGroup>
+
+```typescript TypeScript
+// Função para buscar métricas
+async function buscarMetricasPulsos(pulsoNumero: number) {
+  // 1. Contar por status
+  const porStatus = await directus.request(
+    readItems('pulsos_jovens', {
+      filter: { pulso: { _eq: pulsoNumero } },
+      aggregate: {
+        count: 'id'
+      },
+      groupBy: ['status']
+    })
+  );
+
+  // 2. Calcular taxas
+  const total = porStatus.reduce((sum, item) => sum + item.count.id, 0);
+  const respondidos = porStatus.find(item => item.status === 'respondido')?.count.id || 0;
+  const pendentes = porStatus.find(item => item.status === 'pendente')?.count.id || 0;
+  const vencidos = porStatus.find(item => item.status === 'vencido')?.count.id || 0;
+
+  const taxaResposta = ((respondidos / total) * 100).toFixed(1);
+  const taxaPendente = ((pendentes / total) * 100).toFixed(1);
+
+  return {
+    total,
+    respondidos,
+    pendentes,
+    vencidos,
+    taxaResposta: `${taxaResposta}%`,
+    taxaPendente: `${taxaPendente}%`
+  };
+}
+
+// 3. Buscar e exibir
+const metricas = await buscarMetricasPulsos(3);
+
+console.log(`
+📊 Dashboard Pulso 3
+━━━━━━━━━━━━━━━━━━━━
+Total:      ${metricas.total}
+Respondidos: ${metricas.respondidos} (${metricas.taxaResposta})
+Pendentes:   ${metricas.pendentes} (${metricas.taxaPendente})
+Vencidos:    ${metricas.vencidos}
+`);
+
+// 4. Alertar se taxa baixa
+if (parseFloat(metricas.taxaResposta) < 50) {
+  console.log('⚠️  Taxa de resposta abaixo de 50%! Considere enviar lembretes.');
+}
+```
+
+```python Python
+def buscar_metricas_pulsos(pulso_numero):
+    # 1. Contar por status
+    response = requests.get(
+        f'{BASE_URL}/items/pulsos_jovens',
+        headers=headers,
+        params={
+            'filter[pulso][_eq]': pulso_numero,
+            'aggregate[count]': 'id',
+            'groupBy[]': 'status'
+        }
+    )
+    por_status = response.json()['data']
+    
+    # 2. Calcular métricas
+    total = sum(item['count']['id'] for item in por_status)
+    respondidos = next((item['count']['id'] for item in por_status if item['status'] == 'respondido'), 0)
+    pendentes = next((item['count']['id'] for item in por_status if item['status'] == 'pendente'), 0)
+    vencidos = next((item['count']['id'] for item in por_status if item['status'] == 'vencido'), 0)
+    
+    taxa_resposta = (respondidos / total * 100) if total > 0 else 0
+    taxa_pendente = (pendentes / total * 100) if total > 0 else 0
+    
+    return {
+        'total': total,
+        'respondidos': respondidos,
+        'pendentes': pendentes,
+        'vencidos': vencidos,
+        'taxa_resposta': f"{taxa_resposta:.1f}%",
+        'taxa_pendente': f"{taxa_pendente:.1f}%"
+    }
+
+# 3. Buscar e exibir
+metricas = buscar_metricas_pulsos(3)
+
+print(f"""
+📊 Dashboard Pulso 3
+━━━━━━━━━━━━━━━━━━━━
+Total:       {metricas['total']}
+Respondidos: {metricas['respondidos']} ({metricas['taxa_resposta']})
+Pendentes:   {metricas['pendentes']} ({metricas['taxa_pendente']})
+Vencidos:    {metricas['vencidos']}
+""")
+
+# 4. Alertar se taxa baixa
+if float(metricas['taxa_resposta'].rstrip('%')) < 50:
+    print('⚠️  Taxa de resposta abaixo de 50%! Considere enviar lembretes.')
+```
+
+</CodeGroup>
+
+---
+
+## Exemplo 6: Configurar Agendamento Automático
+
+Configurar agendamento trimestral de pulsos para jovens.
+
+<CodeGroup>
+
+```typescript TypeScript
+// 1. Verificar se já existe configuração
+const configExistente = await directus.request(
+  readItems('pulsos_schedule_settings', {
+    filter: {
+      _and: [
+        { account_id: { _eq: 'uuid-da-empresa' } },
+        { profile: { _eq: 'jovens' } }
+      ]
+    }
+  })
+);
+
+if (configExistente.length > 0) {
+  // 2. Atualizar configuração existente
+  await directus.request(
+    updateItem('pulsos_schedule_settings', configExistente[0].id, {
+      enabled: true,
+      cadence_unit: 'month',
+      cadence_interval: 3, // Trimestral
+      next_pulso_date: '2024-04-01'
+    })
+  );
+  console.log('Configuração atualizada!');
+} else {
+  // 3. Criar nova configuração
+  await directus.request(
+    createItem('pulsos_schedule_settings', {
+      account_id: 'uuid-da-empresa',
+      profile: 'jovens',
+      enabled: true,
+      cadence_unit: 'month',
+      cadence_interval: 3,
+      next_pulso_date: '2024-04-01'
+    })
+  );
+  console.log('Configuração criada!');
+}
+
+// 4. Verificar configuração
+const config = await directus.request(
+  readItems('pulsos_schedule_settings', {
+    filter: {
+      _and: [
+        { account_id: { _eq: 'uuid-da-empresa' } },
+        { profile: { _eq: 'jovens' } }
+      ]
+    }
+  })
+);
+
+console.log('Agendamento configurado:', config[0]);
+```
+
+```python Python
+# 1. Verificar configuração existente
+response = requests.get(
+    f'{BASE_URL}/items/pulsos_schedule_settings',
+    headers=headers,
+    params={
+        'filter[account_id][_eq]': 'uuid-da-empresa',
+        'filter[profile][_eq]': 'jovens'
+    }
+)
+config_existente = response.json()['data']
+
+if config_existente:
+    # 2. Atualizar
+    config_id = config_existente[0]['id']
+    response = requests.patch(
+        f'{BASE_URL}/items/pulsos_schedule_settings/{config_id}',
+        headers=headers,
+        json={
+            'enabled': True,
+            'cadence_unit': 'month',
+            'cadence_interval': 3,
+            'next_pulso_date': '2024-04-01'
+        }
+    )
+    print('Configuração atualizada!')
+else:
+    # 3. Criar
+    response = requests.post(
+        f'{BASE_URL}/items/pulsos_schedule_settings',
+        headers=headers,
+        json={
+            'account_id': 'uuid-da-empresa',
+            'profile': 'jovens',
+            'enabled': True,
+            'cadence_unit': 'month',
+            'cadence_interval': 3,
+            'next_pulso_date': '2024-04-01'
+        }
+    )
+    print('Configuração criada!')
+
+print('Agendamento trimestral configurado ✓')
+```
+
+</CodeGroup>
+
+---
+
+## Recursos Adicionais
+
+<CardGroup cols={2}>
+  <Card title="API Backoffice" icon="database" href="/api-reference/backoffice/index">
+    Documentação completa da API
+  </Card>
+  <Card title="Pulsos de Jovens" icon="user" href="/api-reference/backoffice/pulsos-jovens">
+    Referência completa
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/api-reference/backoffice/pulsos-webhooks">
+    Eventos e notificações
+  </Card>
+  <Card title="Guias" icon="book" href="/guides/app-rh/pulsos-quickstart-rh">
+    Tutoriais para usuários
+  </Card>
+</CardGroup>

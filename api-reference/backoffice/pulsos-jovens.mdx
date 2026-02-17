@@ -1,0 +1,365 @@
+---
+title: "Pulsos de Jovens"
+description: "API para gerenciar pesquisas com talentos (estagiários e aprendizes)"
+---
+
+## Visão Geral
+
+A API de Pulsos de Jovens permite criar, gerenciar e consultar pesquisas preenchidas por talentos. Esses pulsos medem engajamento, satisfação e desempenho ao longo do programa.
+
+**Collection**: `pulsos_jovens`  
+**Base URL**: `/items/pulsos_jovens`
+
+## Schema
+
+### Campos Principais
+
+| Campo | Tipo | Descrição | Editável |
+|-------|------|-----------|:--------:|
+| `id` | integer | Identificador único | ❌ |
+| `pulso` | integer | Número do pulso (1-5) | ✅ |
+| `jovem_id` | integer | ID do talento | ✅ |
+| `user_id` | uuid | ID do usuário no sistema | ✅ |
+| `status` | string | Status atual | ✅ |
+| `data_aplicacao` | datetime | Data de disponibilização | ✅ |
+| `data_vencimento` | datetime | Data limite para resposta | ✅ |
+| `data_resposta` | datetime | Data em que foi respondido | ❌ |
+
+### Status Possíveis
+
+| Status | Descrição |
+|--------|-----------|
+| `agendado` | Pulso criado mas ainda não disponível |
+| `pendente` | Disponível para resposta |
+| `respondido` | Já foi respondido pelo talento |
+| `vencido` | Prazo expirado sem resposta |
+
+### Campos de Avaliação
+
+#### Satisfação (Escala 0-10)
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `nps_leapy` | integer | Satisfação com a Leapy (0-10) |
+| `nps_empresa` | integer | Satisfação com a empresa (0-10) |
+| `relacao_com_a_lideranca` | integer | Qualidade da relação (0-10) |
+| `ambiente_da_empresa` | integer | Avaliação do ambiente (0-10) |
+| `avaliacao_tarefas_e_desafios_dia_a_dia` | integer | Qualidade das tarefas (0-10) |
+| `avaliacao_apoio_empresa_e_lideranca_para_desenvolvimento` | integer | Suporte ao desenvolvimento (0-10) |
+
+#### Perguntas Sim/Não
+
+| Campo | Valores |
+|-------|---------|
+| `sei_o_que_e_esperado_de_mim_na_empresa` | "Sim", "Não" |
+| `sinto_que_sou_desafiado_todos_os_dias` | "Sim", "Não" |
+| `estou_satisfeito_com_a_minha_area` | "Sim", "Não" |
+| `minha_lideranca_se_preocupa_com_meu_desenvolvimento` | "Sim", "Não" |
+| `oportunidade_de_aplicar_o_que_aprendo_com_a_leapy` | "Sim", "Não" |
+| `consigo_gerar_valor_para_o_meu_time` | "Sim", "Não" |
+| `sinto_apoio_da_lideranca` | "Sim", "Não" |
+| `sinto_que_estou_aprendendo` | "Sim", "Não" |
+
+#### Efetivação e Carreira
+
+| Campo | Descrição |
+|-------|-----------|
+| `quanto_voce_quer_ser_efetivado` | Desejo de efetivação (0-10) |
+| `areas_de_interesse_em_caso_de_efetivacao` | Áreas de interesse (texto) |
+| `nivel_de_interesse_em_continuar_na_area_que_esta_atuando` | "Alto", "Médio", "Baixo" |
+| `buscando_emprego` | Se está buscando outras oportunidades (texto) |
+
+#### Feedbacks
+
+| Campo | Descrição |
+|-------|-----------|
+| `feedback_para_leapy` | Feedback sobre a Leapy (texto) |
+| `depoimento_para_leapy` | Depoimento geral (texto) |
+| `depoimento_para_empresa` | Depoimento para a empresa (texto) |
+
+## Endpoints
+
+### Listar Pulsos
+
+```bash
+GET /items/pulsos_jovens
+```
+
+**Exemplo - Buscar pulsos pendentes:**
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens?filter[status][_eq]=pendente&limit=20" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://backoffice.leapy.com/items/pulsos_jovens?filter[status][_eq]=pendente&limit=20',
+  {
+    headers: {
+      'Authorization': 'Bearer SEU_TOKEN'
+    }
+  }
+);
+
+const { data } = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://backoffice.leapy.com/items/pulsos_jovens',
+    headers={'Authorization': 'Bearer SEU_TOKEN'},
+    params={
+        'filter[status][_eq]': 'pendente',
+        'limit': 20
+    }
+)
+
+data = response.json()['data']
+```
+
+</CodeGroup>
+
+**Resposta:**
+
+```json
+{
+  "data": [
+    {
+      "id": 12345,
+      "pulso": 3,
+      "jovem_id": 789,
+      "status": "pendente",
+      "data_aplicacao": "2024-02-01T09:00:00Z",
+      "data_vencimento": "2024-02-08T23:59:59Z",
+      "nps_leapy": null,
+      "nps_empresa": null
+    }
+  ]
+}
+```
+
+### Obter Pulso Específico
+
+```bash
+GET /items/pulsos_jovens/{id}
+```
+
+**Exemplo com relacionamentos:**
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://backoffice.leapy.com/items/pulsos_jovens/12345?fields=*,jovem_id.nome,jovem_id.email" \
+  -H "Authorization: Bearer SEU_TOKEN"
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://backoffice.leapy.com/items/pulsos_jovens/12345?fields=*,jovem_id.nome,jovem_id.email',
+  {
+    headers: {
+      'Authorization': 'Bearer SEU_TOKEN'
+    }
+  }
+);
+
+const { data } = await response.json();
+```
+
+</CodeGroup>
+
+### Criar Pulso
+
+```bash
+POST /items/pulsos_jovens
+```
+
+<CodeGroup>
+
+```json JSON
+{
+  "jovem_id": 789,
+  "pulso": 3,
+  "status": "agendado",
+  "data_aplicacao": "2024-02-15T09:00:00Z",
+  "data_vencimento": "2024-02-22T23:59:59Z"
+}
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://backoffice.leapy.com/items/pulsos_jovens',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer SEU_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      jovem_id: 789,
+      pulso: 3,
+      status: 'agendado',
+      data_aplicacao: '2024-02-15T09:00:00Z',
+      data_vencimento: '2024-02-22T23:59:59Z'
+    })
+  }
+);
+
+const { data } = await response.json();
+```
+
+</CodeGroup>
+
+### Atualizar Pulso
+
+```bash
+PATCH /items/pulsos_jovens/{id}
+```
+
+**Exemplo - Submeter respostas:**
+
+<CodeGroup>
+
+```bash cURL
+curl -X PATCH "https://backoffice.leapy.com/items/pulsos_jovens/12345" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "respondido",
+    "nps_leapy": 9,
+    "nps_empresa": 8,
+    "feedback_para_leapy": "Ótima experiência!",
+    "data_resposta": "2024-02-03T14:30:00Z"
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch(
+  'https://backoffice.leapy.com/items/pulsos_jovens/12345',
+  {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer SEU_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      status: 'respondido',
+      nps_leapy: 9,
+      nps_empresa: 8,
+      feedback_para_leapy: 'Ótima experiência!',
+      data_resposta: new Date().toISOString()
+    })
+  }
+);
+```
+
+</CodeGroup>
+
+## Filtros Avançados
+
+### Buscar Pulsos Vencidos
+
+```bash
+GET /items/pulsos_jovens?filter[status][_eq]=vencido&filter[data_vencimento][_lt]=$NOW
+```
+
+### Buscar por Range de Datas
+
+```bash
+GET /items/pulsos_jovens?filter[data_aplicacao][_between]=2024-01-01,2024-01-31
+```
+
+### Buscar Pulsos com NPS Alto
+
+```bash
+GET /items/pulsos_jovens?filter[status][_eq]=respondido&filter[nps_leapy][_gte]=9
+```
+
+## Agregações
+
+### Contar Pulsos por Status
+
+```bash
+GET /items/pulsos_jovens?aggregate[count]=id&groupBy[]=status
+```
+
+**Resposta:**
+
+```json
+{
+  "data": [
+    { "status": "pendente", "count": { "id": 45 } },
+    { "status": "respondido", "count": { "id": 120 } },
+    { "status": "vencido", "count": { "id": 8 } }
+  ]
+}
+```
+
+### Calcular NPS Médio
+
+```bash
+GET /items/pulsos_jovens?aggregate[avg]=nps_leapy,nps_empresa&filter[status][_eq]=respondido
+```
+
+## Eventos Relacionados
+
+<Tip>
+  Consulte a [documentação de Webhooks](/api-reference/backoffice/pulsos-webhooks) para detalhes sobre eventos do sistema de Pulsos.
+</Tip>
+
+Eventos principais:
+- `backoffice/jovem.created` - Cria 5 pulsos automaticamente
+- `backoffice/pulsos-jovens.update-to-pendente` - Pulso fica pendente
+- `backoffice/pulsos-jovens.update-to-vencidos` - Pulso vence
+- `backoffice/pulsos_jovens/lembrete-to-jovens.send` - Lembrete enviado
+
+## Boas Práticas
+
+### Validação de Status
+
+Transições de status permitidas:
+
+```
+agendado → pendente → respondido
+agendado → pendente → vencido
+```
+
+### Datas
+
+- `data_aplicacao` deve ser anterior a `data_vencimento`
+- Mínimo recomendado: 7 dias entre aplicação e vencimento
+- Sempre use timezone UTC
+
+### Campos Obrigatórios
+
+```json
+{
+  "jovem_id": "obrigatório",
+  "pulso": "obrigatório (1-5)",
+  "status": "obrigatório",
+  "data_aplicacao": "obrigatório",
+  "data_vencimento": "obrigatório"
+}
+```
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Pulsos de Lideranças" icon="users" href="/api-reference/backoffice/pulsos-liderancas">
+    Avaliações de lideranças
+  </Card>
+  <Card title="Configuração" icon="gear" href="/api-reference/backoffice/pulsos-configuracao">
+    Agendamento e perguntas
+  </Card>
+  <Card title="Exemplos" icon="code" href="/api-reference/backoffice/pulsos-examples">
+    Casos de uso práticos
+  </Card>
+  <Card title="Guia do RH" icon="book" href="/guides/app-rh/pulsos-quickstart-rh">
+    Tutorial para usuários
+  </Card>
+</CardGroup>

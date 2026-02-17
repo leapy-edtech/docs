@@ -1,0 +1,325 @@
+---
+title: "Visualizar e Editar Pulsos"
+description: "Como gerenciar, filtrar e editar pulsos no App RH"
+---
+
+## Visão Geral
+
+A interface de gerenciamento de pulsos permite visualizar, filtrar, editar e enviar lembretes de forma eficiente.
+
+### Onde Acessar
+
+| Tipo de Pulso | Rota | Descrição |
+|---------------|------|-----------|
+| **Pulsos de Talentos** | `/pulsos/talentos` | Pulsos respondidos por jovens |
+| **Pulsos de Lideranças** | `/pulsos/lideranca` | Avaliações das lideranças |
+
+---
+
+## Interface de Pulsos de Talentos
+
+### Visão Geral da Tabela
+
+A tabela exibe as seguintes colunas:
+
+| Coluna | Descrição |
+|--------|-----------|
+| **Nome** | Nome do talento |
+| **Email** | Email de contato |
+| **Senioridade** | Júnior, Pleno, Sênior |
+| **Status Formação** | Status acadêmico |
+| **Status** | Pendente / Respondido / Vencido |
+| **Data Disparo** | Quando ficou disponível |
+| **Data Resposta** | Quando foi respondido |
+| **Prazo** | Data de vencimento |
+| **NPS Leapy** | Nota 0-10 |
+| **NPS Empresa** | Nota 0-10 |
+
+### Status e Cores
+
+| Status | Cor | Significado |
+|--------|-----|-------------|
+| 🟢 **Respondido** | Verde | Completo, dados coletados |
+| 🟡 **Pendente** | Amarelo | Aguardando resposta |
+| 🔴 **Vencido** | Vermelho | Prazo expirado sem resposta |
+| 🔵 **Agendado** | Azul | Programado, ainda não disponível |
+
+---
+
+## Filtros Disponíveis
+
+### Filtrar por Status
+
+1. Use o dropdown **"Status"** no topo da tabela
+2. Selecione: Todos / Pendentes / Respondidos / Vencidos
+3. A tabela atualiza automaticamente
+
+**Cenários comuns:**
+
+- **Ver pendentes**: Para acompanhar quem ainda precisa responder
+- **Ver vencidos**: Para identificar quem precisa prazo estendido
+- **Ver respondidos**: Para analisar dados coletados
+
+### Filtrar por Senioridade
+
+1. Use o dropdown **"Senioridade"**
+2. Opções: Todos / Júnior / Pleno / Sênior
+3. Útil para análise comparativa
+
+### Filtrar por Data
+
+1. Use o seletor **"Período"**
+2. Escolha range de datas
+3. Filtra por `data_aplicacao`
+
+### Buscar por Nome/Email
+
+1. Use a barra de busca no topo
+2. Digite nome ou email do talento
+3. Busca em tempo real
+
+---
+
+## Editar Pulsos
+
+### Quando Editar
+
+Você pode precisar editar pulsos para:
+
+<CardGroup cols={2}>
+  <Card title="Estender Prazo" icon="calendar-plus">
+    Pulso venceu mas talento estava ausente
+  </Card>
+  <Card title="Reabrir Pulso" icon="rotate">
+    Erro na resposta, precisa refazer
+  </Card>
+  <Card title="Ajustar Data" icon="clock">
+    Mudança de cronograma
+  </Card>
+  <Card title="Corrigir Status" icon="pen">
+    Inconsistência no sistema
+  </Card>
+</CardGroup>
+
+### Como Editar
+
+<Steps>
+  <Step title="Selecionar Pulsos">
+    Marque os checkboxes dos pulsos que quer editar
+  </Step>
+  
+  <Step title="Clicar em Editar">
+    Botão **"Editar Selecionados"** no topo da tabela
+  </Step>
+  
+  <Step title="Escolher Nova Data">
+    Selecione a nova data de vencimento
+  </Step>
+  
+  <Step title="Confirmar">
+    O sistema atualizará os pulsos de:
+    - Vencido → Pendente
+    - Respondido → Pendente (raro, cuidado!)
+  </Step>
+</Steps>
+
+<Warning>
+  **Atenção**: Alterar um pulso "respondido" para "pendente" **apagará as respostas**. Use apenas se realmente necessário.
+</Warning>
+
+### Validações
+
+O sistema valida:
+
+- ✅ Nova data deve ser futura
+- ✅ Máximo de 15 dias a partir de hoje
+- ✅ Não pode ser data passada
+- ✅ Deve ser dia útil
+
+### Exemplo de Uso
+
+**Cenário**: Talento estava de férias quando pulso foi aplicado
+
+1. Filtre por **Status: Vencido**
+2. Busque o nome do talento
+3. Selecione o pulso
+4. Clique em **Editar**
+5. Defina nova data: **+7 dias**
+6. Confirme
+
+O sistema:
+- Muda status de `vencido` para `pendente`
+- Atualiza `data_vencimento`
+- Envia nova notificação automaticamente
+
+---
+
+## Enviar Lembretes
+
+### Lembretes Automáticos
+
+O sistema envia automaticamente:
+
+- **Dia 3**: Primeiro lembrete
+- **Dia 6**: Segundo lembrete
+- **Dia 7**: Último dia (lembrete final)
+
+### Enviar Lembrete Manual
+
+Quando precisar reforçar:
+
+<Steps>
+  <Step title="Selecionar Pendentes">
+    Filtre por **Status: Pendente**
+  </Step>
+  
+  <Step title="Selecionar Talentos">
+    Marque os checkboxes dos talentos
+  </Step>
+  
+  <Step title="Enviar Lembrete">
+    Clique em **"Enviar Lembrete"**
+  </Step>
+  
+  <Step title="Confirmação">
+    Sistema dispara emails via Inngest
+  </Step>
+</Steps>
+
+<Tip>
+  Evite enviar lembretes manuais com muita frequência. Pode gerar fadiga e diminuir taxa de resposta.
+</Tip>
+
+### Limite de Lembretes
+
+- **Máximo**: 1 lembrete manual por dia por talento
+- **Recomendado**: Apenas em casos específicos (ex: último dia, taxa muito baixa)
+
+---
+
+## Exportar Dados
+
+### Formatos Disponíveis
+
+<CardGroup cols={2}>
+  <Card title="CSV" icon="file-csv">
+    Para análise em Excel/Sheets
+  </Card>
+  <Card title="Excel" icon="file-excel">
+    Com formatação e múltiplas abas
+  </Card>
+</CardGroup>
+
+### Como Exportar
+
+1. **Aplique filtros** desejados (status, período, etc)
+2. Clique em **"Exportar"** no topo direito
+3. Escolha o formato
+4. O arquivo será baixado
+
+### Dados Incluídos na Exportação
+
+- Nome e email do talento
+- Status do pulso
+- Todas as respostas (escalas e textos)
+- Datas (aplicação, resposta, vencimento)
+- Dados demográficos (área, senioridade, etc)
+
+<Note>
+  A exportação respeita os filtros aplicados. Se filtrou por "Respondidos", apenas esses serão exportados.
+</Note>
+
+---
+
+## Visualização Detalhada
+
+### Ver Respostas de um Talento
+
+1. Clique no **nome do talento** na tabela
+2. Modal abre com todas as respostas
+3. Você pode ver:
+   - Todas as perguntas e respostas
+   - NPS e escalas
+   - Feedbacks em texto
+   - Histórico (se já respondeu pulsos anteriores)
+
+### Comparar Pulsos
+
+Veja a evolução de um talento:
+
+1. Abra as respostas do talento
+2. Na aba **"Histórico"**, veja todos os pulsos
+3. Compare NPS e métricas entre pulsos
+
+**Exemplo de visualização:**
+
+```
+João Silva - Histórico de Pulsos
+
+Pulso 1 (Jan/24): NPS Leapy: 7  | NPS Empresa: 8  | Status: ✅
+Pulso 2 (Abr/24): NPS Leapy: 8  | NPS Empresa: 8  | Status: ✅
+Pulso 3 (Jul/24): NPS Leapy: 9  | NPS Empresa: 9  | Status: ✅
+
+Tendência: 📈 Melhora progressiva
+```
+
+---
+
+## Ações em Lote
+
+### Selecionar Múltiplos Pulsos
+
+Use checkboxes para:
+
+- ✅ Editar prazo de vários pulsos de uma vez
+- ✅ Enviar lembrete para grupo específico
+- ✅ Exportar subconjunto de dados
+
+### Atalhos Úteis
+
+| Atalho | Ação |
+|--------|------|
+| **Ctrl/Cmd + A** | Selecionar todos visíveis |
+| **Shift + Click** | Selecionar range |
+| **Click** | Selecionar individual |
+
+---
+
+## Boas Práticas
+
+### Monitoramento Regular
+
+<Tip>
+  Acesse a tabela de pulsos **semanalmente** para acompanhar taxa de resposta e enviar lembretes quando necessário.
+</Tip>
+
+### Priorizar Vencidos Recentes
+
+Talentos com pulsos vencidos há **menos de 7 dias** têm maior chance de responder se o prazo for estendido.
+
+### Comunicação Proativa
+
+Quando a taxa de resposta estiver abaixo de 50% a 3 dias do vencimento:
+
+1. Envie lembrete manual
+2. Considere comunicação via WhatsApp ou pessoalmente
+3. Verifique se há problemas técnicos de acesso
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Analisar Resultados" icon="chart-pie" href="/guides/app-rh/pulsos-analisar-resultados">
+    Interpretar dashboards e métricas
+  </Card>
+  <Card title="Configurar Agendamento" icon="gear" href="/guides/app-rh/pulsos-configurar-agendamento">
+    Ajustar cadência e datas
+  </Card>
+  <Card title="FAQ" icon="question" href="/guides/app-rh/pulsos-faq">
+    Perguntas frequentes
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/backoffice/pulsos-troubleshooting">
+    Resolver problemas técnicos
+  </Card>
+</CardGroup>

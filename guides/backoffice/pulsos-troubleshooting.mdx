@@ -1,0 +1,482 @@
+---
+title: "Troubleshooting: Pulsos"
+description: "Guia para diagnosticar e resolver problemas técnicos no sistema de Pulsos"
+---
+
+## Visão Geral
+
+Este guia ajuda a diagnosticar e resolver problemas técnicos no sistema de Pulsos. Organizado por sintoma → diagnóstico → solução.
+
+<Note>
+  Para operações rotineiras, consulte o [Guia de Operações](/guides/backoffice/pulsos-operacoes).
+</Note>
+
+---
+
+## Problemas de Criação
+
+### Pulsos não foram criados na data esperada
+
+**Sintoma:** Job de criação deveria ter rodado, mas nenhum pulso foi criado.
+
+**Diagnóstico:**
+
+<Steps>
+  <Step title="Verificar Agendamento">
+    Acesse Directus > `pulsos_schedule_settings`
+    
+    ```sql
+    SELECT * FROM pulsos_schedule_settings
+    WHERE account_id = 'uuid-da-empresa'
+      AND profile = 'jovens';
+    ```
+    
+    Verifique:
+    - `enabled` = `true`?
+    - `next_pulso_date` está correto?
+    - `cadence_unit` e `cadence_interval` fazem sentido?
+  </Step>
+  
+  <Step title="Verificar Logs do Job">
+    Inngest Dashboard > Functions > `createPulsosJovens` > Runs
+    
+    Filtrar por data esperada e verificar:
+    - Job executou?
+    - Qual foi o resultado?
+    - Há erro nos logs?
+  </Step>
+  
+  <Step title="Verificar Talentos Ativos">
+    ```sql
+    SELECT COUNT(*) FROM talents
+    WHERE account_id = 'uuid-da-empresa'
+      AND status = 'active';
+    ```
+    
+    Se retornar 0, não há talentos para criar pulsos.
+  </Step>
+</Steps>
+
+**Soluções:**
+
+| Causa | Solução |
+|-------|---------|
+| `enabled: false` | Ativar: `UPDATE pulsos_schedule_settings SET enabled = true WHERE id = 'uuid'` |
+| Data incorreta | Corrigir: `UPDATE pulsos_schedule_settings SET next_pulso_date = '2024-04-01' WHERE id = 'uuid'` |
+| Job falhou | Ver logs, corrigir erro, re-executar manualmente |
+| Sem talentos ativos | Verificar cadastro de talentos |
+
+---
+
+### Pulsos criados mas status está "agendado"
+
+**Sintoma:** Pulsos existem na tabela mas não aparecem para os usuários (status = `agendado`).
+
+**Diagnóstico:**
+
+```sql
+SELECT id, jovem_id, status, data_aplicacao, data_vencimento
+FROM pulsos_jovens
+WHERE status = 'agendado'
+  AND data_aplicacao < NOW();
+```
+
+Se retornar registros, o job de atualização de status não rodou.
+
+**Solução:**
+
+1. **Verificar job**: Inngest > `updateStatusPulsosJovensParaPendentes`
+2. **Executar manualmente**:
+
+```json
+{
+  "name": "backoffice/pulsos-jovens.update-to-pendente",
+  "data": {
+    "pulso_ids": [12345, 12346, 12347]
+  }
+}
+```
+
+3. **Atualizar diretamente** (se urgente):
+
+```sql
+UPDATE pulsos_jovens
+SET status = 'pendente'
+WHERE status = 'agendado'
+  AND data_aplicacao <= NOW();
+```
+
+---
+
+## Problemas de Notificação
+
+### Email não foi enviado
+
+**Sintoma:** Pulso criado e status correto, mas talento não recebeu email.
+
+**Diagnóstico:**
+
+<Steps>
+  <Step title="Verificar Evento Inngest">
+    Inngest > Events > Buscar:
+    ```
+    Event: backoffice/pulsos_jovens/lembrete-to-jovens.send
+    ```
+    
+    Evento foi disparado?
+  </Step>
+  
+  <Step title="Verificar Job de Email">
+    Inngest > `sendPulsosLembretetoJovens` > Runs
+    
+    - Job executou?
+    - Status: Success ou Failed?
+    - Payload correto?
+  </Step>
+  
+  <Step title="Verificar Resend">
+    Dashboard do Resend: https://resend.com/emails
+    
+    - Email aparece lá?
+    - Status: Delivered / Bounced / Queued?
+    - Se bounced: motivo?
+  </Step>
+  
+  <Step title="Verificar Email do Destinatário">
+    ```sql
+    SELECT email FROM talents WHERE id = 789;
+    ```
+    
+    Email está correto? Formato válido?
+  </Step>
+</Steps>
+
+**Soluções:**
+
+| Causa | Solução |
+|-------|---------|
+| Evento não disparado | Disparar manualmente via Inngest Dashboard |
+| Job falhou | Ver erro nos logs, corrigir, re-executar |
+| Email bounced | Atualizar email do talento, reenviar |
+| Email em spam | Orientar usuário a verificar spam, whitelist `noreply@leapy.com` |
+| Template não encontrado | Verificar se template existe no Resend |
+
+### Lembrete enviado múltiplas vezes
+
+**Sintoma:** Talento recebeu 3-4 emails de lembrete no mesmo dia.
+
+**Diagnóstico:**
+
+Inngest > `sendPulsosLembretetoJovens` > Runs
+
+Filtrar por data e verificar:
+- Quantas execuções ocorreram?
+- Mesmo `pulso_id` foi processado múltiplas vezes?
+
+**Causas Possíveis:**
+
+1. **Job retriggered manualmente** múltiplas vezes
+2. **Retries automáticos** por falha temporária
+3. **Bug** no código de envio
+
+**Solução:**
+
+- Se foi retrigger manual: não há problema, evitar no futuro
+- Se foi retry: investigar causa da falha inicial
+- Se foi bug: reportar ao time de dev
+
+---
+
+## Problemas de Status
+
+### Status não atualiza para "vencido"
+
+**Sintoma:** Prazo passou mas pulso ainda está "pendente".
+
+**Diagnóstico:**
+
+```sql
+SELECT id, status, data_vencimento
+FROM pulsos_jovens
+WHERE status = 'pendente'
+  AND data_vencimento < NOW();
+```
+
+Se retornar registros, o job de vencimento não está rodando.
+
+**Solução:**
+
+1. **Verificar cron job**: Inngest > `updateStatusPulsosJovensParaVencidos`
+2. **Verificar agendamento**: Deve rodar a cada hora
+3. **Executar manualmente**:
+
+```json
+{
+  "name": "backoffice/pulsos-jovens.update-to-vencidos",
+  "data": {
+    "pulso_ids": [12345, 12346]
+  }
+}
+```
+
+4. **Hotfix** (se urgente):
+
+```sql
+UPDATE pulsos_jovens
+SET status = 'vencido'
+WHERE status = 'pendente'
+  AND data_vencimento < NOW();
+```
+
+---
+
+### Pulso "respondido" mas sem `data_resposta`
+
+**Sintoma:** Inconsistência: `status = 'respondido'` mas `data_resposta = NULL`.
+
+**Diagnóstico:**
+
+```sql
+SELECT id, jovem_id, status, data_resposta
+FROM pulsos_jovens
+WHERE status = 'respondido'
+  AND data_resposta IS NULL;
+```
+
+**Solução:**
+
+Corrigir manualmente:
+
+```sql
+UPDATE pulsos_jovens
+SET data_resposta = updated_at
+WHERE status = 'respondido'
+  AND data_resposta IS NULL;
+```
+
+<Warning>
+  Isso é um bug. Reporte ao time de desenvolvimento com IDs afetados.
+</Warning>
+
+---
+
+## Problemas de Performance
+
+### Dashboard demora para carregar
+
+**Sintoma:** Página de pulsos leva > 10s para carregar.
+
+**Diagnóstico:**
+
+<Steps>
+  <Step title="Ver Queries Lentas">
+    Supabase Dashboard > Logs > Slow Queries
+    
+    Identifique queries > 5s relacionadas a pulsos.
+  </Step>
+  
+  <Step title="Verificar Quantidade de Dados">
+    ```sql
+    SELECT COUNT(*) FROM pulsos_jovens;
+    ```
+    
+    Se > 100.000: pode precisar de otimização
+  </Step>
+  
+  <Step title="Verificar Indexes">
+    ```sql
+    SELECT indexname, indexdef
+    FROM pg_indexes
+    WHERE tablename = 'pulsos_jovens';
+    ```
+  </Step>
+</Steps>
+
+**Soluções:**
+
+1. **Adicionar índices** (se faltando):
+
+```sql
+CREATE INDEX idx_pulsos_jovens_status ON pulsos_jovens(status);
+CREATE INDEX idx_pulsos_jovens_jovem_id ON pulsos_jovens(jovem_id);
+CREATE INDEX idx_pulsos_jovens_pulso ON pulsos_jovens(pulso);
+CREATE INDEX idx_pulsos_jovens_data_aplicacao ON pulsos_jovens(data_aplicacao);
+```
+
+2. **Usar paginação**: Limitar resultados a 50-100 por página
+3. **Cache**: Implementar cache de métricas agregadas
+
+---
+
+### Job timeout (> 5min)
+
+**Sintoma:** Job no Inngest fica "Running" por muito tempo e eventualmente falha com timeout.
+
+**Diagnóstico:**
+
+Inngest > Runs > Ver duração e logs
+
+Identificar qual step está demorando:
+- Leitura do banco?
+- Envio de emails?
+- Processamento de dados?
+
+**Soluções:**
+
+| Causa | Solução |
+|-------|---------|
+| Muitos emails de uma vez | Implementar batching (50-100 por vez) |
+| Query lenta | Otimizar query, adicionar índice |
+| API externa lenta (Resend) | Aumentar timeout, implementar retry |
+| Loop infinito | Bug, corrigir código |
+
+---
+
+## Problemas de Dados
+
+### Dados duplicados
+
+**Sintoma:** Talento tem 2+ pulsos do mesmo número.
+
+**Diagnóstico:**
+
+```sql
+SELECT jovem_id, pulso, COUNT(*)
+FROM pulsos_jovens
+GROUP BY jovem_id, pulso
+HAVING COUNT(*) > 1;
+```
+
+**Solução:**
+
+1. **Identificar correto**: Qual pulso manter? (mais recente? com respostas?)
+2. **Deletar duplicatas**:
+
+```sql
+DELETE FROM pulsos_jovens
+WHERE id IN (
+  SELECT id FROM (
+    SELECT id,
+      ROW_NUMBER() OVER (PARTITION BY jovem_id, pulso ORDER BY created_at DESC) as rn
+    FROM pulsos_jovens
+  ) t
+  WHERE rn > 1
+);
+```
+
+3. **Prevenir recorrência**: Adicionar constraint unique:
+
+```sql
+CREATE UNIQUE INDEX idx_pulsos_jovens_unique
+ON pulsos_jovens(jovem_id, pulso);
+```
+
+---
+
+### Respostas perdidas
+
+**Sintoma:** Talento diz que respondeu, mas não há registro no banco.
+
+**Diagnóstico:**
+
+<Steps>
+  <Step title="Verificar histórico">
+    ```sql
+    SELECT * FROM pulsos_jovens
+    WHERE jovem_id = 789
+      AND pulso = 3
+    ORDER BY updated_at DESC;
+    ```
+  </Step>
+  
+  <Step title="Verificar logs de API">
+    Buscar logs da requisição POST/PATCH no momento que usuário diz ter enviado
+  </Step>
+  
+  <Step title="Verificar transações">
+    Se houve rollback de transação, dados podem ter sido perdidos
+  </Step>
+</Steps>
+
+**Possíveis Causas:**
+
+- Timeout durante submit (usuário não viu confirmação)
+- Erro de validação (formulário não enviou)
+- Bug no código (dados não foram salvos)
+- Usuário lembra errado (realmente enviou?)
+
+**Solução:**
+
+Caso confirmado que dados foram perdidos:
+
+1. Reabrir pulso para o talento
+2. Pedir que responda novamente
+3. Investigar logs para entender causa raiz
+4. Implementar logging mais detalhado
+
+---
+
+## Logs e Monitoramento
+
+### Onde Encontrar Logs
+
+| Sistema | URL | O que ver |
+|---------|-----|-----------|
+| **Inngest** | app.inngest.com | Jobs, eventos, erros |
+| **Resend** | resend.com/emails | Envio de emails |
+| **Supabase** | app.supabase.com | Queries, slow queries |
+| **Directus** | backoffice.leapy.com/admin/settings/activity-log | Ações de usuários |
+
+### Filtros Úteis
+
+**Inngest:**
+- Function = `createPulsosJovens`
+- Status = `failed`
+- Date range = últimas 24h
+
+**Supabase Slow Queries:**
+- Duration > 5s
+- Table = `pulsos_jovens`
+
+---
+
+## Contato de Emergência
+
+Para problemas críticos que não consegue resolver:
+
+<CardGroup cols={2}>
+  <Card title="Time de Dev" icon="code">
+    Slack: #eng-pulsos  
+    Email: dev@leapy.com
+  </Card>
+  <Card title="Suporte Infraestrutura" icon="server">
+    Slack: #infra  
+    Email: infra@leapy.com
+  </Card>
+</CardGroup>
+
+**Quando escalar:**
+
+- 🚨 Sistema totalmente fora do ar (> 30min)
+- 🚨 Perda de dados confirmada
+- 🚨 Bug crítico afetando > 100 usuários
+- 🚨 Job crítico falhando repetidamente
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Operações" icon="gears" href="/guides/backoffice/pulsos-operacoes">
+    Guia operacional completo
+  </Card>
+  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+    Detalhes técnicos dos jobs
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+    Documentação de API
+  </Card>
+  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+    Estrutura do banco
+  </Card>
+</CardGroup>

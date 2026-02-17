@@ -1,90 +1,327 @@
 ---
 title: "Integrações - Pulsos"
-description: "Integrações e conexões do módulo de Pulsos com outros sistemas"
+description: "Integrações e conexões do sistema de Pulsos com serviços externos e internos"
+---
+
+## Visão Geral
+
+O sistema de Pulsos se integra com múltiplos serviços para criar, notificar e processar pesquisas automaticamente.
+
+```mermaid
+flowchart LR
+    Directus[Directus API] --> Inngest[Inngest Jobs]
+    Inngest --> Resend[Resend Email]
+    Inngest --> Agent[Agent WhatsApp]
+    Inngest --> Supabase[(Supabase PostgreSQL)]
+    
+    Frontend[App RH Next.js] --> Directus
+    Directus --> Supabase
+```
+
+---
+
+## Integrações Externas
+
+### 1. Inngest (Jobs e Eventos)
+
+**URL**: https://app.inngest.com  
+**Propósito**: Orquestração de jobs automáticos e eventos assíncronos
+
+**15 Jobs Ativos**:
+
+<CardGroup cols={3}>
+  <Card title="Criação" icon="plus">
+    • createPulsosJovens  
+    • createPulsosLiderancas  
+    • processaPulsos
+  </Card>
+  <Card title="Status" icon="rotate">
+    • updateStatusParaPendentes  
+    • updateStatusParaVencidos  
+    • updateStatusLiderancas
+  </Card>
+  <Card title="Notificações" icon="envelope">
+    • sendLembreteJovens  
+    • sendLembreteLiderancas  
+    • sendLembreteRH  
+    • sendLiberacoes (3x)
+  </Card>
+</CardGroup>
+
+**Eventos Disparados**:
+
+- `backoffice/jovem.created` - Cria 5 pulsos para jovem e liderança
+- `backoffice/pulsos.change_status` - Atualiza status de pulsos
+- `backoffice/pulsos_jovens/lembrete-to-jovens.send` - Envia lembretes
+- `backoffice/pulsos_rh/liberacao-to-rh.send` - Notifica liberação
+
+<Tip>
+  Consulte a [documentação completa de Jobs](/documentation/domains/pulses/jobs-inngest) para detalhes de cada job.
+</Tip>
+
+---
+
+### 2. Resend (Email)
+
+**URL**: https://resend.com  
+**Propósito**: Envio de notificações e lembretes por email
+
+**9 Templates Ativos**:
+
+| Template | Uso | Destinatário |
+|----------|-----|--------------|
+| `pulsos-lembrete-jovens` | Lembrete de pulso pendente | Talentos |
+| `pulsos-lembrete-liderancas` | Lembrete de avaliação | Lideranças |
+| `pulsos-lembrete-jovens-to-rh` | Status de jovens | RH |
+| `pulsos-lembrete-liderancas-to-rh` | Status de lideranças | RH |
+| `pulsos-liberacao-jovens-to-rh` | Novo pulso criado | RH |
+| `pulsos-liberacao-liderancas-to-rh` | Novo pulso criado | RH |
+| `pulsos-liberacao-rh-to-rh` | Novo pulso de RH | RH |
+| `pulsos-lembrete-rh-to-rh` | Lembrete pulso RH | RH |
+| `pulsos-notificacao-abertura` | Pulso disponível | Todos |
+
+**Fluxo de Envio**:
+
+```mermaid
+sequenceDiagram
+    participant Job as Inngest Job
+    participant Event as emails/resend.send
+    participant Resend as Resend API
+    participant User as Destinatário
+    
+    Job->>Event: Dispara evento com template e dados
+    Event->>Resend: POST /emails com template_id
+    Resend->>User: Entrega email
+    Resend-->>Event: Confirmação de envio
+```
+
+**Tratamento de Erros**:
+
+- **Bounce**: Email inválido ou caixa cheia
+- **Retry**: 3 tentativas com exponential backoff
+- **Fallback**: Notificação via WhatsApp (Agent System)
+
+---
+
+### 3. Agent System (WhatsApp)
+
+**Propósito**: Notificações via WhatsApp como canal alternativo
+
+**Quando é usado**:
+
+- Email bounced (não entregue)
+- Taxa de resposta < 30% após 5 dias
+- Lembrete final (último dia de prazo)
+
+**Mensagens Enviadas**:
+
+```
+🔔 Leapy: Você tem um pulso pendente!
+
+Olá {{nome}}, lembre-se de responder o Pulso {{numero}} até {{data_vencimento}}.
+
+Acesse: {{link}}
+```
+
+**Integração**:
+
+```typescript
+// Inngest dispara para Agent System
+await step.run("send-whatsapp", async () => {
+  await agentSystem.sendMessage({
+    phone: talent.phone,
+    template: 'pulso-lembrete',
+    data: { nome, pulso_numero, link }
+  });
+});
+```
+
 ---
 
 ## Integrações Internas
 
-### Módulo de Talentos
+### Directus (Backend)
 
-O módulo de Pulsos consome dados do módulo de Talentos para:
+**Papel**: API REST/GraphQL para acesso aos dados
 
-- **Destinatários**: Busca lista de talentos elegíveis
-- **Segmentação**: Utiliza atributos para filtros (área, cargo, etc)
-- **Identificação**: Vincula respostas ao perfil do talento
+**Collections Usadas**:
 
-### Módulo de Insights
+- `pulsos_jovens` - Respostas dos talentos
+- `Pulsos` - Avaliações das lideranças
+- `pulsos_rh` - Pesquisas com RH
+- `pulsos_settings` - Configuração de perguntas
+- `pulsos_schedule_settings` - Agendamento automático
 
-O módulo de Pulsos alimenta o módulo de Insights com:
+**API Endpoints**:
 
-- **Métricas agregadas**: eNPS, taxas de resposta, scores
-- **Dados históricos**: Tendências e comparativos
-- **Alertas**: Gatilhos para dashboards
+```bash
+# Listar pulsos
+GET /items/pulsos_jovens?filter[status][_eq]=pendente
 
-### Módulo Admin
+# Criar pulso
+POST /items/pulsos_jovens
 
-Integração com Admin para:
-
-- **Permissões**: Controle de acesso às funcionalidades
-- **Audit log**: Registro de ações (criação, edição, etc)
-
-## Integrações Externas
-
-### Notificações
-
-```mermaid
-flowchart LR
-    PULSE[Pulsos] --> INNGEST[Inngest]
-    INNGEST --> EMAIL[Email Service]
-    INNGEST --> PUSH[Push Notification]
-    INNGEST --> SLACK[Slack/Teams]
+# Atualizar status
+PATCH /items/pulsos_jovens/12345
 ```
 
-| Canal | Evento | Descrição |
-|-------|--------|-----------|
-| Email | `pulse.activated` | Notifica destinatários sobre novo pulso |
-| Email | `pulse.reminder` | Lembrete de pulso não respondido |
-| Push | `pulse.activated` | Notificação no app mobile |
-| Slack | `pulse.closed` | Notifica RH sobre encerramento |
+---
 
-### Webhooks
+### Supabase (Database)
 
-O módulo de Pulsos dispara webhooks para eventos importantes:
+**Propósito**: Armazenamento persistente de dados
 
-```json
-{
-  "event": "pulse.response.submitted",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "data": {
-    "pulse_id": "uuid",
-    "response_id": "uuid",
-    "is_complete": true
-  }
+**Database**: PostgreSQL 15  
+**Hosted by**: Supabase
+
+**Tables**:
+
+- 3 collections de pulsos (jovens, lideranças, RH)
+- 3 collections de configuração
+- 4 views materializadas para dashboards (charts)
+
+**Performance**:
+
+- Índices em campos críticos (status, jovem_id, data_aplicacao)
+- Views pré-calculadas para métricas
+- Connection pooling para escala
+
+---
+
+### Next.js Frontend
+
+**App**: App RH  
+**Routes**:
+
+- `/[account]/(rh)/pulsos/*` - Gerenciamento de pulsos (RH)
+- `/[account]/(talent)/pulsos-jovens/*` - Responder pulsos (Talentos)
+
+**API Routes**:
+
+```typescript
+// app/api/pulsos/editar/route.ts
+PUT /api/pulsos/editar - Editar pulsos em lote
+
+// app/api/pulsos/send-lembrete/route.ts
+POST /api/pulsos/send-lembrete - Enviar lembretes
+```
+
+**Services**:
+
+```typescript
+// src/services/pulsos.js
+export async function getPulsos(filtros) {
+  return await directus.request(readItems('pulsos_jovens', filtros));
 }
 ```
 
-**Eventos disponíveis:**
+---
 
-- `pulse.created` - Pulso criado
-- `pulse.activated` - Pulso ativado
-- `pulse.response.submitted` - Resposta enviada
-- `pulse.closed` - Pulso encerrado
+## Webhooks do Directus
 
-### Make (Automações)
+Configure webhooks em **Settings > Webhooks** para receber notificações:
 
-Cenários de automação disponíveis:
+**Eventos Disponíveis**:
+
+- `items.create` - Quando pulso é criado
+- `items.update` - Quando pulso é atualizado (ex: respondido)
+- `items.delete` - Quando pulso é deletado
+
+**Exemplo de Payload**:
+
+```json
+{
+  "event": "items.update",
+  "accountability": {
+    "user": "uuid-do-usuario",
+    "role": "uuid-do-role"
+  },
+  "payload": {
+    "id": 12345,
+    "status": "respondido",
+    "nps_leapy": 9,
+    "data_resposta": "2024-03-03T14:30:00Z"
+  },
+  "collection": "pulsos_jovens"
+}
+```
+
+---
+
+## Fluxo Completo de Integração
+
+### Criação de Pulso
+
+```mermaid
+sequenceDiagram
+    participant Cron
+    participant Inngest
+    participant Directus
+    participant DB
+    participant Resend
+    
+    Cron->>Inngest: Trigger createPulsosJovens (9h)
+    Inngest->>DB: Query pulsos_schedule_settings
+    Inngest->>DB: Query jovens ativos
+    Inngest->>Directus: POST /items/pulsos_jovens
+    Directus->>DB: INSERT registro
+    Inngest->>Inngest: Dispara evento de notificação
+    Inngest->>Resend: Envia email com template
+    Resend-->>Destinatário: Email entregue
+```
+
+### Resposta de Pulso
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant Directus
+    participant DB
+    
+    User->>Frontend: Preenche formulário
+    User->>Frontend: Clica "Enviar"
+    Frontend->>Directus: PATCH /items/pulsos_jovens/12345
+    Directus->>DB: UPDATE status, respostas, data_resposta
+    DB-->>Directus: Confirmação
+    Directus-->>Frontend: Success response
+    Frontend-->>User: Mensagem de confirmação
+```
+
+---
+
+## Monitoramento de Integrações
+
+### Health Checks
+
+| Serviço | Endpoint | Frequência |
+|---------|----------|------------|
+| Directus | `/server/health` | A cada minuto |
+| Supabase | Dashboard | Manual |
+| Inngest | Dashboard > Status | Real-time |
+| Resend | Dashboard > Delivery Rate | Diário |
+
+### Alertas Configurados
+
+- **Inngest**: Taxa de erro > 10%
+- **Resend**: Bounce rate > 5%
+- **Directus**: Response time > 2s (p95)
+
+---
+
+## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Sync com HRIS" icon="sync">
-    Sincroniza resultados com sistemas de RH externos
+  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+    Detalhes dos 15 jobs
   </Card>
-  <Card title="Alertas customizados" icon="bell">
-    Dispara alertas para condições específicas
+  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+    Documentação da API
   </Card>
-  <Card title="Exportação automática" icon="file-export">
-    Exporta relatórios periodicamente
+  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+    Estrutura de tabelas
   </Card>
-  <Card title="Integração BI" icon="chart-bar">
-    Envia dados para ferramentas de BI
+  <Card title="Troubleshooting" icon="wrench" href="/guides/backoffice/pulsos-troubleshooting">
+    Resolver problemas
   </Card>
 </CardGroup>

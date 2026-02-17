@@ -86,8 +86,25 @@ DELETE /items/{collection}/{id}
 | `talents` | Colaboradores |
 | `areas` | Áreas/departamentos |
 | `positions` | Cargos |
-| `pulses` | Pesquisas |
 | `opportunities` | Oportunidades |
+
+### Collections de Pulsos
+
+O sistema de Pulsos possui várias collections especializadas:
+
+| Collection | Descrição | Documentação |
+|------------|-----------|--------------|
+| `pulsos_jovens` | Pesquisas respondidas por talentos/jovens | [Ver detalhes](/api-reference/backoffice/pulsos-jovens) |
+| `Pulsos` | Avaliações de lideranças sobre liderados | [Ver detalhes](/api-reference/backoffice/pulsos-liderancas) |
+| `pulsos_rh` | Pesquisas com time de RH | [Ver detalhes](/api-reference/backoffice/pulsos-rh) |
+| `pulsos_liderancas_avaliacao_leapy` | Avaliações de lideranças sobre a Leapy | [Ver detalhes](/api-reference/backoffice/pulsos-liderancas) |
+| `pulsos_settings` | Configurações de perguntas habilitadas | [Ver detalhes](/api-reference/backoffice/pulsos-configuracao) |
+| `pulsos_schedule_settings` | Configurações de agendamento automático | [Ver detalhes](/api-reference/backoffice/pulsos-configuracao) |
+| `pulsos_paramentros` | Parâmetros globais do sistema | [Ver detalhes](/api-reference/backoffice/pulsos-configuracao) |
+
+<Tip>
+  Para entender o sistema completo de Pulsos, consulte a [documentação técnica](/documentation/domains/pulses/index) ou os [guias de usuário](/guides/app-rh/pulsos-introducao).
+</Tip>
 
 ## Parâmetros de Query
 
@@ -180,10 +197,16 @@ Content-Type: application/json
 }
 ```
 
-### Buscar Pulsos Ativos
+### Buscar Pulsos de Jovens Pendentes
 
 ```bash
-GET /items/pulses?filter[status][_eq]=active&filter[tenant_id][_eq]=uuid&fields=id,title,start_date,end_date,recipients.talent_id&sort=-start_date
+GET /items/pulsos_jovens?filter[status][_eq]=pendente&filter[jovem_id][_eq]=789&fields=id,pulso,status,data_aplicacao,data_vencimento&sort=-data_aplicacao
+```
+
+### Buscar Avaliações de Lideranças
+
+```bash
+GET /items/Pulsos?filter[lideranca_id][_eq]=123&filter[status][_eq]=respondido&fields=*,jovem_id.nome,performance,prob_efetivacao
 ```
 
 ## Respostas
@@ -246,11 +269,35 @@ X-RateLimit-Remaining: 95
 X-RateLimit-Reset: 1609459200
 ```
 
-## Webhooks
+## Webhooks e Eventos
 
 Configure webhooks em **Settings > Webhooks** para receber notificações de eventos.
 
-**Eventos disponíveis:**
-- `items.create`
-- `items.update`
-- `items.delete`
+**Eventos disponíveis do Directus:**
+- `items.create` - Quando um item é criado
+- `items.update` - Quando um item é atualizado
+- `items.delete` - Quando um item é deletado
+
+**Eventos específicos de Pulsos (via Inngest):**
+- `backoffice/jovem.created` - Quando jovem é criado (dispara criação de 5 pulsos)
+- `backoffice/pulsos.change_status` - Quando status de pulso muda
+- `backoffice/pulsos-jovens.update-to-pendente` - Pulso de jovem fica pendente
+- `backoffice/pulsos-jovens.update-to-vencidos` - Pulso de jovem vence
+
+<Card title="Ver todos os eventos de Pulsos" href="/api-reference/backoffice/pulsos-webhooks" icon="webhook">
+  Documentação completa de webhooks e eventos do sistema de Pulsos
+</Card>
+
+## Próximos Passos
+
+<CardGroup cols={3}>
+  <Card title="Pulsos de Jovens" icon="user" href="/api-reference/backoffice/pulsos-jovens">
+    API completa de pulsos de talentos
+  </Card>
+  <Card title="Pulsos de Lideranças" icon="users" href="/api-reference/backoffice/pulsos-liderancas">
+    API de avaliações de lideranças
+  </Card>
+  <Card title="Exemplos de Pulsos" icon="code" href="/api-reference/backoffice/pulsos-examples">
+    Casos de uso práticos
+  </Card>
+</CardGroup>
