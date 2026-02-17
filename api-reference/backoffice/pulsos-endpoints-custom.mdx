@@ -148,6 +148,41 @@ Reagenda um pulso específico para uma nova data.
 
 ---
 
+### PATCH /pulsos-schedule/sync-all/:account_id
+
+Sincroniza a data do próximo pulso de todos os perfis de uma empresa para a mesma data.
+
+**Parâmetros**:
+- `account_id` (path, required) - ID da conta
+
+**Body**:
+- `next_pulso_date` (required) - Nova data para todos os perfis (YYYY-MM-DD)
+- `change_reason` (optional) - Motivo da sincronização
+
+**Resposta**: Configurações atualizadas de todos os perfis
+
+**Caso de uso**: Quando RH quer sincronizar todos os tipos de pulsos na mesma data para facilitar gestão
+
+---
+
+### GET /pulsos-schedule/history/:account_id
+
+Retorna histórico de alterações de configuração de agendamento de uma conta.
+
+**Parâmetros**:
+- `account_id` (path, required) - ID da conta
+
+**Query Parameters**:
+- `profile` (optional) - Filtrar por perfil específico (jovens, liderancas, rh)
+- `limit` (optional, default: 50) - Limite de resultados
+- `offset` (optional, default: 0) - Offset para paginação
+
+**Resposta**: Array de objetos com histórico incluindo `cadence_interval`, `cadence_unit`, `next_pulso_date`, `change_reason`, `changed_by`, `changed_at`
+
+**Uso**: Auditoria de mudanças nas configurações de agendamento
+
+---
+
 ## Filtros com Controle de Acesso
 
 Endpoints para buscar pulsos com controle de acesso integrado.
@@ -265,6 +300,67 @@ Endpoint interno que processa criação de pulsos via Inngest.
 <Warning>
   Este endpoint é interno e só deve ser chamado pelo sistema Inngest.
 </Warning>
+
+---
+
+## Estatísticas e Dashboards
+
+Endpoints para dashboards e visualizações de dados agregados.
+
+### GET /pulsos/stats/:account_id
+
+Retorna estatísticas gerais de pulsos de uma empresa.
+
+**Parâmetros**:
+- `account_id` (path, required) - ID da conta
+
+**Query Parameters**:
+- `profile` (optional) - Filtrar por perfil (jovens, liderancas, rh)
+- `start_date` (optional) - Data inicial (YYYY-MM-DD)
+- `end_date` (optional) - Data final (YYYY-MM-DD)
+
+**Resposta**:
+- `total` - Total de pulsos
+- `por_status` - Breakdown por status (pendente, respondido, vencido, etc)
+- `taxa_resposta` - % de pulsos respondidos
+- `tempo_medio_resposta` - Tempo médio em dias para responder
+- `pulsos_vencidos` - Quantidade de pulsos não respondidos no prazo
+
+**Uso**: Dashboard principal do RH
+
+---
+
+### GET /pulsos/completion-rate/:account_id
+
+Retorna taxa de completude de pulsos por período.
+
+**Parâmetros**:
+- `account_id` (path, required) - ID da conta
+
+**Query Parameters**:
+- `period` (optional, default: "month") - Granularidade (week, month, quarter)
+- `profile` (optional) - Filtrar por perfil
+
+**Resposta**: Array com taxa de completude por período
+
+**Uso**: Gráficos de tendência de engajamento
+
+---
+
+### GET /pulsos/performance-distribution/:account_id
+
+Retorna distribuição de avaliações de performance.
+
+**Parâmetros**:
+- `account_id` (path, required) - ID da conta
+
+**Query Parameters**:
+- `pulso_numero` (optional) - Filtrar por número específico de pulso
+- `turma_id` (optional) - Filtrar por turma
+
+**Resposta**: Objeto com contagem por categoria (Abaixo, Dentro, Acima)
+
+**Uso**: Visualizar distribuição de performance da turma
 
 ---
 
