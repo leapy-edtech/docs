@@ -1,5 +1,5 @@
 ---
-title: "Regras de Negócio - Pulsos"
+title: "Regras de Negócio"
 description: "Regras de negócio que governam o funcionamento do sistema de Pulsos"
 ---
 
@@ -16,6 +16,7 @@ O sistema de Pulsos segue regras específicas de criação, transição de statu
 **Regra**: Cada talento recebe **exatamente 5 pulsos** ao longo do programa de 18-24 meses.
 
 **Implementação**:
+
 - Job `createPulsosJovens` cria 5 pulsos quando jovem é adicionado
 - Job `createPulsosLiderancas` cria 5 pulsos para liderança avaliar o jovem
 - Numeração: 1, 2, 3, 4, 5
@@ -29,9 +30,12 @@ O sistema de Pulsos segue regras específicas de criação, transição de statu
 **Regra**: Pulsos são criados automaticamente quando evento `backoffice/jovem.created` é disparado.
 
 **Implementação**:
+
 ```typescript
 // Job escuta evento
-{ event: "backoffice/jovem.created" }
+{
+  event: "backoffice/jovem.created";
+}
 
 // Cria 5 pulsos para jovem
 // Cria 5 pulsos para liderança
@@ -45,11 +49,11 @@ O sistema de Pulsos segue regras específicas de criação, transição de statu
 
 **Regra**: Sistema possui 3 tipos de pulsos independentes:
 
-| Tipo | Collection | Respondente | Propósito |
-|------|------------|-------------|-----------|
-| Pulsos de Jovens | `pulsos_jovens` | Talentos | Autoavaliação e satisfação |
-| Pulsos de Lideranças | `Pulsos` | Gestores | Avaliação de performance |
-| Pulsos de RH | `pulsos_rh` | Time de RH | Satisfação com Leapy |
+| Tipo                 | Collection      | Respondente | Propósito                  |
+| -------------------- | --------------- | ----------- | -------------------------- |
+| Pulsos de Jovens     | `pulsos_jovens` | Talentos    | Autoavaliação e satisfação |
+| Pulsos de Lideranças | `Pulsos`        | Gestores    | Avaliação de performance   |
+| Pulsos de RH         | `pulsos_rh`     | Time de RH  | Satisfação com Leapy       |
 
 **Implementação**: Collections separadas, jobs separados, templates de email separados.
 
@@ -74,6 +78,7 @@ stateDiagram-v2
 **Valores permitidos**: `agendado`, `pendente`, `respondido`, `vencido`
 
 **Transições proibidas**:
+
 - ❌ `respondido` → `pendente` (perde dados)
 - ❌ `vencido` → `agendado` (estado inválido)
 
@@ -84,6 +89,7 @@ stateDiagram-v2
 **Regra**: Pulsos mudam de `agendado` para `pendente` automaticamente na `data_aplicacao`.
 
 **Implementação**:
+
 - Job `updateStatusPulsosJovensParaPendentes` roda diariamente às 8h
 - Query: `WHERE status = 'agendado' AND data_aplicacao <= CURRENT_DATE`
 
@@ -96,6 +102,7 @@ stateDiagram-v2
 **Regra**: Pulsos pendentes viram `vencido` automaticamente quando `data_vencimento` expira.
 
 **Implementação**:
+
 - Job `updateStatusPulsosJovensParaVencidos` roda **a cada hora**
 - Query: `WHERE status = 'pendente' AND data_vencimento < NOW()`
 
@@ -112,7 +119,8 @@ stateDiagram-v2
 **Exceção**: RH pode reabrir manualmente via Backoffice (muda status de volta para `pendente`), mas isso **apaga as respostas anteriores**.
 
 <Warning>
-  Reabrir um pulso respondido apaga todas as respostas. Use apenas em casos de erro crítico.
+  Reabrir um pulso respondido apaga todas as respostas. Use apenas em casos de
+  erro crítico.
 </Warning>
 
 ---
@@ -124,11 +132,13 @@ stateDiagram-v2
 **Regra**: Prazo típico entre `data_aplicacao` e `data_vencimento` é de **7 dias**.
 
 **Implementação**:
+
 ```typescript
-data_vencimento = addDays(data_aplicacao, 7)
+data_vencimento = addDays(data_aplicacao, 7);
 ```
 
 **Variações por tipo**:
+
 - Jovens: 7 dias
 - Lideranças: 7 dias
 - RH: 14 dias (prazo estendido)
@@ -140,6 +150,7 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: RH pode estender prazo manualmente, sem limite máximo.
 
 **Implementação**:
+
 - Via App RH: Editar pulsos em lote
 - Via Backoffice: Alterar `data_vencimento` diretamente
 
@@ -155,12 +166,12 @@ data_vencimento = addDays(data_aplicacao, 7)
 
 **Implementação**:
 
-| Momento | Ação | Job |
-|---------|------|-----|
-| T=0 | Notificação de abertura | `sendLiberacaoPulsosJovensToRh` |
-| T+3 dias | Primeiro lembrete | `sendPulsosLembretetoJovens` |
-| T+6 dias | Segundo lembrete | `sendPulsosLembretetoJovens` |
-| T+7 dias | Vencimento (sem lembrete) | `updateStatusParaVencidos` |
+| Momento  | Ação                      | Job                             |
+| -------- | ------------------------- | ------------------------------- |
+| T=0      | Notificação de abertura   | `sendLiberacaoPulsosJovensToRh` |
+| T+3 dias | Primeiro lembrete         | `sendPulsosLembretetoJovens`    |
+| T+6 dias | Segundo lembrete          | `sendPulsosLembretetoJovens`    |
+| T+7 dias | Vencimento (sem lembrete) | `updateStatusParaVencidos`      |
 
 **Configuração**: Intervalo de lembretes está em `pulsos_paramentros.recorrencia_notificacao_pendentes` (default: 3 dias).
 
@@ -173,11 +184,13 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: Respostas de jovens são **identificadas** (não anônimas).
 
 **Quem vê**:
+
 - ✅ Time de RH da empresa
 - ✅ Liderança direta do jovem
 - ✅ Time Leapy (dados agregados)
 
 **Quem NÃO vê**:
+
 - ❌ Outros talentos
 - ❌ Lideranças de outras áreas
 
@@ -190,10 +203,12 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: Avaliações de lideranças são **confidenciais**.
 
 **Quem vê**:
+
 - ✅ Time de RH da empresa
 - ✅ Time Leapy (dados agregados)
 
 **Quem NÃO vê**:
+
 - ❌ O talento avaliado (não tem acesso direto)
 - ❌ Outras lideranças
 - ❌ Outros talentos
@@ -201,7 +216,8 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Exceção**: RH pode compartilhar feedback estruturado com o talento, mas não a avaliação bruta.
 
 <Warning>
-  Avaliações de lideranças são confidenciais por design. Não exponha esses dados diretamente para talentos.
+  Avaliações de lideranças são confidenciais por design. Não exponha esses dados
+  diretamente para talentos.
 </Warning>
 
 ---
@@ -211,6 +227,7 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: Pulsos de RH são vinculados à empresa (`account_id`), não ao usuário individual.
 
 **Quem vê**:
+
 - ✅ Time de RH da própria empresa
 - ✅ Time Leapy
 
@@ -225,10 +242,12 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: Notificações são enviadas por **email** (Resend) e, se necessário, **WhatsApp** (Agent System).
 
 **Prioridade**:
+
 1. Email (sempre)
 2. WhatsApp (fallback se email falhar ou taxa de resposta baixa)
 
 **Implementação**:
+
 - Job dispara evento para Resend
 - Se bounce, dispara evento para Agent System
 
@@ -239,6 +258,7 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: Cada tipo de pulso e cada ação tem template específico.
 
 **9 templates ativos**:
+
 - `pulsos-lembrete-jovens`
 - `pulsos-lembrete-liderancas`
 - `pulsos-lembrete-jovens-to-rh`
@@ -250,6 +270,7 @@ data_vencimento = addDays(data_aplicacao, 7)
 - `pulsos-notificacao-abertura`
 
 **Regra de conteúdo**: Templates devem incluir:
+
 - Nome do destinatário
 - Número do pulso
 - Data de vencimento
@@ -264,6 +285,7 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: Ao criar pulso, campos obrigatórios devem ser preenchidos.
 
 **Pulsos de Jovens**:
+
 ```json
 {
   "jovem_id": "obrigatório",
@@ -283,6 +305,7 @@ data_vencimento = addDays(data_aplicacao, 7)
 **Regra**: `data_vencimento` deve ser posterior a `data_aplicacao`.
 
 **Validação**:
+
 ```typescript
 if (data_vencimento <= data_aplicacao) {
   throw new Error("data_vencimento deve ser posterior a data_aplicacao");
@@ -299,12 +322,12 @@ if (data_vencimento <= data_aplicacao) {
 
 **Exemplos**:
 
-| Campo | Valores Permitidos |
-|-------|--------------------|
-| `performance` | "Abaixo", "Dentro", "Acima" |
+| Campo             | Valores Permitidos                  |
+| ----------------- | ----------------------------------- |
+| `performance`     | "Abaixo", "Dentro", "Acima"         |
 | `prob_efetivacao` | "Alta", "Média", "Baixa", "Nenhuma" |
-| `recontrataria` | "Sim", "Não", "Talvez" |
-| `nps_*` | 0-10 (integer) |
+| `recontrataria`   | "Sim", "Não", "Talvez"              |
+| `nps_*`           | 0-10 (integer)                      |
 
 **Validação**: Frontend e API validam valores antes de salvar.
 
@@ -318,15 +341,15 @@ if (data_vencimento <= data_aplicacao) {
 
 **Cadências válidas**:
 
-| Cadência | `cadence_unit` | `cadence_interval` |
-|----------|----------------|-------------------|
-| Semanal | `week` | `1` |
-| Quinzenal | `week` | `2` |
-| Mensal | `month` | `1` |
-| Bimestral | `month` | `2` |
-| Trimestral | `month` | `3` |
-| Semestral | `month` | `6` |
-| Anual | `month` | `12` |
+| Cadência   | `cadence_unit` | `cadence_interval` |
+| ---------- | -------------- | ------------------ |
+| Semanal    | `week`         | `1`                |
+| Quinzenal  | `week`         | `2`                |
+| Mensal     | `month`        | `1`                |
+| Bimestral  | `month`        | `2`                |
+| Trimestral | `month`        | `3`                |
+| Semestral  | `month`        | `6`                |
+| Anual      | `month`        | `12`               |
 
 **Recomendação**: Trimestral para programas de 18-24 meses.
 
@@ -337,11 +360,13 @@ if (data_vencimento <= data_aplicacao) {
 **Regra**: Após criar pulsos, sistema calcula automaticamente a `next_pulso_date`.
 
 **Cálculo**:
+
 ```typescript
-next_pulso_date = current_next_pulso_date + cadence_interval
+next_pulso_date = current_next_pulso_date + cadence_interval;
 ```
 
 **Exemplo**:
+
 - Atual: 01/04/2024
 - Cadência: Trimestral (3 meses)
 - Próxima: 01/07/2024
@@ -350,40 +375,56 @@ next_pulso_date = current_next_pulso_date + cadence_interval
 
 ## Tabela Resumo de Regras
 
-| Código | Regra | Valor/Comportamento |
-|--------|-------|---------------------|
-| RN-PUL-001 | Pulsos por programa | 5 pulsos |
-| RN-PUL-002 | Criação | Automática via evento |
-| RN-PUL-003 | Tipos | 3 tipos distintos |
-| RN-PUL-010 | Status | 4 estados possíveis |
-| RN-PUL-011 | Transição pendente | Automática na data |
-| RN-PUL-012 | Transição vencido | A cada hora |
-| RN-PUL-013 | Imutabilidade | Respondido não edita |
-| RN-PUL-020 | Prazo padrão | 7 dias |
-| RN-PUL-021 | Extensão | Sem limite |
-| RN-PUL-022 | Lembretes | T+3 e T+6 dias |
-| RN-PUL-030 | Privacidade jovens | Identificado |
-| RN-PUL-031 | Privacidade lideranças | Confidencial |
-| RN-PUL-040 | Notificação | Email + WhatsApp |
-| RN-PUL-041 | Templates | 9 templates |
-| RN-PUL-050 | Validação campos | Obrigatórios |
-| RN-PUL-060 | Cadências | Flexível |
+| Código     | Regra                  | Valor/Comportamento   |
+| ---------- | ---------------------- | --------------------- |
+| RN-PUL-001 | Pulsos por programa    | 5 pulsos              |
+| RN-PUL-002 | Criação                | Automática via evento |
+| RN-PUL-003 | Tipos                  | 3 tipos distintos     |
+| RN-PUL-010 | Status                 | 4 estados possíveis   |
+| RN-PUL-011 | Transição pendente     | Automática na data    |
+| RN-PUL-012 | Transição vencido      | A cada hora           |
+| RN-PUL-013 | Imutabilidade          | Respondido não edita  |
+| RN-PUL-020 | Prazo padrão           | 7 dias                |
+| RN-PUL-021 | Extensão               | Sem limite            |
+| RN-PUL-022 | Lembretes              | T+3 e T+6 dias        |
+| RN-PUL-030 | Privacidade jovens     | Identificado          |
+| RN-PUL-031 | Privacidade lideranças | Confidencial          |
+| RN-PUL-040 | Notificação            | Email + WhatsApp      |
+| RN-PUL-041 | Templates              | 9 templates           |
+| RN-PUL-050 | Validação campos       | Obrigatórios          |
+| RN-PUL-060 | Cadências              | Flexível              |
 
 ---
 
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+  <Card
+    title="Modelo de Dados"
+    icon="database"
+    href="/documentation/domains/pulses/data-model"
+  >
     Estrutura das collections
   </Card>
-  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+  <Card
+    title="Jobs Inngest"
+    icon="gear"
+    href="/documentation/domains/pulses/jobs-inngest"
+  >
     Implementação dos jobs
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api-reference/backoffice/pulsos-jovens"
+  >
     Como usar a API
   </Card>
-  <Card title="Guia de Operações" icon="wrench" href="/guides/backoffice/pulsos-operacoes">
+  <Card
+    title="Guia de Operações"
+    icon="wrench"
+    href="/guides/backoffice/pulsos-operacoes"
+  >
     Operações manuais
   </Card>
 </CardGroup>

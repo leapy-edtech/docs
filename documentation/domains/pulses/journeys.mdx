@@ -1,5 +1,5 @@
 ---
-title: "Jornadas - Pulsos"
+title: "Jornadas"
 description: "Fluxos de uso e jornadas dos usuários no sistema de Pulsos"
 ---
 
@@ -27,58 +27,52 @@ flowchart LR
 
 <Steps>
   <Step title="Acessar o Módulo">
-    No App RH, clicar em **Pulsos** no menu lateral
-    
-    **Rota**: `/[account]/(rh)/pulsos`
+    No App RH, clicar em **Pulsos** no menu lateral **Rota**:
+    `/[account]/(rh)/pulsos`
   </Step>
-  
+
   <Step title="Ir para Configuração">
-    Clicar na aba **"Configuração"** no topo
-    
-    **Rota**: `/[account]/(rh)/pulsos/configuracao`
+    Clicar na aba **"Configuração"** no topo **Rota**:
+    `/[account]/(rh)/pulsos/configuracao`
   </Step>
-  
+
   <Step title="Habilitar Perfis">
-    Marcar checkboxes para:
-    - ☑️ Pulsos de Jovens
-    - ☑️ Pulsos de Lideranças  
-    - ☑️ Pulsos de RH (opcional)
+    Marcar checkboxes para: - ☑️ Pulsos de Jovens - ☑️ Pulsos de Lideranças - ☑️
+    Pulsos de RH (opcional)
   </Step>
-  
+
   <Step title="Configurar Agendamento">
-    Para cada perfil habilitado:
-    - **Cadência**: Mensal/Trimestral/Semestral
-    - **Próxima Data**: Ex: 01/04/2024
-    
-    Sistema calculará automaticamente as próximas datas.
+    Para cada perfil habilitado: - **Cadência**: Mensal/Trimestral/Semestral -
+    **Próxima Data**: Ex: 01/04/2024 Sistema calculará automaticamente as
+    próximas datas.
   </Step>
-  
+
   <Step title="Selecionar Perguntas">
-    Marcar quais perguntas estarão ativas:
-    - Jovens: NPS, relação com liderança, feedback, etc
-    - Lideranças: Performance, prob. efetivação, depoimento
-    - RH: NPS Leapy, uso da plataforma, sugestões
+    Marcar quais perguntas estarão ativas: - Jovens: NPS, relação com liderança,
+    feedback, etc - Lideranças: Performance, prob. efetivação, depoimento - RH:
+    NPS Leapy, uso da plataforma, sugestões
   </Step>
-  
+
   <Step title="Salvar">
-    Clicar em **"Salvar Configurações"**
-    
-    Sistema confirma e mostra resumo.
+    Clicar em **"Salvar Configurações"** Sistema confirma e mostra resumo.
   </Step>
-  
+
   <Step title="Aguardar Criação Automática">
-    Na data configurada (ex: 01/04), job do Inngest criará pulsos automaticamente às 9h.
+    Na data configurada (ex: 01/04), job do Inngest criará pulsos
+    automaticamente às 9h.
   </Step>
 </Steps>
 
 ### Pontos de Decisão
 
 **Decisão 1: Qual cadência usar?**
+
 - Programa curto (6-12 meses) → Mensal ou Bimestral
 - Programa médio (12-18 meses) → Trimestral ✅ Recomendado
 - Programa longo (24+ meses) → Semestral
 
 **Decisão 2: Quantas perguntas habilitar?**
+
 - Primeiro pulso → 5-7 perguntas (não sobrecarregar)
 - Pulsos seguintes → Até 15 perguntas
 - Último pulso → Mais extenso, incluir feedbacks abertos
@@ -103,59 +97,37 @@ flowchart LR
 
 <Steps>
   <Step title="Receber Notificação">
-    Talento recebe email do Resend:
-    
-    **Assunto**: "Novo Pulso Disponível - Pulso 3"  
-    **Conteúdo**: Link direto, prazo (7 dias), importância
-    
-    **Fallback**: Se não abrir email em 3 dias, recebe lembrete. Se não abrir em 5 dias, recebe WhatsApp.
+    Talento recebe email do Resend: **Assunto**: "Novo Pulso Disponível - Pulso
+    3" **Conteúdo**: Link direto, prazo (7 dias), importância **Fallback**: Se
+    não abrir email em 3 dias, recebe lembrete. Se não abrir em 5 dias, recebe
+    WhatsApp.
   </Step>
-  
+
   <Step title="Acessar Pulso">
-    Clicar no link do email **ou** acessar diretamente:
-    
-    **Rota**: `/[account]/(talent)/pulsos-jovens`
-    
-    Verá card com pulso pendente.
+    Clicar no link do email **ou** acessar diretamente: **Rota**:
+    `/[account]/(talent)/pulsos-jovens` Verá card com pulso pendente.
   </Step>
-  
+
   <Step title="Preencher Formulário">
-    Responder todas as perguntas:
-    
-    **Escalas 0-10**:
-    - NPS Leapy: Slider de 0 a 10
-    - NPS Empresa: Slider de 0 a 10
-    - Relação com liderança: Slider de 0 a 10
-    
-    **Perguntas Sim/Não**:
-    - Radio buttons
-    
-    **Feedbacks Abertos**:
-    - Text areas
+    Responder todas as perguntas: **Escalas 0-10**: - NPS Leapy: Slider de 0 a
+    10 - NPS Empresa: Slider de 0 a 10 - Relação com liderança: Slider de 0 a 10
+    **Perguntas Sim/Não**: - Radio buttons **Feedbacks Abertos**: - Text areas
   </Step>
-  
+
   <Step title="Revisar">
     Antes de enviar, revisar todas as respostas.
-    
-    <Warning>
-      Após enviar, não é possível editar!
-    </Warning>
+    <Warning>Após enviar, não é possível editar!</Warning>
   </Step>
-  
+
   <Step title="Enviar">
-    Clicar em **"Enviar Pulso"**
-    
-    Frontend chama: `PATCH /items/pulsos_jovens/{id}`
-    
-    Payload inclui todas as respostas + `status: 'respondido'` + `data_resposta`.
+    Clicar em **"Enviar Pulso"** Frontend chama: `PATCH /items/pulsos_jovens/
+    {id}` Payload inclui todas as respostas + `status: 'respondido'` +
+    `data_resposta`.
   </Step>
-  
+
   <Step title="Confirmação">
-    Recebe mensagem de sucesso:
-    
-    ✅ "Pulso enviado com sucesso! Obrigado pelo seu feedback."
-    
-    Status muda para "Respondido" na lista.
+    Recebe mensagem de sucesso: ✅ "Pulso enviado com sucesso! Obrigado pelo seu
+    feedback." Status muda para "Respondido" na lista.
   </Step>
 </Steps>
 
@@ -177,6 +149,7 @@ flowchart LR
 **Cenário B: Talento estava de férias**
 
 RH pode estender prazo:
+
 1. RH filtra pulsos vencidos
 2. Seleciona pulso do talento
 3. Edita data de vencimento (+7 dias)
@@ -204,55 +177,36 @@ flowchart LR
 
 <Steps>
   <Step title="Receber Notificação">
-    Liderança recebe email:
-    
-    **Assunto**: "Avalie seus liderados - Pulso 3"  
+    Liderança recebe email: **Assunto**: "Avalie seus liderados - Pulso 3"
     **Conteúdo**: Lista de liderados, prazo (7 dias), link
   </Step>
-  
+
   <Step title="Acessar Dashboard">
-    **Rota**: `/[account]/(rh)/pulsos/lideranca`
-    
-    Vê tabela com todos os liderados e status:
-    - 🟡 Pendente
-    - 🟢 Respondido
+    **Rota**: `/[account]/(rh)/pulsos/lideranca` Vê tabela com todos os
+    liderados e status: - 🟡 Pendente - 🟢 Respondido
   </Step>
-  
+
   <Step title="Selecionar Liderado">
-    Clicar em **"Avaliar"** na linha do liderado.
-    
-    Modal abre com formulário de avaliação.
+    Clicar em **"Avaliar"** na linha do liderado. Modal abre com formulário de
+    avaliação.
   </Step>
-  
+
   <Step title="Preencher Avaliação">
-    **Performance**:
-    - Radio buttons: Abaixo / Dentro / Acima
-    
-    **Probabilidade de Efetivação**:
-    - Dropdown: Alta / Média / Baixa / Nenhuma
-    
-    **Recontrataria?**:
-    - Radio buttons: Sim / Não / Talvez
-    
-    **Depoimento**:
-    - Text area (obrigatório, mínimo 50 caracteres)
-    
-    **Pontos Fortes e Melhoria**:
-    - Text areas (opcional)
+    **Performance**: - Radio buttons: Abaixo / Dentro / Acima **Probabilidade de
+    Efetivação**: - Dropdown: Alta / Média / Baixa / Nenhuma **Recontrataria?**:
+    - Radio buttons: Sim / Não / Talvez **Depoimento**: - Text area
+    (obrigatório, mínimo 50 caracteres) **Pontos Fortes e Melhoria**: - Text
+    areas (opcional)
   </Step>
-  
+
   <Step title="Enviar">
     Clicar em **"Enviar Avaliação"**
-    
-    <Note>
-      Avaliação é confidencial. Apenas RH terá acesso.
-    </Note>
+    <Note>Avaliação é confidencial. Apenas RH terá acesso.</Note>
   </Step>
-  
+
   <Step title="Repetir">
-    Se tiver mais liderados, repetir processo.
-    
-    Sistema salva parcialmente, pode voltar depois.
+    Se tiver mais liderados, repetir processo. Sistema salva parcialmente, pode
+    voltar depois.
   </Step>
 </Steps>
 
@@ -261,6 +215,7 @@ flowchart LR
 **Cenário A: Liderado se desligou antes do pulso**
 
 Liderança deve:
+
 1. Avaliar mesmo assim (histórico é importante)
 2. Mencionar no depoimento que já se desligou
 3. Ser honesto sobre motivos (se souber)
@@ -268,6 +223,7 @@ Liderança deve:
 **Cenário B: Liderança discorda da autoavaliação do liderado**
 
 É normal e esperado! Liderança deve:
+
 1. Usar o depoimento para explicar sua perspectiva
 2. Dar exemplos concretos
 3. Ser construtivo (não apenas crítico)
@@ -368,35 +324,33 @@ sequenceDiagram
     participant UpdateJob
     participant NotifyJob
     participant RH
-    
+
     Cron->>CreateJob: Diário 9h - Verifica se é dia de criar
     CreateJob->>DB: Cria pulsos (status: agendado)
-    
+
     Cron->>UpdateJob: Diário 8h - Libera pulsos
     UpdateJob->>DB: UPDATE status = pendente
     UpdateJob->>NotifyJob: Dispara evento
     NotifyJob->>RH: Envia email aos destinatários
-    
+
     loop A cada 3 dias
         NotifyJob->>RH: Envia lembretes
     end
-    
+
     Cron->>UpdateJob: A cada hora - Vence pulsos
     UpdateJob->>DB: UPDATE status = vencido
 ```
 
 ### Jobs e Triggers
 
-| Momento | Job | O que faz |
-|---------|-----|-----------|
-| **Diário 9h** | `createPulsosJovens` | Verifica se é dia de criar pulsos conforme agendamento |
-| **Diário 8h** | `updateStatusParaPendentes` | Libera pulsos agendados (agendado → pendente) |
-| **A cada hora** | `updateStatusParaVencidos` | Marca pulsos expirados (pendente → vencido) |
-| **T+3 e T+6 dias** | `sendLembretes` | Envia lembretes para pendentes |
+| Momento            | Job                         | O que faz                                              |
+| ------------------ | --------------------------- | ------------------------------------------------------ |
+| **Diário 9h**      | `createPulsosJovens`        | Verifica se é dia de criar pulsos conforme agendamento |
+| **Diário 8h**      | `updateStatusParaPendentes` | Libera pulsos agendados (agendado → pendente)          |
+| **A cada hora**    | `updateStatusParaVencidos`  | Marca pulsos expirados (pendente → vencido)            |
+| **T+3 e T+6 dias** | `sendLembretes`             | Envia lembretes para pendentes                         |
 
-<Tip>
-  Todos esses jobs rodam automaticamente. RH não precisa fazer nada!
-</Tip>
+<Tip>Todos esses jobs rodam automaticamente. RH não precisa fazer nada!</Tip>
 
 ---
 
@@ -407,6 +361,7 @@ sequenceDiagram
 **Quando usar**: Talento estava ausente (férias, licença)
 
 **Jornada**:
+
 1. RH acessa pulsos vencidos
 2. Filtra por talento
 3. Seleciona pulso
@@ -421,6 +376,7 @@ sequenceDiagram
 **Quando usar**: Novo talento entrou após criação automática
 
 **Jornada**:
+
 1. Acessa Backoffice (Directus)
 2. Vai em Collections > pulsos_jovens
 3. Clica em "Create Item"
@@ -437,13 +393,25 @@ sequenceDiagram
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Business Rules" icon="book" href="/documentation/domains/pulses/business-rules">
+  <Card
+    title="Business Rules"
+    icon="book"
+    href="/documentation/domains/pulses/business-rules"
+  >
     Regras que governam essas jornadas
   </Card>
-  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+  <Card
+    title="Jobs Inngest"
+    icon="gear"
+    href="/documentation/domains/pulses/jobs-inngest"
+  >
     Detalhes dos jobs automáticos
   </Card>
-  <Card title="Guia Quickstart RH" icon="rocket" href="/guides/app-rh/pulsos-quickstart-rh">
+  <Card
+    title="Guia Quickstart RH"
+    icon="rocket"
+    href="/guides/app-rh/pulsos-quickstart-rh"
+  >
     Tutorial prático
   </Card>
   <Card title="FAQ" icon="question" href="/guides/app-rh/pulsos-faq">

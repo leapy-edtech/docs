@@ -1,5 +1,5 @@
 ---
-title: "Operações - Pulsos"
+title: "Operações"
 description: "Guia técnico de operações do sistema de Pulsos"
 ---
 
@@ -8,9 +8,9 @@ description: "Guia técnico de operações do sistema de Pulsos"
 Este documento cobre operações técnicas do sistema de Pulsos, incluindo monitoramento de jobs, troubleshooting e procedimentos de manutenção.
 
 <Note>
-  Para guias práticos de uso diário, consulte:
-  - [Guia de Operações CS/Ops](/guides/backoffice/pulsos-operacoes)
-  - [Troubleshooting](/guides/backoffice/pulsos-troubleshooting)
+  Para guias práticos de uso diário, consulte: - [Guia de Operações
+  CS/Ops](/guides/backoffice/pulsos-operacoes) -
+  [Troubleshooting](/guides/backoffice/pulsos-troubleshooting)
 </Note>
 
 ---
@@ -25,28 +25,23 @@ Este documento cobre operações técnicas do sistema de Pulsos, incluindo monit
 
 <CardGroup cols={3}>
   <Card title="Criação" icon="plus">
-    • createPulsosJovens  
-    • createPulsosLiderancas  
-    • processaPulsos
+    • createPulsosJovens • createPulsosLiderancas • processaPulsos
   </Card>
   <Card title="Status" icon="rotate">
-    • updateStatusParaPendentes (4x)  
-    • updateStatusParaVencidos (2x)
+    • updateStatusParaPendentes (4x) • updateStatusParaVencidos (2x)
   </Card>
   <Card title="Notificações" icon="envelope">
-    • sendLembretes (3x)  
-    • sendLiberacoes (3x)  
-    • sendLembretePulsosRhToRh
+    • sendLembretes (3x) • sendLiberacoes (3x) • sendLembretePulsosRhToRh
   </Card>
 </CardGroup>
 
 ### Métricas Críticas por Job
 
-| Job | Success Rate | Latency Média | Alerta se |
-|-----|--------------|---------------|-----------|
-| `createPulsosJovens` | > 95% | < 30s | Falha ou > 60s |
-| `sendLembretes*` | > 98% | < 10s | Falha ou > 30s |
-| `updateStatus*` | 100% | < 5s | Qualquer falha |
+| Job                  | Success Rate | Latency Média | Alerta se      |
+| -------------------- | ------------ | ------------- | -------------- |
+| `createPulsosJovens` | > 95%        | < 30s         | Falha ou > 60s |
+| `sendLembretes*`     | > 98%        | < 10s         | Falha ou > 30s |
+| `updateStatus*`      | 100%         | < 5s          | Qualquer falha |
 
 ### Alertas Configurados
 
@@ -67,20 +62,20 @@ Configure alertas no Inngest para:
 
 ### Métricas Importantes
 
-| Métrica | Benchmark | Alerta se |
-|---------|-----------|-----------|
-| **Delivery Rate** | > 98% | < 95% |
-| **Bounce Rate** | < 2% | > 5% |
-| **Open Rate** | > 40% | < 20% |
-| **Click Rate** | > 10% | < 5% |
+| Métrica           | Benchmark | Alerta se |
+| ----------------- | --------- | --------- |
+| **Delivery Rate** | > 98%     | < 95%     |
+| **Bounce Rate**   | < 2%      | > 5%      |
+| **Open Rate**     | > 40%     | < 20%     |
+| **Click Rate**    | > 10%     | < 5%      |
 
 ### Tipos de Bounce
 
-| Tipo | Causa | Ação |
-|------|-------|------|
-| **Hard Bounce** | Email inválido | Corrigir email do talento |
-| **Soft Bounce** | Caixa cheia | Esperar e reenviar |
-| **Block** | Spam filter | Whitelist `noreply@leapy.com` |
+| Tipo            | Causa          | Ação                          |
+| --------------- | -------------- | ----------------------------- |
+| **Hard Bounce** | Email inválido | Corrigir email do talento     |
+| **Soft Bounce** | Caixa cheia    | Esperar e reenviar            |
+| **Block**       | Spam filter    | Whitelist `noreply@leapy.com` |
 
 **Procedimento para Bounce**:
 
@@ -106,14 +101,14 @@ Configure alertas no Inngest para:
 SELECT AVG(nps_leapy) FROM pulsos_jovens WHERE status = 'respondido';
 
 -- 2. Join com relacionamentos profundos
-SELECT pj.*, t.*, a.*, p.* 
+SELECT pj.*, t.*, a.*, p.*
 FROM pulsos_jovens pj
 JOIN talents t ON pj.jovem_id = t.id
 JOIN areas a ON t.area_id = a.id
 JOIN positions p ON t.position_id = p.id;
 
 -- 3. Busca em texto (sem índice de texto completo)
-SELECT * FROM pulsos_jovens 
+SELECT * FROM pulsos_jovens
 WHERE feedback_para_leapy ILIKE '%plataforma%';
 ```
 
@@ -135,9 +130,9 @@ WHERE feedback_para_leapy ILIKE '%plataforma%';
 
 ```bash
 # 1. Identificar pulsos afetados
-SELECT id FROM pulsos_jovens 
-WHERE pulso = 3 
-  AND status = 'agendado' 
+SELECT id FROM pulsos_jovens
+WHERE pulso = 3
+  AND status = 'agendado'
   AND data_aplicacao < CURRENT_DATE;
 
 # 2. Disparar evento Inngest para cada pulso
@@ -152,9 +147,7 @@ curl -X POST "https://api.inngest.com/v1/events" \
   }'
 ```
 
-<Warning>
-  Sempre teste com 1-2 pulsos antes de reprocessar em lote.
-</Warning>
+<Warning>Sempre teste com 1-2 pulsos antes de reprocessar em lote.</Warning>
 
 ---
 
@@ -181,7 +174,7 @@ WHERE id IN (
   SELECT id FROM (
     SELECT id,
       ROW_NUMBER() OVER (
-        PARTITION BY jovem_id, pulso 
+        PARTITION BY jovem_id, pulso
         ORDER BY created_at DESC
       ) as rn
     FROM pulsos_jovens
@@ -247,7 +240,8 @@ VALUES (12345, 789, 3, 'respondido', ...);
 ```
 
 <Warning>
-  Recovery manual deve ser último recurso. Sempre valide integridade dos dados após restore.
+  Recovery manual deve ser último recurso. Sempre valide integridade dos dados
+  após restore.
 </Warning>
 
 ---
@@ -258,18 +252,18 @@ VALUES (12345, 789, 3, 'respondido', ...);
 
 **Onde encontrar**:
 
-| Sistema | URL | O que ver |
-|---------|-----|-----------|
-| **Inngest** | app.inngest.com | Execução de jobs, eventos, erros |
-| **Resend** | resend.com/emails | Status de envio de emails |
-| **Supabase** | app.supabase.com | Queries, slow queries, conexões |
-| **Directus** | backoffice.leapy.com/admin | Atividades de usuários |
+| Sistema      | URL                        | O que ver                        |
+| ------------ | -------------------------- | -------------------------------- |
+| **Inngest**  | app.inngest.com            | Execução de jobs, eventos, erros |
+| **Resend**   | resend.com/emails          | Status de envio de emails        |
+| **Supabase** | app.supabase.com           | Queries, slow queries, conexões  |
+| **Directus** | backoffice.leapy.com/admin | Atividades de usuários           |
 
 ### Queries Úteis para Debugging
 
 ```sql
 -- Pulsos criados hoje
-SELECT COUNT(*) FROM pulsos_jovens 
+SELECT COUNT(*) FROM pulsos_jovens
 WHERE DATE(created_at) = CURRENT_DATE;
 
 -- Pulsos com status inconsistente
@@ -280,7 +274,7 @@ WHERE (status = 'respondido' AND data_resposta IS NULL)
    OR (status = 'agendado' AND data_aplicacao < NOW());
 
 -- Taxa de resposta hoje
-SELECT 
+SELECT
   status,
   COUNT(*) as quantidade,
   ROUND(COUNT(*)::numeric / SUM(COUNT(*)) OVER () * 100, 2) as percentual
@@ -300,8 +294,9 @@ GROUP BY status;
 **Diagnóstico**:
 
 1. Verificar `pulsos_schedule_settings`:
+
    ```sql
-   SELECT * FROM pulsos_schedule_settings 
+   SELECT * FROM pulsos_schedule_settings
    WHERE profile = 'jovens' AND enabled = true;
    ```
 
@@ -358,37 +353,53 @@ GROUP BY status;
 
 ### SLAs Internos
 
-| Operação | SLA | Medição |
-|----------|-----|---------|
-| **Criação de pulso** | < 1min por pulso | Latency do job |
-| **Envio de email** | < 30s | Resend delivery time |
-| **Atualização de status** | < 5s | Database query time |
-| **Cálculo de métricas** | < 10s | View refresh time |
+| Operação                  | SLA              | Medição              |
+| ------------------------- | ---------------- | -------------------- |
+| **Criação de pulso**      | < 1min por pulso | Latency do job       |
+| **Envio de email**        | < 30s            | Resend delivery time |
+| **Atualização de status** | < 5s             | Database query time  |
+| **Cálculo de métricas**   | < 10s            | View refresh time    |
 
 ### Performance Targets
 
-| Métrica | Target | Atual (Baseline) |
-|---------|--------|------------------|
-| API Response Time (p95) | < 2s | 1.2s |
-| Job Success Rate | > 99% | 98.5% |
-| Email Delivery Rate | > 98% | 97.8% |
-| Database Slow Queries | < 1% | 0.5% |
+| Métrica                 | Target | Atual (Baseline) |
+| ----------------------- | ------ | ---------------- |
+| API Response Time (p95) | < 2s   | 1.2s             |
+| Job Success Rate        | > 99%  | 98.5%            |
+| Email Delivery Rate     | > 98%  | 97.8%            |
+| Database Slow Queries   | < 1%   | 0.5%             |
 
 ---
 
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Troubleshooting" icon="wrench" href="/guides/backoffice/pulsos-troubleshooting">
+  <Card
+    title="Troubleshooting"
+    icon="wrench"
+    href="/guides/backoffice/pulsos-troubleshooting"
+  >
     Resolver problemas específicos
   </Card>
-  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+  <Card
+    title="Jobs Inngest"
+    icon="gear"
+    href="/documentation/domains/pulses/jobs-inngest"
+  >
     Detalhes técnicos dos jobs
   </Card>
-  <Card title="Manual Técnico" icon="book" href="/guides/backoffice/pulsos-manual-tecnico">
+  <Card
+    title="Manual Técnico"
+    icon="book"
+    href="/guides/backoffice/pulsos-manual-tecnico"
+  >
     Guia para desenvolvedores
   </Card>
-  <Card title="Integrações" icon="plug" href="/documentation/domains/pulses/integrations">
+  <Card
+    title="Integrações"
+    icon="plug"
+    href="/documentation/domains/pulses/integrations"
+  >
     Serviços externos
   </Card>
 </CardGroup>

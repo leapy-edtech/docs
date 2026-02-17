@@ -1,5 +1,5 @@
 ---
-title: "Modelo de Dados - Pulsos"
+title: "Modelo de Dados"
 description: "Estrutura de dados e relacionamentos do sistema de Pulsos"
 ---
 
@@ -19,7 +19,7 @@ erDiagram
     pulsos_rh }|--|| directus_users : user
     pulsos_settings }|--|| accounts : account_id
     pulsos_schedule_settings }|--|| accounts : account_id
-    
+
     pulsos_jovens {
         int id PK
         int pulso
@@ -32,7 +32,7 @@ erDiagram
         int nps_leapy
         int nps_empresa
     }
-    
+
     Pulsos {
         int id PK
         int pulso
@@ -46,7 +46,7 @@ erDiagram
         string prob_efetivacao
         string recontrataria
     }
-    
+
     pulsos_rh {
         int id PK
         int pulso
@@ -68,52 +68,52 @@ erDiagram
 
 Respostas dos talentos (estagiários e aprendizes).
 
-| Campo | Tipo | Descrição | Obrigatório |
-|-------|------|-----------|:-----------:|
-| `id` | `integer` | Identificador único (PK, serial) | ✅ |
-| `pulso` | `integer` | Número do pulso (1-5) | ✅ |
-| `jovem_id` | `integer` | ID do talento (FK → talents.id) | ✅ |
-| `user_id` | `uuid` | ID do usuário (FK → directus_users.id) | ✅ |
-| `status` | `string` | Status atual | ✅ |
-| `data_aplicacao` | `datetime` | Data de disponibilização | ✅ |
-| `data_vencimento` | `datetime` | Data limite para resposta | ✅ |
-| `data_resposta` | `datetime` | Data em que foi respondido | ❌ |
+| Campo             | Tipo       | Descrição                              | Obrigatório |
+| ----------------- | ---------- | -------------------------------------- | :---------: |
+| `id`              | `integer`  | Identificador único (PK, serial)       |     ✅      |
+| `pulso`           | `integer`  | Número do pulso (1-5)                  |     ✅      |
+| `jovem_id`        | `integer`  | ID do talento (FK → talents.id)        |     ✅      |
+| `user_id`         | `uuid`     | ID do usuário (FK → directus_users.id) |     ✅      |
+| `status`          | `string`   | Status atual                           |     ✅      |
+| `data_aplicacao`  | `datetime` | Data de disponibilização               |     ✅      |
+| `data_vencimento` | `datetime` | Data limite para resposta              |     ✅      |
+| `data_resposta`   | `datetime` | Data em que foi respondido             |     ❌      |
 
 #### Campos de Avaliação (Escalas 0-10)
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `nps_leapy` | `integer` | Satisfação com a Leapy (0-10) |
-| `nps_empresa` | `integer` | Satisfação com a empresa (0-10) |
-| `relacao_com_a_lideranca` | `integer` | Qualidade da relação (0-10) |
-| `ambiente_da_empresa` | `integer` | Avaliação do ambiente (0-10) |
-| `avaliacao_tarefas_e_desafios_dia_a_dia` | `integer` | Qualidade das tarefas (0-10) |
+| Campo                                                      | Tipo      | Descrição                         |
+| ---------------------------------------------------------- | --------- | --------------------------------- |
+| `nps_leapy`                                                | `integer` | Satisfação com a Leapy (0-10)     |
+| `nps_empresa`                                              | `integer` | Satisfação com a empresa (0-10)   |
+| `relacao_com_a_lideranca`                                  | `integer` | Qualidade da relação (0-10)       |
+| `ambiente_da_empresa`                                      | `integer` | Avaliação do ambiente (0-10)      |
+| `avaliacao_tarefas_e_desafios_dia_a_dia`                   | `integer` | Qualidade das tarefas (0-10)      |
 | `avaliacao_apoio_empresa_e_lideranca_para_desenvolvimento` | `integer` | Suporte ao desenvolvimento (0-10) |
 
 #### Perguntas Sim/Não
 
-| Campo | Valores |
-|-------|---------|
-| `sei_o_que_e_esperado_de_mim_na_empresa` | "Sim", "Não" |
-| `sinto_que_sou_desafiado_todos_os_dias` | "Sim", "Não" |
-| `estou_satisfeito_com_a_minha_area` | "Sim", "Não" |
+| Campo                                                 | Valores      |
+| ----------------------------------------------------- | ------------ |
+| `sei_o_que_e_esperado_de_mim_na_empresa`              | "Sim", "Não" |
+| `sinto_que_sou_desafiado_todos_os_dias`               | "Sim", "Não" |
+| `estou_satisfeito_com_a_minha_area`                   | "Sim", "Não" |
 | `minha_lideranca_se_preocupa_com_meu_desenvolvimento` | "Sim", "Não" |
-| `oportunidade_de_aplicar_o_que_aprendo_com_a_leapy` | "Sim", "Não" |
-| `consigo_gerar_valor_para_o_meu_time` | "Sim", "Não" |
+| `oportunidade_de_aplicar_o_que_aprendo_com_a_leapy`   | "Sim", "Não" |
+| `consigo_gerar_valor_para_o_meu_time`                 | "Sim", "Não" |
 
 #### Efetivação
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `quanto_voce_quer_ser_efetivado` | `integer` | Desejo de efetivação (0-10) |
-| `areas_de_interesse_em_caso_de_efetivacao` | `text` | Áreas de interesse |
-| `nivel_de_interesse_em_continuar_na_area_que_esta_atuando` | `string` | "Alto", "Médio", "Baixo" |
+| Campo                                                      | Tipo      | Descrição                   |
+| ---------------------------------------------------------- | --------- | --------------------------- |
+| `quanto_voce_quer_ser_efetivado`                           | `integer` | Desejo de efetivação (0-10) |
+| `areas_de_interesse_em_caso_de_efetivacao`                 | `text`    | Áreas de interesse          |
+| `nivel_de_interesse_em_continuar_na_area_que_esta_atuando` | `string`  | "Alto", "Médio", "Baixo"    |
 
 #### Feedbacks
 
-| Campo | Tipo |
-|-------|------|
-| `feedback_para_leapy` | `text` |
+| Campo                     | Tipo   |
+| ------------------------- | ------ |
+| `feedback_para_leapy`     | `text` |
 | `depoimento_para_empresa` | `text` |
 
 ---
@@ -124,28 +124,28 @@ Respostas dos talentos (estagiários e aprendizes).
 
 Avaliações das lideranças sobre seus liderados.
 
-| Campo | Tipo | Descrição | Obrigatório |
-|-------|------|-----------|:-----------:|
-| `id` | `integer` | Identificador único (PK) | ✅ |
-| `pulso` | `integer` | Número do pulso (1-5) | ✅ |
-| `jovem_id` | `integer` | ID do talento avaliado | ✅ |
-| `lideranca_id` | `integer` | ID da liderança avaliadora | ✅ |
-| `status` | `string` | Status atual | ✅ |
-| `data_aplicacao` | `datetime` | Data de disponibilização | ✅ |
-| `data_vencimento` | `datetime` | Data limite | ✅ |
-| `data_resposta` | `datetime` | Data de resposta | ❌ |
-| `respondido_por` | `string` | "lideranca" ou "rh" | ❌ |
+| Campo             | Tipo       | Descrição                  | Obrigatório |
+| ----------------- | ---------- | -------------------------- | :---------: |
+| `id`              | `integer`  | Identificador único (PK)   |     ✅      |
+| `pulso`           | `integer`  | Número do pulso (1-5)      |     ✅      |
+| `jovem_id`        | `integer`  | ID do talento avaliado     |     ✅      |
+| `lideranca_id`    | `integer`  | ID da liderança avaliadora |     ✅      |
+| `status`          | `string`   | Status atual               |     ✅      |
+| `data_aplicacao`  | `datetime` | Data de disponibilização   |     ✅      |
+| `data_vencimento` | `datetime` | Data limite                |     ✅      |
+| `data_resposta`   | `datetime` | Data de resposta           |     ❌      |
+| `respondido_por`  | `string`   | "lideranca" ou "rh"        |     ❌      |
 
 #### Campos de Avaliação
 
-| Campo | Tipo | Valores Permitidos |
-|-------|------|--------------------|
-| `performance` | `string` | "Abaixo", "Dentro", "Acima" |
+| Campo             | Tipo     | Valores Permitidos                  |
+| ----------------- | -------- | ----------------------------------- |
+| `performance`     | `string` | "Abaixo", "Dentro", "Acima"         |
 | `prob_efetivacao` | `string` | "Alta", "Média", "Baixa", "Nenhuma" |
-| `recontrataria` | `string` | "Sim", "Não", "Talvez" |
-| `depoimento` | `text` | Texto livre |
-| `pontos_fortes` | `text` | Texto livre |
-| `pontos_melhoria` | `text` | Texto livre |
+| `recontrataria`   | `string` | "Sim", "Não", "Talvez"              |
+| `depoimento`      | `text`   | Texto livre                         |
+| `pontos_fortes`   | `text`   | Texto livre                         |
+| `pontos_melhoria` | `text`   | Texto livre                         |
 
 ---
 
@@ -153,30 +153,30 @@ Avaliações das lideranças sobre seus liderados.
 
 Pesquisas com o time de RH sobre a parceria Leapy.
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `id` | `integer` | Identificador único (PK) |
-| `pulso` | `integer` | Número do pulso |
-| `account` | `uuid` | ID da empresa (FK → accounts.id) |
-| `user` | `uuid` | ID do usuário RH |
-| `email` | `string` | Email do respondente |
-| `status` | `string` | Status atual |
-| `data_aplicacao` | `datetime` | Data de disponibilização |
-| `data_vencimento` | `datetime` | Data limite |
-| `data_resposta` | `datetime` | Data de resposta |
-| `ultimo_pulso` | `boolean` | Se é o último pulso |
+| Campo             | Tipo       | Descrição                        |
+| ----------------- | ---------- | -------------------------------- |
+| `id`              | `integer`  | Identificador único (PK)         |
+| `pulso`           | `integer`  | Número do pulso                  |
+| `account`         | `uuid`     | ID da empresa (FK → accounts.id) |
+| `user`            | `uuid`     | ID do usuário RH                 |
+| `email`           | `string`   | Email do respondente             |
+| `status`          | `string`   | Status atual                     |
+| `data_aplicacao`  | `datetime` | Data de disponibilização         |
+| `data_vencimento` | `datetime` | Data limite                      |
+| `data_resposta`   | `datetime` | Data de resposta                 |
+| `ultimo_pulso`    | `boolean`  | Se é o último pulso              |
 
 #### Campos de Avaliação
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `nps_leapy` | `integer` | NPS geral da Leapy (0-10) |
-| `report_e_dados_da_leapy` | `integer` | Qualidade dos reports (0-10) |
-| `comunicacao_leapy` | `integer` | Qualidade da comunicação (0-10) |
-| `uso_da_plataforma_leapy` | `string` | "Muito Frequente", "Frequente", "Pouco", "Nunca" |
-| `probabilidade_recontratacao` | `string` | "Muito Provável", "Provável", "Pouco Provável", "Improvável" |
-| `destaques_leapy` | `jsonb` | Array de destaques |
-| `sugestoes` | `text` | Sugestões de melhoria |
+| Campo                         | Tipo      | Descrição                                                    |
+| ----------------------------- | --------- | ------------------------------------------------------------ |
+| `nps_leapy`                   | `integer` | NPS geral da Leapy (0-10)                                    |
+| `report_e_dados_da_leapy`     | `integer` | Qualidade dos reports (0-10)                                 |
+| `comunicacao_leapy`           | `integer` | Qualidade da comunicação (0-10)                              |
+| `uso_da_plataforma_leapy`     | `string`  | "Muito Frequente", "Frequente", "Pouco", "Nunca"             |
+| `probabilidade_recontratacao` | `string`  | "Muito Provável", "Provável", "Pouco Provável", "Improvável" |
+| `destaques_leapy`             | `jsonb`   | Array de destaques                                           |
+| `sugestoes`                   | `text`    | Sugestões de melhoria                                        |
 
 ---
 
@@ -186,31 +186,20 @@ Pesquisas com o time de RH sobre a parceria Leapy.
 
 Configuração de perguntas habilitadas por perfil.
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `id` | `uuid` | Identificador único (PK) |
-| `account_id` | `uuid` | ID da empresa |
-| `profile_enabled` | `jsonb` | Perfis habilitados |
+| Campo               | Tipo    | Descrição                        |
+| ------------------- | ------- | -------------------------------- |
+| `id`                | `uuid`  | Identificador único (PK)         |
+| `account_id`        | `uuid`  | ID da empresa                    |
+| `profile_enabled`   | `jsonb` | Perfis habilitados               |
 | `questions_enabled` | `jsonb` | Perguntas habilitadas por perfil |
 
 **Estrutura do `questions_enabled`:**
 
 ```json
 {
-  "jovens": [
-    "nps_leapy",
-    "nps_empresa",
-    "relacao_com_a_lideranca"
-  ],
-  "liderancas": [
-    "performance",
-    "prob_efetivacao",
-    "recontrataria"
-  ],
-  "rh": [
-    "nps_leapy",
-    "report_e_dados_da_leapy"
-  ]
+  "jovens": ["nps_leapy", "nps_empresa", "relacao_com_a_lideranca"],
+  "liderancas": ["performance", "prob_efetivacao", "recontrataria"],
+  "rh": ["nps_leapy", "report_e_dados_da_leapy"]
 }
 ```
 
@@ -220,16 +209,16 @@ Configuração de perguntas habilitadas por perfil.
 
 Configuração de agendamento automático de pulsos.
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `id` | `uuid` | Identificador único (PK) |
-| `account_id` | `uuid` | ID da empresa |
-| `profile` | `enum` | "jovens", "liderancas" ou "rh" |
-| `enabled` | `boolean` | Se agendamento está ativo |
-| `cadence_unit` | `text` | "month", "week" ou "day" |
+| Campo              | Tipo      | Descrição                         |
+| ------------------ | --------- | --------------------------------- |
+| `id`               | `uuid`    | Identificador único (PK)          |
+| `account_id`       | `uuid`    | ID da empresa                     |
+| `profile`          | `enum`    | "jovens", "liderancas" ou "rh"    |
+| `enabled`          | `boolean` | Se agendamento está ativo         |
+| `cadence_unit`     | `text`    | "month", "week" ou "day"          |
 | `cadence_interval` | `integer` | Intervalo (ex: 3 para trimestral) |
-| `next_pulso_date` | `date` | Próxima data de criação |
-| `max_changes` | `integer` | Máximo de alterações permitidas |
+| `next_pulso_date`  | `date`    | Próxima data de criação           |
+| `max_changes`      | `integer` | Máximo de alterações permitidas   |
 
 **Exemplo - Agendamento Trimestral:**
 
@@ -250,17 +239,17 @@ Configuração de agendamento automático de pulsos.
 
 Parâmetros globais do sistema (raramente alterados).
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `id` | `integer` | Identificador único (PK) |
-| `tipo_pulso` | `string` | Tipo do pulso |
-| `frequencia` | `integer` | Frequência em dias |
-| `dias_antes_notificacao_abertura` | `integer` | Dias antes de notificar |
+| Campo                               | Tipo      | Descrição                       |
+| ----------------------------------- | --------- | ------------------------------- |
+| `id`                                | `integer` | Identificador único (PK)        |
+| `tipo_pulso`                        | `string`  | Tipo do pulso                   |
+| `frequencia`                        | `integer` | Frequência em dias              |
+| `dias_antes_notificacao_abertura`   | `integer` | Dias antes de notificar         |
 | `recorrencia_notificacao_pendentes` | `integer` | Recorrência de lembretes (dias) |
-| `gatilho_criacao` | `string` | Gatilho que dispara criação |
-| `gatilho_parada` | `string` | Gatilho que para criação |
-| `roles` | `json` | Roles que devem receber |
-| `prazo` | `integer` | Prazo para resposta (dias) |
+| `gatilho_criacao`                   | `string`  | Gatilho que dispara criação     |
+| `gatilho_parada`                    | `string`  | Gatilho que para criação        |
+| `roles`                             | `json`    | Roles que devem receber         |
+| `prazo`                             | `integer` | Prazo para resposta (dias)      |
 
 ---
 
@@ -270,12 +259,12 @@ Parâmetros globais do sistema (raramente alterados).
 
 Views pré-calculadas para dashboards:
 
-| View | Descrição |
-|------|-----------|
-| `chart_nps_pulsos_jovens` | NPS de jovens por pulso |
-| `chart_nps_pulsos_liderancas` | NPS de avaliações de lideranças |
+| View                                  | Descrição                        |
+| ------------------------------------- | -------------------------------- |
+| `chart_nps_pulsos_jovens`             | NPS de jovens por pulso          |
+| `chart_nps_pulsos_liderancas`         | NPS de avaliações de lideranças  |
 | `chart_satisfacao_empresa_por_pulsos` | Satisfação com empresa por pulso |
-| `chart_satisfacao_leapy_por_pulsos` | Satisfação com Leapy por pulso |
+| `chart_satisfacao_leapy_por_pulsos`   | Satisfação com Leapy por pulso   |
 
 ---
 
@@ -291,20 +280,20 @@ stateDiagram-v2
     pendente --> vencido: Prazo expira sem resposta
     respondido --> [*]
     vencido --> [*]
-    
+
     note right of agendado
         Criado mas ainda não disponível
     end note
-    
+
     note right of pendente
         Disponível para resposta
         Lembretes enviados a cada 3 dias
     end note
-    
+
     note right of respondido
         Completo, data_resposta preenchida
     end note
-    
+
     note right of vencido
         Prazo expirou sem resposta
     end note
@@ -312,12 +301,12 @@ stateDiagram-v2
 
 ### Valores de Status
 
-| Status | Descrição | Editável? |
-|--------|-----------|:---------:|
-| `agendado` | Criado mas não disponível ainda | ✅ |
-| `pendente` | Disponível para resposta | ✅ |
-| `respondido` | Respondido pelo usuário | ❌ |
-| `vencido` | Prazo expirado sem resposta | ✅ |
+| Status       | Descrição                       | Editável? |
+| ------------ | ------------------------------- | :-------: |
+| `agendado`   | Criado mas não disponível ainda |    ✅     |
+| `pendente`   | Disponível para resposta        |    ✅     |
+| `respondido` | Respondido pelo usuário         |    ❌     |
+| `vencido`    | Prazo expirado sem resposta     |    ✅     |
 
 ---
 
@@ -347,16 +336,32 @@ CREATE INDEX idx_pulsos_rh_status ON pulsos_rh(status);
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+  <Card
+    title="Jobs Inngest"
+    icon="gear"
+    href="/documentation/domains/pulses/jobs-inngest"
+  >
     Jobs que manipulam essas collections
   </Card>
-  <Card title="Integrações" icon="plug" href="/documentation/domains/pulses/integrations">
+  <Card
+    title="Integrações"
+    icon="plug"
+    href="/documentation/domains/pulses/integrations"
+  >
     Resend, Agent System, Inngest
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api-reference/backoffice/pulsos-jovens"
+  >
     Como acessar via API
   </Card>
-  <Card title="Business Rules" icon="book" href="/documentation/domains/pulses/business-rules">
+  <Card
+    title="Business Rules"
+    icon="book"
+    href="/documentation/domains/pulses/business-rules"
+  >
     Regras de validação e negócio
   </Card>
 </CardGroup>

@@ -1,5 +1,5 @@
 ---
-title: "Jobs Inngest - Pulsos"
+title: "Jobs Inngest"
 description: "Detalhes dos 15 jobs automáticos do sistema de Pulsos"
 ---
 
@@ -11,23 +11,23 @@ O sistema de Pulsos utiliza **Inngest** para gerenciar 15 jobs automáticos que 
 
 ## Resumo dos Jobs
 
-| Job | Tipo | Frequência | Propósito |
-|-----|------|------------|-----------|
-| `createPulsosJovens` | Cron | Diário 9h | Criar pulsos para jovens |
-| `createPulsosLiderancas` | Cron | Diário 9h | Criar pulsos para lideranças |
-| `createPulsosLiderancaAvaliacaoLeapy` | Event | On-demand | Criar pulsos de avaliação da Leapy |
-| `processaPulsosJovensOuLiderancas` | Event | On-demand | Processar criação/atualização |
-| `updateStatusPulsosJovensParaPendentes` | Cron | Diário 8h | Liberar pulsos agendados |
-| `updateStatusPulsosJovensParaVencidos` | Cron | A cada hora | Marcar pulsos vencidos |
-| `updateStatusPulsosLiderancasToPendente` | Event | On-demand | Atualizar para pendente |
-| `updateStatusPulsosLiderancasToVencido` | Event | On-demand | Marcar como vencido |
-| `sendPulsosLembretetoJovens` | Event | On-demand | Enviar lembretes jovens |
-| `sendPulsosLembretetoLiderancas` | Event | On-demand | Enviar lembretes lideranças |
-| `sendPulsosLembretetoRh` | Event | On-demand | Enviar lembretes RH |
-| `sendLiberacaoPulsosJovensToRh` | Event | On-demand | Notificar liberação jovens |
-| `sendPulsosLiderancasLiberacaotoRh` | Event | On-demand | Notificar liberação lideranças |
-| `sendLiberacaoPulsosRhToRh` | Event | On-demand | Notificar liberação RH |
-| `sendLembretePulsosRhToRh` | Event | On-demand | Lembrete pulsos RH |
+| Job                                      | Tipo  | Frequência  | Propósito                          |
+| ---------------------------------------- | ----- | ----------- | ---------------------------------- |
+| `createPulsosJovens`                     | Cron  | Diário 9h   | Criar pulsos para jovens           |
+| `createPulsosLiderancas`                 | Cron  | Diário 9h   | Criar pulsos para lideranças       |
+| `createPulsosLiderancaAvaliacaoLeapy`    | Event | On-demand   | Criar pulsos de avaliação da Leapy |
+| `processaPulsosJovensOuLiderancas`       | Event | On-demand   | Processar criação/atualização      |
+| `updateStatusPulsosJovensParaPendentes`  | Cron  | Diário 8h   | Liberar pulsos agendados           |
+| `updateStatusPulsosJovensParaVencidos`   | Cron  | A cada hora | Marcar pulsos vencidos             |
+| `updateStatusPulsosLiderancasToPendente` | Event | On-demand   | Atualizar para pendente            |
+| `updateStatusPulsosLiderancasToVencido`  | Event | On-demand   | Marcar como vencido                |
+| `sendPulsosLembretetoJovens`             | Event | On-demand   | Enviar lembretes jovens            |
+| `sendPulsosLembretetoLiderancas`         | Event | On-demand   | Enviar lembretes lideranças        |
+| `sendPulsosLembretetoRh`                 | Event | On-demand   | Enviar lembretes RH                |
+| `sendLiberacaoPulsosJovensToRh`          | Event | On-demand   | Notificar liberação jovens         |
+| `sendPulsosLiderancasLiberacaotoRh`      | Event | On-demand   | Notificar liberação lideranças     |
+| `sendLiberacaoPulsosRhToRh`              | Event | On-demand   | Notificar liberação RH             |
+| `sendLembretePulsosRhToRh`               | Event | On-demand   | Lembrete pulsos RH                 |
 
 ---
 
@@ -55,12 +55,13 @@ O sistema de Pulsos utiliza **Inngest** para gerenciar 15 jobs automáticos que 
         * status = 'agendado'
         * data_aplicacao = next_pulso_date
         * data_vencimento = next_pulso_date + 7 dias
-   
+
    c. Atualizar next_pulso_date:
       - next_pulso_date = next_pulso_date + cadence_interval
 ```
 
 **Eventos disparados**:
+
 - `backoffice/pulsos-jovens.update-to-pendente` (na data_aplicacao)
 
 ---
@@ -76,7 +77,7 @@ O sistema de Pulsos utiliza **Inngest** para gerenciar 15 jobs automáticos que 
 ```typescript
 1. Buscar settings de agendamento
    - WHERE profile = 'liderancas'
-   
+
 2. Para cada jovem ativo:
    - Identificar liderança direta
    - Criar pulso de avaliação em `Pulsos`
@@ -122,6 +123,7 @@ WHERE status = 'agendado'
 ```
 
 **Eventos disparados**:
+
 - `backoffice/pulsos_jovens/lembrete-to-jovens.send` (notificação inicial)
 
 ---
@@ -244,6 +246,7 @@ WHERE status = 'pendente'
 ```
 
 **Templates usados**:
+
 - `pulsos-lembrete-jovens-to-rh`
 - `pulsos-lembrete-liderancas-to-rh`
 
@@ -339,20 +342,20 @@ sequenceDiagram
     participant UpdateJob
     participant NotifyJob
     participant Email
-    
+
     Cron->>CreateJob: 9h - Trigger createPulsosJovens
     CreateJob->>Database: INSERT pulsos_jovens (status: agendado)
-    
+
     Cron->>UpdateJob: 8h - Trigger updateStatusParaPendentes
     UpdateJob->>Database: UPDATE status = pendente
     UpdateJob->>NotifyJob: Dispara evento de notificação
-    
+
     NotifyJob->>Email: Envia email via Resend
-    
+
     loop A cada 3 dias
         NotifyJob->>Email: Envia lembretes
     end
-    
+
     Cron->>UpdateJob: A cada hora - Trigger updateStatusParaVencidos
     UpdateJob->>Database: UPDATE status = vencido (se expirou)
 ```
@@ -363,16 +366,16 @@ sequenceDiagram
 
 ### Templates Usados
 
-| Template | Uso | Job |
-|----------|-----|-----|
-| `pulsos-lembrete-jovens` | Lembrete para talentos | sendPulsosLembretetoJovens |
-| `pulsos-lembrete-liderancas` | Lembrete para lideranças | sendPulsosLembretetoLiderancas |
-| `pulsos-lembrete-jovens-to-rh` | Lembrete jovens para RH | sendPulsosLembretetoRh |
-| `pulsos-lembrete-liderancas-to-rh` | Lembrete lideranças para RH | sendPulsosLembretetoRh |
-| `pulsos-liberacao-jovens-to-rh` | Liberação jovens | sendLiberacaoPulsosJovensToRh |
-| `pulsos-liberacao-liderancas-to-rh` | Liberação lideranças | sendPulsosLiderancasLiberacaotoRh |
-| `pulsos-liberacao-rh-to-rh` | Liberação RH | sendLiberacaoPulsosRhToRh |
-| `pulsos-lembrete-rh-to-rh` | Lembrete RH | sendLembretePulsosRhToRh |
+| Template                            | Uso                         | Job                               |
+| ----------------------------------- | --------------------------- | --------------------------------- |
+| `pulsos-lembrete-jovens`            | Lembrete para talentos      | sendPulsosLembretetoJovens        |
+| `pulsos-lembrete-liderancas`        | Lembrete para lideranças    | sendPulsosLembretetoLiderancas    |
+| `pulsos-lembrete-jovens-to-rh`      | Lembrete jovens para RH     | sendPulsosLembretetoRh            |
+| `pulsos-lembrete-liderancas-to-rh`  | Lembrete lideranças para RH | sendPulsosLembretetoRh            |
+| `pulsos-liberacao-jovens-to-rh`     | Liberação jovens            | sendLiberacaoPulsosJovensToRh     |
+| `pulsos-liberacao-liderancas-to-rh` | Liberação lideranças        | sendPulsosLiderancasLiberacaotoRh |
+| `pulsos-liberacao-rh-to-rh`         | Liberação RH                | sendLiberacaoPulsosRhToRh         |
+| `pulsos-lembrete-rh-to-rh`          | Lembrete RH                 | sendLembretePulsosRhToRh          |
 
 ---
 
@@ -380,12 +383,12 @@ sequenceDiagram
 
 ### Métricas Críticas
 
-| Métrica | Descrição | Alerta |
-|---------|-----------|--------|
-| **Success Rate** | Taxa de sucesso dos jobs | < 95% |
-| **Latency** | Tempo médio de execução | > 30s |
-| **Retry Rate** | Taxa de retries | > 5% |
-| **Failed Jobs** | Jobs que falharam completamente | > 0 |
+| Métrica          | Descrição                       | Alerta |
+| ---------------- | ------------------------------- | ------ |
+| **Success Rate** | Taxa de sucesso dos jobs        | < 95%  |
+| **Latency**      | Tempo médio de execução         | > 30s  |
+| **Retry Rate**   | Taxa de retries                 | > 5%   |
+| **Failed Jobs**  | Jobs que falharam completamente | > 0    |
 
 ### Onde Monitorar
 
@@ -433,16 +436,32 @@ Para testar ou reprocessar:
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Integrações" icon="plug" href="/documentation/domains/pulses/integrations">
+  <Card
+    title="Integrações"
+    icon="plug"
+    href="/documentation/domains/pulses/integrations"
+  >
     Resend, Agent System, Inngest
   </Card>
-  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+  <Card
+    title="Modelo de Dados"
+    icon="database"
+    href="/documentation/domains/pulses/data-model"
+  >
     Estrutura de collections
   </Card>
-  <Card title="Troubleshooting" icon="wrench" href="/guides/backoffice/pulsos-troubleshooting">
+  <Card
+    title="Troubleshooting"
+    icon="wrench"
+    href="/guides/backoffice/pulsos-troubleshooting"
+  >
     Resolver problemas
   </Card>
-  <Card title="Operações" icon="gears" href="/guides/backoffice/pulsos-operacoes">
+  <Card
+    title="Operações"
+    icon="gears"
+    href="/guides/backoffice/pulsos-operacoes"
+  >
     Guia operacional
   </Card>
 </CardGroup>

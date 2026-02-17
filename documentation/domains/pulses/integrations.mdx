@@ -1,5 +1,5 @@
 ---
-title: "Integrações - Pulsos"
+title: "Integrações"
 description: "Integrações e conexões do sistema de Pulsos com serviços externos e internos"
 ---
 
@@ -13,7 +13,7 @@ flowchart LR
     Inngest --> Resend[Resend Email]
     Inngest --> Agent[Agent WhatsApp]
     Inngest --> Supabase[(Supabase PostgreSQL)]
-    
+
     Frontend[App RH Next.js] --> Directus
     Directus --> Supabase
 ```
@@ -31,20 +31,15 @@ flowchart LR
 
 <CardGroup cols={3}>
   <Card title="Criação" icon="plus">
-    • createPulsosJovens  
-    • createPulsosLiderancas  
-    • processaPulsos
+    • createPulsosJovens • createPulsosLiderancas • processaPulsos
   </Card>
   <Card title="Status" icon="rotate">
-    • updateStatusParaPendentes  
-    • updateStatusParaVencidos  
-    • updateStatusLiderancas
+    • updateStatusParaPendentes • updateStatusParaVencidos •
+    updateStatusLiderancas
   </Card>
   <Card title="Notificações" icon="envelope">
-    • sendLembreteJovens  
-    • sendLembreteLiderancas  
-    • sendLembreteRH  
-    • sendLiberacoes (3x)
+    • sendLembreteJovens • sendLembreteLiderancas • sendLembreteRH •
+    sendLiberacoes (3x)
   </Card>
 </CardGroup>
 
@@ -56,7 +51,8 @@ flowchart LR
 - `backoffice/pulsos_rh/liberacao-to-rh.send` - Notifica liberação
 
 <Tip>
-  Consulte a [documentação completa de Jobs](/documentation/domains/pulses/jobs-inngest) para detalhes de cada job.
+  Consulte a [documentação completa de
+  Jobs](/documentation/domains/pulses/jobs-inngest) para detalhes de cada job.
 </Tip>
 
 ---
@@ -68,17 +64,17 @@ flowchart LR
 
 **9 Templates Ativos**:
 
-| Template | Uso | Destinatário |
-|----------|-----|--------------|
-| `pulsos-lembrete-jovens` | Lembrete de pulso pendente | Talentos |
-| `pulsos-lembrete-liderancas` | Lembrete de avaliação | Lideranças |
-| `pulsos-lembrete-jovens-to-rh` | Status de jovens | RH |
-| `pulsos-lembrete-liderancas-to-rh` | Status de lideranças | RH |
-| `pulsos-liberacao-jovens-to-rh` | Novo pulso criado | RH |
-| `pulsos-liberacao-liderancas-to-rh` | Novo pulso criado | RH |
-| `pulsos-liberacao-rh-to-rh` | Novo pulso de RH | RH |
-| `pulsos-lembrete-rh-to-rh` | Lembrete pulso RH | RH |
-| `pulsos-notificacao-abertura` | Pulso disponível | Todos |
+| Template                            | Uso                        | Destinatário |
+| ----------------------------------- | -------------------------- | ------------ |
+| `pulsos-lembrete-jovens`            | Lembrete de pulso pendente | Talentos     |
+| `pulsos-lembrete-liderancas`        | Lembrete de avaliação      | Lideranças   |
+| `pulsos-lembrete-jovens-to-rh`      | Status de jovens           | RH           |
+| `pulsos-lembrete-liderancas-to-rh`  | Status de lideranças       | RH           |
+| `pulsos-liberacao-jovens-to-rh`     | Novo pulso criado          | RH           |
+| `pulsos-liberacao-liderancas-to-rh` | Novo pulso criado          | RH           |
+| `pulsos-liberacao-rh-to-rh`         | Novo pulso de RH           | RH           |
+| `pulsos-lembrete-rh-to-rh`          | Lembrete pulso RH          | RH           |
+| `pulsos-notificacao-abertura`       | Pulso disponível           | Todos        |
 
 **Fluxo de Envio**:
 
@@ -88,7 +84,7 @@ sequenceDiagram
     participant Event as emails/resend.send
     participant Resend as Resend API
     participant User as Destinatário
-    
+
     Job->>Event: Dispara evento com template e dados
     Event->>Resend: POST /emails com template_id
     Resend->>User: Entrega email
@@ -130,8 +126,8 @@ Acesse: {{link}}
 await step.run("send-whatsapp", async () => {
   await agentSystem.sendMessage({
     phone: talent.phone,
-    template: 'pulso-lembrete',
-    data: { nome, pulso_numero, link }
+    template: "pulso-lembrete",
+    data: { nome, pulso_numero, link },
   });
 });
 ```
@@ -211,7 +207,7 @@ POST /api/pulsos/send-lembrete - Enviar lembretes
 ```typescript
 // src/services/pulsos.js
 export async function getPulsos(filtros) {
-  return await directus.request(readItems('pulsos_jovens', filtros));
+  return await directus.request(readItems("pulsos_jovens", filtros));
 }
 ```
 
@@ -259,7 +255,7 @@ sequenceDiagram
     participant Directus
     participant DB
     participant Resend
-    
+
     Cron->>Inngest: Trigger createPulsosJovens (9h)
     Inngest->>DB: Query pulsos_schedule_settings
     Inngest->>DB: Query jovens ativos
@@ -278,7 +274,7 @@ sequenceDiagram
     participant Frontend
     participant Directus
     participant DB
-    
+
     User->>Frontend: Preenche formulário
     User->>Frontend: Clica "Enviar"
     Frontend->>Directus: PATCH /items/pulsos_jovens/12345
@@ -294,12 +290,12 @@ sequenceDiagram
 
 ### Health Checks
 
-| Serviço | Endpoint | Frequência |
-|---------|----------|------------|
-| Directus | `/server/health` | A cada minuto |
-| Supabase | Dashboard | Manual |
-| Inngest | Dashboard > Status | Real-time |
-| Resend | Dashboard > Delivery Rate | Diário |
+| Serviço  | Endpoint                  | Frequência    |
+| -------- | ------------------------- | ------------- |
+| Directus | `/server/health`          | A cada minuto |
+| Supabase | Dashboard                 | Manual        |
+| Inngest  | Dashboard > Status        | Real-time     |
+| Resend   | Dashboard > Delivery Rate | Diário        |
 
 ### Alertas Configurados
 
@@ -312,16 +308,32 @@ sequenceDiagram
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+  <Card
+    title="Jobs Inngest"
+    icon="gear"
+    href="/documentation/domains/pulses/jobs-inngest"
+  >
     Detalhes dos 15 jobs
   </Card>
-  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api-reference/backoffice/pulsos-jovens"
+  >
     Documentação da API
   </Card>
-  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+  <Card
+    title="Modelo de Dados"
+    icon="database"
+    href="/documentation/domains/pulses/data-model"
+  >
     Estrutura de tabelas
   </Card>
-  <Card title="Troubleshooting" icon="wrench" href="/guides/backoffice/pulsos-troubleshooting">
+  <Card
+    title="Troubleshooting"
+    icon="wrench"
+    href="/guides/backoffice/pulsos-troubleshooting"
+  >
     Resolver problemas
   </Card>
 </CardGroup>
