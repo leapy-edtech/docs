@@ -448,6 +448,31 @@ Notifica RH sobre liberação de pulsos para o próprio RH.
 
 **Template de email:** `pulsos-liberacao-rh-to-rh`
 
+### `backoffice/pulsos_rh/liberacao-to-jovens.send`
+
+Notifica jovens sobre liberação de pulsos RH que eles devem responder.
+
+**Trigger**: Endpoint Workflow `/pulsos/send-liberacao-pulsos-rh-to-jovens` (chamado por Hook CRON `hook-cron-send-liberacao-pulsos-rh-to-jovens` às 8:05)
+
+**Payload:**
+
+```json
+{
+  "event": "backoffice/pulsos_rh/liberacao-to-jovens.send",
+  "data": {
+    "pulso_ids": [123, 124, 125],
+    "jovens_count": 15,
+    "data_vencimento": "2024-03-15",
+    "jovens_emails": ["jovem1@empresa.com", "jovem2@empresa.com"]
+  }
+}
+```
+
+**Job executado:**
+- `sendLiberacaoPulsosRhToJovens`
+
+**Template de email:** `pulsos-liberacao-rh-to-jovens`
+
 ### `backoffice/pulsos_rh/lembrete-rh.send`
 
 Envia lembrete de pulsos de RH pendentes.
