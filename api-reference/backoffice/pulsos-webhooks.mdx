@@ -34,26 +34,26 @@ sequenceDiagram
     DB-->>Endpoint: Dados
     Endpoint->>Inngest: POST inn.gs/e/KEY
     Endpoint-->>CRON: 200 OK
-    
+
     Note over CRON,Inngest: Fluxo 2: Hook → Evento Direto
     CRON->>Inngest: POST inn.gs/e/KEY
-    
+
     Note over Inngest,Jobs: Processamento (ambos os fluxos)
     Inngest->>Jobs: Trigger Jobs
 ```
 
 ### Mapeamento Hooks CRON → Eventos
 
-| Hook CRON | Horário | Tipo de Fluxo | Endpoint/Evento | Descrição |
-|-----------|---------|---------------|-----------------|-----------|
-| `hook-cron-send-liberacao-pulsos-rh-to-rh` | 8:00 | Hook → Endpoint → Evento | `/pulsos/send-liberacao-pulsos-rh-to-rh` → `liberacao-to-rh.send` | Libera pulsos RH para gestores |
-| `hook-cron-send-liberacao-pulsos-rh-to-jovens` | 8:05 | Hook → Endpoint → Evento | `/pulsos/send-liberacao-pulsos-rh-to-jovens` → `liberacao-to-jovens.send` | Libera pulsos RH para jovens |
-| `hook-cron-send-lembrete-pulsos-rh-to-rh` | 8:00 | Hook → Endpoint → Evento | `/pulsos/send-lembrete-pulsos-rh-to-rh` → `lembrete-to-rh.send` | Envia lembretes para RH |
-| `hook-cron-send-lembrete` | 5:00 | Hook → Endpoint → Evento | `/pulsos/send-lembrete` → `send-lembrete-pulsos.send` | Lembretes gerais |
-| `hook-cron-update-pulsos-liderancas-to-pendente` | Diário | Hook → Evento Direto | `pulsos.change_status` | Atualiza status para pendente |
-| `hook-cron-update-pulsos-jovens-to-pendente` | Diário | Hook → Evento Direto | `pulsos-jovens.update-to-pendente` | Atualiza pulsos jovens para pendente |
-| `hook-cron-update-pulsos-jovens-to-vencidos` | Diário | Hook → Evento Direto | `pulsos-jovens.update-to-vencidos` | Marca pulsos jovens como vencidos |
-| `hook-cron-update-pulsos-liderancas-to-vencidos` | Diário | Hook → Evento Direto | `pulsos.vencidos_lideranca` | Marca pulsos lideranças como vencidos |
+| Hook CRON                                        | Horário | Tipo de Fluxo            | Endpoint/Evento                                                           | Descrição                             |
+| ------------------------------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------- | ------------------------------------- |
+| `hook-cron-send-liberacao-pulsos-rh-to-rh`       | 8:00    | Hook → Endpoint → Evento | `/pulsos/send-liberacao-pulsos-rh-to-rh` → `liberacao-to-rh.send`         | Libera pulsos RH para gestores        |
+| `hook-cron-send-liberacao-pulsos-rh-to-jovens`   | 8:05    | Hook → Endpoint → Evento | `/pulsos/send-liberacao-pulsos-rh-to-jovens` → `liberacao-to-jovens.send` | Libera pulsos RH para jovens          |
+| `hook-cron-send-lembrete-pulsos-rh-to-rh`        | 8:00    | Hook → Endpoint → Evento | `/pulsos/send-lembrete-pulsos-rh-to-rh` → `lembrete-to-rh.send`           | Envia lembretes para RH               |
+| `hook-cron-send-lembrete`                        | 5:00    | Hook → Endpoint → Evento | `/pulsos/send-lembrete` → `send-lembrete-pulsos.send`                     | Lembretes gerais                      |
+| `hook-cron-update-pulsos-liderancas-to-pendente` | Diário  | Hook → Evento Direto     | `pulsos.change_status`                                                    | Atualiza status para pendente         |
+| `hook-cron-update-pulsos-jovens-to-pendente`     | Diário  | Hook → Evento Direto     | `pulsos-jovens.update-to-pendente`                                        | Atualiza pulsos jovens para pendente  |
+| `hook-cron-update-pulsos-jovens-to-vencidos`     | Diário  | Hook → Evento Direto     | `pulsos-jovens.update-to-vencidos`                                        | Marca pulsos jovens como vencidos     |
+| `hook-cron-update-pulsos-liderancas-to-vencidos` | Diário  | Hook → Evento Direto     | `pulsos.vencidos_lideranca`                                               | Marca pulsos lideranças como vencidos |
 
 ### Exemplos de Código
 
@@ -62,16 +62,16 @@ sequenceDiagram
 ```javascript
 // extensions/hooks/src/hook-cron-send-liberacao-pulsos-rh-to-rh/index.js
 export default ({ schedule }, { env }) => {
-  schedule('0 8 * * *', async () => {
-    const directusUrl = env.PUBLIC_URL || 'http://localhost:8055';
+  schedule("0 8 * * *", async () => {
+    const directusUrl = env.PUBLIC_URL || "http://localhost:8055";
     const response = await fetch(
       `${directusUrl}/pulsos/send-liberacao-pulsos-rh-to-rh?status=agendado&send_event=true`,
       {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${env.DIRECTUS_STATIC_TOKEN}`
-        }
-      }
+          Authorization: `Bearer ${env.DIRECTUS_STATIC_TOKEN}`,
+        },
+      },
     );
     const result = await response.json();
     console.log(`✅ Liberação RH: ${result.data.pulsos_encontrados} pulsos`);
@@ -84,17 +84,17 @@ export default ({ schedule }, { env }) => {
 ```javascript
 // extensions/hooks/src/hook-cron-update-to-pendente/index.js
 export default ({ schedule }, { env }) => {
-  schedule('0 0 * * *', async () => {
+  schedule("0 0 * * *", async () => {
     await fetch(env.INNGEST_EVENT_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${env.INNGEST_EVENT_KEY}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${env.INNGEST_EVENT_KEY}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: 'backoffice/pulsos.change_status',
-        data: { trigger: 'cron', timestamp: Date.now() }
-      })
+        name: "backoffice/pulsos.change_status",
+        data: { trigger: "cron", timestamp: Date.now() },
+      }),
     });
   });
 };
@@ -104,48 +104,72 @@ export default ({ schedule }, { env }) => {
 
 ```javascript
 // extensions/endpoints-workflows/src/pulsos/index.js
-router.get('/send-liberacao-pulsos-rh-to-rh', async (req, res) => {
-  const { status = 'agendado', send_event = true } = req.query;
-  
+router.get("/send-liberacao-pulsos-rh-to-rh", async (req, res) => {
+  const { status = "agendado", send_event = true } = req.query;
+
   // 1. Consultar dados
-  const pulsos = await services.ItemsService('pulsos_rh').readByQuery({
-    filter: { status: { _eq: status } }
+  const pulsos = await services.ItemsService("pulsos_rh").readByQuery({
+    filter: { status: { _eq: status } },
   });
-  
+
   // 2. Disparar evento Inngest
   if (send_event && pulsos.length > 0) {
     await fetch(env.INNGEST_EVENT_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${env.INNGEST_EVENT_KEY}`,
-        'Content-Type': 'application/json'
+        Authorization: `Bearer ${env.INNGEST_EVENT_KEY}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: 'backoffice/pulsos_rh/liberacao-to-rh.send',
+        name: "backoffice/pulsos_rh/liberacao-to-rh.send",
         data: {
-          pulso_ids: pulsos.map(p => p.id),
-          count: pulsos.length
-        }
-      })
+          pulso_ids: pulsos.map((p) => p.id),
+          count: pulsos.length,
+        },
+      }),
     });
   }
-  
+
   res.json({ data: { pulsos_encontrados: pulsos.length } });
 });
 ```
 
 ### Quando Usar Cada Fluxo?
 
-| Critério | Hook → Endpoint → Evento | Hook → Evento Direto |
-|----------|-------------------------|---------------------|
-| **Quando usar** | Precisa consultar dados, validar regras, processar lógica antes de disparar evento | Evento simples, sem necessidade de consultas |
-| **Vantagens** | Controle fino, logging, validação, testável via HTTP | Simples, direto, menos overhead |
-| **Desvantagens** | Mais complexo, mais código | Limitado, sem lógica customizada |
-| **Exemplo** | Enviar notificações apenas para pulsos com status "agendado" | Atualizar status de todos os pulsos pendentes |
+| Critério         | Hook → Endpoint → Evento                                                           | Hook → Evento Direto                          |
+| ---------------- | ---------------------------------------------------------------------------------- | --------------------------------------------- |
+| **Quando usar**  | Precisa consultar dados, validar regras, processar lógica antes de disparar evento | Evento simples, sem necessidade de consultas  |
+| **Vantagens**    | Controle fino, logging, validação, testável via HTTP                               | Simples, direto, menos overhead               |
+| **Desvantagens** | Mais complexo, mais código                                                         | Limitado, sem lógica customizada              |
+| **Exemplo**      | Enviar notificações apenas para pulsos com status "agendado"                       | Atualizar status de todos os pulsos pendentes |
 
 <Tip>
-  Para mais detalhes sobre endpoints workflows, consulte [Endpoints Customizados - Workflows](/api-reference/backoffice/pulsos-endpoints-custom#workflows-operações-internas).
+  Para mais detalhes sobre endpoints workflows, consulte [Endpoints Customizados
+  -
+  Workflows](/api-reference/backoffice/pulsos-endpoints-custom#workflows-operações-internas).
 </Tip>
+
+---
+
+## Resumo de Eventos e Jobs
+
+| Evento                                                     | Job                                      | Descrição                     |
+| ---------------------------------------------------------- | ---------------------------------------- | ----------------------------- |
+| `backoffice/jovem.created`                                 | `createPulsosJovens`                     | Cria 5 pulsos para jovem      |
+| `backoffice/jovem.created`                                 | `createPulsosLiderancas`                 | Cria 5 pulsos para liderança  |
+| `backoffice/jovem.selected`                                | `processaPulsosJovensOuLiderancas`       | Processa criação/atualização  |
+| `backoffice/pulsos.change_status`                          | `updateStatusPulsosLiderancasToPendente` | Atualiza para pendente        |
+| `backoffice/pulsos.vencidos_lideranca`                     | `updateStatusPulsosLiderancasToVencido`  | Marca como vencido            |
+| `backoffice/pulsos-jovens.update-to-pendente`              | `updateStatusPulsosJovensParaPendentes`  | Atualiza jovens pendente      |
+| `backoffice/pulsos-jovens.update-to-vencidos`              | `updateStatusPulsosJovensParaVencidos`   | Marca jovens vencido          |
+| `backoffice/pulsos_jovens/lembrete-to-jovens.send`         | `sendPulsosLembretetoJovens`             | Envia lembrete jovens         |
+| `backoffice/pulsos_liderancas/lembrete-to-liderancas.send` | `sendPulsosLembretetoLiderancas`         | Envia lembrete lideranças     |
+| `backoffice/pulsos_jovens/liberacao-to-rh.send`            | `sendLiberacaoPulsosJovensToRh`          | Notifica liberação jovens     |
+| `backoffice/pulsos_liderancas/liberacao-to-rh.send`        | `sendPulsosLiderancasLiberacaotoRh`      | Notifica liberação lideranças |
+| `backoffice/pulsos_rh/liberacao-to-rh.send`                | `sendLiberacaoPulsosRhToRh`              | Notifica liberação RH         |
+| `backoffice/pulsos_rh/liberacao-to-jovens.send`            | `sendLiberacaoPulsosRhToJovens`          | Notifica liberação RH jovens  |
+| `backoffice/pulsos_rh/lembrete-rh.send`                    | `sendLembretePulsosRhToRh`               | Lembrete RH                   |
+| `emails/resend.send`                                       | `emailSendResend`                        | Envia email via Resend        |
 
 ---
 
@@ -175,6 +199,7 @@ Disparado quando um jovem (talento) é criado no sistema. Cria automaticamente 5
 ```
 
 **Jobs executados:**
+
 - `createPulsosJovens` - Cria 5 pulsos para o jovem
 - `createPulsosLiderancas` - Cria 5 pulsos para a liderança avaliar o jovem
 
@@ -197,6 +222,7 @@ Disparado quando um jovem é selecionado/ativado. Processa e cria/atualiza pulso
 ```
 
 **Job executado:**
+
 - `processaPulsosJovensOuLiderancas` - Processa criação/atualização de pulsos
 
 ### `backoffice-inngest-functions/pulsos-liderancas-leapy.create`
@@ -219,6 +245,7 @@ Disparado internamente para criar pulsos de avaliação da Leapy para liderança
 ```
 
 **Job executado:**
+
 - `createPulsosLiderancaAvaliacaoLeapy`
 
 ---
@@ -247,6 +274,7 @@ Disparado quando o status de um pulso de liderança muda.
 ```
 
 **Job executado:**
+
 - `updateStatusPulsosLiderancasToPendente`
 
 ### `backoffice/pulsos.vencidos_lideranca`
@@ -267,6 +295,7 @@ Disparado para marcar pulsos de liderança como vencidos.
 ```
 
 **Jobs executados:**
+
 - `updateStatusPulsosLiderancasToVencido`
 - `updateStatusPulsosLiderancasAvaliacaoLeapyToVencido`
 
@@ -288,6 +317,7 @@ Atualiza pulsos de jovens para status pendente.
 ```
 
 **Job executado:**
+
 - `updateStatusPulsosJovensParaPendentes`
 
 ### `backoffice/pulsos-jovens.update-to-vencidos`
@@ -308,6 +338,7 @@ Atualiza pulsos de jovens para status vencido.
 ```
 
 **Job executado:**
+
 - `updateStatusPulsosJovensParaVencidos`
 
 ---
@@ -341,6 +372,7 @@ Envia lembrete de pulso pendente para jovens via email.
 ```
 
 **Job executado:**
+
 - `sendPulsosLembretetoJovens`
 
 **Template de email:** `pulsos-lembrete-jovens`
@@ -370,6 +402,7 @@ Envia lembrete de pulso pendente para lideranças.
 ```
 
 **Job executado:**
+
 - `sendPulsosLembretetoLiderancas`
 
 **Template de email:** `pulsos-lembrete-liderancas`
@@ -395,9 +428,11 @@ Envia lembrete para RH sobre pulsos pendentes (jovens ou lideranças).
 ```
 
 **Job executado:**
+
 - `sendPulsosLembretetoRh`
 
 **Templates de email:**
+
 - `pulsos-lembrete-jovens-to-rh`
 - `pulsos-lembrete-liderancas-to-rh`
 
@@ -422,6 +457,7 @@ Notifica RH sobre liberação de novos pulsos de jovens.
 ```
 
 **Job executado:**
+
 - `sendLiberacaoPulsosJovensToRh`
 
 **Template de email:** `pulsos-liberacao-jovens-to-rh`
@@ -433,6 +469,7 @@ Notifica RH sobre liberação de novos pulsos de lideranças.
 **Trigger**: Agendamento automático (Inngest Scheduled Job) quando novos pulsos são criados
 
 **Job executado:**
+
 - `sendPulsosLiderancasLiberacaotoRh`
 
 **Template de email:** `pulsos-liberacao-liderancas-to-rh`
@@ -444,6 +481,7 @@ Notifica RH sobre liberação de pulsos para o próprio RH.
 **Trigger**: Endpoint Workflow `/pulsos/send-liberacao-pulsos-rh-to-rh` (chamado por Hook CRON `hook-cron-send-liberacao-pulsos-rh-to-rh` às 8:00)
 
 **Job executado:**
+
 - `sendLiberacaoPulsosRhToRh`
 
 **Template de email:** `pulsos-liberacao-rh-to-rh`
@@ -469,6 +507,7 @@ Notifica jovens sobre liberação de pulsos RH que eles devem responder.
 ```
 
 **Job executado:**
+
 - `sendLiberacaoPulsosRhToJovens`
 
 **Template de email:** `pulsos-liberacao-rh-to-jovens`
@@ -480,6 +519,7 @@ Envia lembrete de pulsos de RH pendentes.
 **Trigger**: Endpoint Workflow `/pulsos/send-lembrete-pulsos-rh-to-rh` (chamado por Hook CRON `hook-cron-send-lembrete-pulsos-rh-to-rh` às 8:00)
 
 **Job executado:**
+
 - `sendLembretePulsosRhToRh`
 
 **Template de email:** `pulsos-lembrete-rh-to-rh`
@@ -515,29 +555,8 @@ Evento genérico para envio de emails via Resend. Todos os jobs de notificação
 ```
 
 **Job executado:**
+
 - `emailSendResend`
-
----
-
-## Resumo de Eventos e Jobs
-
-| Evento | Job | Descrição |
-|--------|-----|-----------|
-| `backoffice/jovem.created` | `createPulsosJovens` | Cria 5 pulsos para jovem |
-| `backoffice/jovem.created` | `createPulsosLiderancas` | Cria 5 pulsos para liderança |
-| `backoffice/jovem.selected` | `processaPulsosJovensOuLiderancas` | Processa criação/atualização |
-| `backoffice/pulsos.change_status` | `updateStatusPulsosLiderancasToPendente` | Atualiza para pendente |
-| `backoffice/pulsos.vencidos_lideranca` | `updateStatusPulsosLiderancasToVencido` | Marca como vencido |
-| `backoffice/pulsos-jovens.update-to-pendente` | `updateStatusPulsosJovensParaPendentes` | Atualiza jovens pendente |
-| `backoffice/pulsos-jovens.update-to-vencidos` | `updateStatusPulsosJovensParaVencidos` | Marca jovens vencido |
-| `backoffice/pulsos_jovens/lembrete-to-jovens.send` | `sendPulsosLembretetoJovens` | Envia lembrete jovens |
-| `backoffice/pulsos_liderancas/lembrete-to-liderancas.send` | `sendPulsosLembretetoLiderancas` | Envia lembrete lideranças |
-| `backoffice/pulsos_jovens/liberacao-to-rh.send` | `sendLiberacaoPulsosJovensToRh` | Notifica liberação jovens |
-| `backoffice/pulsos_liderancas/liberacao-to-rh.send` | `sendPulsosLiderancasLiberacaotoRh` | Notifica liberação lideranças |
-| `backoffice/pulsos_rh/liberacao-to-rh.send` | `sendLiberacaoPulsosRhToRh` | Notifica liberação RH |
-| `backoffice/pulsos_rh/liberacao-to-jovens.send` | `sendLiberacaoPulsosRhToJovens` | Notifica liberação RH jovens |
-| `backoffice/pulsos_rh/lembrete-rh.send` | `sendLembretePulsosRhToRh` | Lembrete RH |
-| `emails/resend.send` | `emailSendResend` | Envia email via Resend |
 
 ---
 
@@ -564,19 +583,19 @@ Configure webhooks em **Settings > Webhooks** no Directus para receber notifica�
 Criar uma function que escuta eventos:
 
 ```typescript
-import { inngest } from './inngest/client';
+import { inngest } from "./inngest/client";
 
 export const myPulsoHandler = inngest.createFunction(
   { id: "my-pulso-handler" },
   { event: "backoffice/pulsos-jovens.update-to-pendente" },
   async ({ event, step }) => {
     const { pulso_ids } = event.data;
-    
+
     await step.run("processar-pulsos", async () => {
       // Sua lógica aqui
-      console.log(`Processando pulsos: ${pulso_ids.join(', ')}`);
+      console.log(`Processando pulsos: ${pulso_ids.join(", ")}`);
     });
-  }
+  },
 );
 ```
 
@@ -588,10 +607,7 @@ export const myPulsoHandler = inngest.createFunction(
 
 ```graphql
 query GetPulsosComRelacionamentos {
-  pulsos_jovens(
-    filter: { status: { _eq: "pendente" } }
-    limit: 10
-  ) {
+  pulsos_jovens(filter: { status: { _eq: "pendente" } }, limit: 10) {
     id
     pulso
     status
@@ -609,9 +625,7 @@ query GetPulsosComRelacionamentos {
 
 ```graphql
 query GetPulsosLiderancas {
-  Pulsos(
-    filter: { lideranca_id: { _eq: 123 } }
-  ) {
+  Pulsos(filter: { lideranca_id: { _eq: 123 } }) {
     id
     pulso
     jovem_id {
@@ -647,13 +661,15 @@ subscription PulsosAtualizados {
 ### 1. Retry Logic
 
 <Tip>
-  Implemente retry com exponential backoff ao consumir eventos. Jobs do Inngest já possuem retry automático.
+  Implemente retry com exponential backoff ao consumir eventos. Jobs do Inngest
+  já possuem retry automático.
 </Tip>
 
 ### 2. Idempotência
 
 <Warning>
-  Garanta que seus handlers sejam idempotentes. Um mesmo evento pode ser processado múltiplas vezes.
+  Garanta que seus handlers sejam idempotentes. Um mesmo evento pode ser
+  processado múltiplas vezes.
 </Warning>
 
 ### 3. Timeouts
@@ -662,24 +678,26 @@ Configure timeouts adequados:
 
 ```typescript
 inngest.createFunction(
-  { 
+  {
     id: "handler-pulsos",
     retries: 3,
-    timeout: "5m"
+    timeout: "5m",
   },
   { event: "backoffice/jovem.created" },
   async ({ event }) => {
     // Sua lógica
-  }
+  },
 );
 ```
 
 ### 4. Monitoramento
 
 Monitore eventos no Inngest Dashboard:
+
 - https://app.inngest.com
 
 Métricas importantes:
+
 - Taxa de sucesso/falha
 - Tempo médio de execução
 - Eventos pendentes na fila
@@ -689,16 +707,32 @@ Métricas importantes:
 ## Próximos Passos
 
 <CardGroup cols={2}>
-  <Card title="Exemplos Práticos" icon="code" href="/api-reference/backoffice/pulsos-examples">
+  <Card
+    title="Exemplos Práticos"
+    icon="code"
+    href="/api-reference/backoffice/pulsos-examples"
+  >
     Casos de uso completos com código
   </Card>
-  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+  <Card
+    title="Jobs Inngest"
+    icon="gear"
+    href="/documentation/domains/pulses/jobs-inngest"
+  >
     Documentação técnica dos jobs
   </Card>
-  <Card title="Operações" icon="wrench" href="/guides/backoffice/pulsos-operacoes">
+  <Card
+    title="Operações"
+    icon="wrench"
+    href="/guides/backoffice/pulsos-operacoes"
+  >
     Guia de operações e troubleshooting
   </Card>
-  <Card title="Plataforma" icon="server" href="/documentation/platform/events-jobs-inngest">
+  <Card
+    title="Plataforma"
+    icon="server"
+    href="/documentation/platform/events-jobs-inngest"
+  >
     Arquitetura de eventos
   </Card>
 </CardGroup>
