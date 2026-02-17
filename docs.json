@@ -206,6 +206,7 @@
                   "api-reference/backoffice/pulsos-liderancas",
                   "api-reference/backoffice/pulsos-rh",
                   "api-reference/backoffice/pulsos-configuracao",
+                  "api-reference/backoffice/pulsos-endpoints-custom",
                   "api-reference/backoffice/pulsos-webhooks",
                   "api-reference/backoffice/pulsos-examples"
                 ]

@@ -1,0 +1,69 @@
+---
+title: "Endpoints Customizados - Pulsos"
+description: "APIs customizadas além dos endpoints CRUD padrão do Directus"
+---
+
+## Visão Geral
+
+Além dos endpoints CRUD padrão do Directus (`/items/pulsos_*`), o sistema possui **20+ endpoints customizados** implementados como extensions que fornecem lógica de negócio avançada, analytics e operações especializadas.
+
+**Base URL**: `https://backoffice.leapy.com`
+
+<Tip>
+  Estes endpoints são implementados como extensions do Directus localizadas em `directus-backoffice-with-extensions/src/extensions/`.
+</Tip>
+
+---
+
+## Analytics e Histórico
+
+Endpoints para consultar histórico e métricas de performance de talentos.
+
+### GET /pulsos/performance/:jovem_id
+
+Retorna histórico de avaliações de performance de um talento ao longo dos últimos 5 pulsos.
+
+**Parâmetros**:
+- `jovem_id` (path, required) - ID do talento
+
+**Resposta**:
+
+```json
+{
+  "data": [
+    {
+      "pulso": 1,
+      "performance": "Dentro",
+      "performance_score": 2,
+      "data_resposta": "2024-01-15T14:30:00Z"
+    },
+    {
+      "pulso": 2,
+      "performance": "Acima",
+      "performance_score": 3,
+      "data_resposta": "2024-04-10T10:20:00Z"
+    }
+  ]
+}
+```
+
+**Conversão de Performance para Score**:
+
+| Performance | Score |
+|-------------|-------|
+| "Abaixo" | 1 |
+| "Dentro" | 2 |
+| "Acima" | 3 |
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Endpoints CRUD Padrão" icon="database" href="/api-reference/backoffice/pulsos-jovens">
+    APIs básicas do Directus
+  </Card>
+  <Card title="Webhooks e Eventos" icon="webhook" href="/api-reference/backoffice/pulsos-webhooks">
+    Sistema de eventos Inngest
+  </Card>
+</CardGroup>
