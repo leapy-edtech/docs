@@ -26,34 +26,13 @@ Retorna histórico de avaliações de performance de um talento ao longo dos úl
 **Parâmetros**:
 - `jovem_id` (path, required) - ID do talento
 
-**Resposta**:
-
-```json
-{
-  "data": [
-    {
-      "pulso": 1,
-      "performance": "Dentro",
-      "performance_score": 2,
-      "data_resposta": "2024-01-15T14:30:00Z"
-    },
-    {
-      "pulso": 2,
-      "performance": "Acima",
-      "performance_score": 3,
-      "data_resposta": "2024-04-10T10:20:00Z"
-    }
-  ]
-}
-```
-
 **Conversão de Performance para Score**:
 
 | Performance | Score |
 |-------------|-------|
-| "Abaixo" | 1 |
-| "Dentro" | 2 |
-| "Acima" | 3 |
+| Abaixo | 1 |
+| Dentro | 2 |
+| Acima | 3 |
 
 ---
 
@@ -63,25 +42,6 @@ Retorna histórico de status de efetivação do talento nos últimos pulsos.
 
 **Parâmetros**:
 - `jovem_id` (path, required) - ID do talento
-
-**Resposta**:
-
-```json
-{
-  "data": [
-    {
-      "pulso": 1,
-      "status_efetivacao": "Sem Contrato",
-      "data_resposta": "2024-01-15T14:30:00Z"
-    },
-    {
-      "pulso": 2,
-      "status_efetivacao": "Efetivado",
-      "data_resposta": "2024-04-10T10:20:00Z"
-    }
-  ]
-}
-```
 
 ---
 
@@ -96,23 +56,6 @@ Retorna configurações e permissões de pulsos do usuário autenticado.
 **Headers**:
 - `Authorization: Bearer <user_token>`
 
-**Resposta**:
-
-```json
-{
-  "data": {
-    "account_id": "uuid",
-    "company_name": "Empresa XYZ",
-    "can_create_pulsos": true,
-    "can_view_analytics": true,
-    "pulsos_config": {
-      "periodicidade_dias": 90,
-      "questions_enabled": true
-    }
-  }
-}
-```
-
 ---
 
 ### GET /pulsos-access/questions/:account_id
@@ -121,33 +64,6 @@ Retorna perguntas configuradas para uma conta específica.
 
 **Parâmetros**:
 - `account_id` (path, required) - ID da conta
-
-**Resposta**:
-
-```json
-{
-  "data": {
-    "pulsos_jovens": [
-      {
-        "id": "uuid",
-        "question": "Como você avalia seu desenvolvimento?",
-        "type": "rating",
-        "required": true,
-        "order": 1
-      }
-    ],
-    "pulsos_liderancas": [
-      {
-        "id": "uuid",
-        "question": "Como você avalia a performance do talento?",
-        "type": "rating",
-        "required": true,
-        "order": 1
-      }
-    ]
-  }
-}
-```
 
 ---
 
@@ -162,19 +78,6 @@ Retorna configurações de agendamento de uma conta.
 **Parâmetros**:
 - `account_id` (path, required) - ID da conta
 
-**Resposta**:
-
-```json
-{
-  "data": {
-    "periodicidade_dias": 90,
-    "data_proximo_pulso": "2024-06-15",
-    "auto_schedule_enabled": true,
-    "notification_days_before": 7
-  }
-}
-```
-
 ---
 
 ### POST /pulsos-schedule/reschedule/:pulso_id
@@ -184,27 +87,7 @@ Reagenda um pulso específico.
 **Parâmetros**:
 - `pulso_id` (path, required) - ID do pulso
 
-**Body**:
-
-```json
-{
-  "nova_data": "2024-07-01",
-  "motivo": "Férias do gestor"
-}
-```
-
-**Resposta**:
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "data_antiga": "2024-06-15",
-    "data_nova": "2024-07-01",
-    "reagendado_em": "2024-06-01T10:00:00Z"
-  }
-}
-```
+**Body**: nova_data, motivo
 
 ---
 
@@ -225,47 +108,13 @@ Retorna pulsos de jovens que o usuário tem permissão para visualizar.
 **Headers**:
 - `Authorization: Bearer <user_token>`
 
-**Resposta**:
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "jovem": {
-        "id": "uuid",
-        "name": "João Silva",
-        "email": "joao@example.com"
-      },
-      "status": "agendado",
-      "data_inicio": "2024-06-01",
-      "data_fim": "2024-06-07"
-    }
-  ],
-  "meta": {
-    "total": 150,
-    "limit": 50,
-    "offset": 0
-  }
-}
-```
-
 ---
 
 ### GET /pulsos-filtered/liderancas
 
 Retorna pulsos de lideranças que o usuário tem permissão para visualizar.
 
-**Query Parameters**:
-- `status` (optional) - Filtrar por status
-- `account_id` (optional) - Filtrar por conta
-- `limit` (optional, default: 50)
-- `offset` (optional, default: 0)
-
-**Headers**:
-- `Authorization: Bearer <user_token>`
-
-**Resposta**: Estrutura similar ao endpoint de jovens.
+**Query Parameters**: Similar ao endpoint de jovens
 
 ---
 
@@ -278,37 +127,15 @@ Endpoints para criar múltiplos pulsos de uma vez.
 Cria pulsos de RH em lote para múltiplos usuários.
 
 **Body**:
-
-```json
-{
-  "account_id": "uuid",
-  "data_inicio": "2024-06-01",
-  "data_fim": "2024-06-07",
-  "user_ids": ["uuid1", "uuid2", "uuid3"]
-}
-```
+- `account_id` - ID da conta
+- `data_inicio` - Data de início
+- `data_fim` - Data de fim
+- `user_ids` - Array de IDs de usuários
 
 **Validações**:
-- `data_inicio` deve ser no mínimo hoje
-- `data_fim` deve ser após `data_inicio`
+- data_inicio deve ser no mínimo hoje
+- data_fim deve ser após data_inicio
 - Usuários devem ter contratos ativos
-
-**Resposta**:
-
-```json
-{
-  "data": {
-    "criados": 3,
-    "pulsos": [
-      {
-        "id": "uuid1",
-        "user_id": "uuid1",
-        "status": "agendado"
-      }
-    ]
-  }
-}
-```
 
 ---
 
