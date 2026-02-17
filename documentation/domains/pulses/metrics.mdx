@@ -1,136 +1,479 @@
 ---
 title: "Métricas - Pulsos"
-description: "Métricas e indicadores do módulo de Pulsos"
+description: "Métricas, indicadores e fórmulas de cálculo do sistema de Pulsos"
+---
+
+## Visão Geral
+
+O sistema de Pulsos rastreia múltiplas métricas para medir engajamento, satisfação e eficácia das pesquisas. As métricas são calculadas em tempo real e armazenadas em views materializadas para performance.
+
 ---
 
 ## Métricas Principais
 
-### eNPS (Employee Net Promoter Score)
+### 1. eNPS (Employee Net Promoter Score)
 
-O eNPS mede a lealdade e satisfação dos colaboradores.
+**O que mede**: Lealdade e satisfação dos colaboradores/talentos.
 
-**Cálculo:**
-
-```
-eNPS = % Promotores - % Detratores
-```
-
-| Classificação | Nota (0-10) |
-|---------------|-------------|
-| Promotores | 9-10 |
-| Neutros | 7-8 |
-| Detratores | 0-6 |
-
-**Escala de interpretação:**
-
-| Faixa | Classificação |
-|-------|---------------|
-| 75 a 100 | Excelente |
-| 50 a 74 | Muito bom |
-| 0 a 49 | Bom |
-| -100 a -1 | Crítico |
-
-### Taxa de Resposta
-
-Percentual de destinatários que responderam o pulso.
-
-**Cálculo:**
+**Fórmula**:
 
 ```
-Taxa de Resposta = (Respostas Completas / Total Destinatários) × 100
+eNPS = (% Promotores - % Detratores) × 100
 ```
 
-**Benchmarks:**
+**Classificação de Respondentes**:
+
+| Nota (0-10) | Classificação | Significado |
+|-------------|---------------|-------------|
+| **9-10** | Promotor 🟢 | Altamente satisfeito, recomendaria |
+| **7-8** | Neutro 🟡 | Satisfeito mas não entusiasmado |
+| **0-6** | Detrator 🔴 | Insatisfeito, pode criticar |
+
+**Cálculo Detalhado**:
+
+```typescript
+// Exemplo com 100 respostas
+const respostas = [9, 10, 8, 7, 6, 5, 9, 10, 8, 7, ...];
+
+const promotores = respostas.filter(r => r >= 9).length; // 40
+const detratores = respostas.filter(r => r <= 6).length; // 25
+const neutros = respostas.filter(r => r >= 7 && r <= 8).length; // 35
+
+const percentualPromotores = (promotores / 100) * 100; // 40%
+const percentualDetratores = (detratores / 100) * 100; // 25%
+
+const eNPS = percentualPromotores - percentualDetratores; // 15
+```
+
+**Escala de Interpretação**:
+
+| Faixa eNPS | Classificação | Ação Recomendada |
+|------------|---------------|------------------|
+| **75 a 100** | 🟢 Excelente | Manter estratégias, case de sucesso |
+| **50 a 74** | 🟢 Muito Bom | Continuar investindo, identificar best practices |
+| **25 a 49** | 🟡 Bom | Investigar neutros, entender barreiras |
+| **0 a 24** | 🟡 Regular | Focar em melhorias, plano de ação |
+| **-1 a -24** | 🟠 Atenção | Intervenção imediata, entrevistar detratores |
+| **-25 a -49** | 🔴 Crítico | Revisão completa do programa |
+| **-50 a -100** | 🔴 Emergência | Ação urgente, pode haver crise |
+
+### Tipos de eNPS
+
+O sistema calcula **2 tipos** de eNPS:
+
+#### eNPS Leapy
+
+**O que mede**: Satisfação com a Leapy (programa, conteúdo, suporte)
+
+**Campo**: `nps_leapy` em `pulsos_jovens` e `pulsos_rh`
+
+**Uso**: Medir qualidade do serviço Leapy
+
+#### eNPS Empresa
+
+**O que mede**: Satisfação com a empresa (ambiente, liderança, oportunidades)
+
+**Campo**: `nps_empresa` em `pulsos_jovens`
+
+**Uso**: Medir experiência do talento na empresa
+
+<Tip>
+  Se eNPS Leapy está alto mas eNPS Empresa está baixo, o problema está na experiência na empresa, não no programa Leapy.
+</Tip>
+
+---
+
+### 2. Taxa de Resposta
+
+**O que mede**: Percentual de pulsos respondidos em relação ao total enviado.
+
+**Fórmula**:
+
+```
+Taxa de Resposta = (Pulsos Respondidos / Total de Pulsos) × 100
+```
+
+**Exemplo**:
+
+```sql
+SELECT 
+  COUNT(*) FILTER (WHERE status = 'respondido') as respondidos,
+  COUNT(*) as total,
+  ROUND(
+    COUNT(*) FILTER (WHERE status = 'respondido')::numeric / COUNT(*)::numeric * 100,
+    2
+  ) as taxa_resposta
+FROM pulsos_jovens
+WHERE pulso = 3;
+
+-- Resultado:
+-- respondidos: 120
+-- total: 173
+-- taxa_resposta: 69.36%
+```
+
+**Benchmarks**:
+
+| Taxa | Classificação | Ação |
+|------|---------------|------|
+| **> 80%** | 🟢 Excelente | Celebrar, manter estratégia |
+| **60-80%** | 🟢 Boa | Boa prática, pequenos ajustes |
+| **40-60%** | 🟡 Regular | Enviar lembretes, investigar causas |
+| **20-40%** | 🟠 Baixa | Ação imediata, comunicação reforçada |
+| **< 20%** | 🔴 Crítica | Problema grave, revisar tudo |
+
+**Fatores que Impactam**:
+- ✅ Timing adequado (evitar fim de mês, feriados)
+- ✅ Lembretes regulares (T+3 e T+6 dias)
+- ✅ Comunicação clara sobre importância
+- ✅ Formulário curto (5-10 minutos)
+- ❌ Excesso de pulsos (fadiga de pesquisa)
+- ❌ Perguntas muito extensas
+
+---
+
+### 3. Tempo Médio de Resposta
+
+**O que mede**: Tempo médio entre recebimento da notificação e envio da resposta.
+
+**Fórmula**:
+
+```
+TMR = Σ(data_resposta - data_aplicacao) / Total de Respostas
+```
+
+**Exemplo**:
+
+```sql
+SELECT 
+  AVG(EXTRACT(EPOCH FROM (data_resposta - data_aplicacao)) / 86400) as dias_medios
+FROM pulsos_jovens
+WHERE status = 'respondido'
+  AND pulso = 3;
+
+-- Resultado: 3.2 dias
+```
+
+**Interpretação**:
+
+| TMR | Significado |
+|-----|-------------|
+| **< 2 dias** | Alta urgência percebida, engajamento forte |
+| **2-4 dias** | Normal, dentro do esperado |
+| **5-6 dias** | Atraso, lembretes foram necessários |
+| **= 7 dias** | Respondeu no último dia (por lembrete) |
+
+**Uso**: Identificar se lembretes estão funcionando ou se prazo precisa ajuste.
+
+---
+
+### 4. Taxa de Vencimento
+
+**O que mede**: Percentual de pulsos que expiraram sem resposta.
+
+**Fórmula**:
+
+```
+Taxa de Vencimento = (Pulsos Vencidos / Total de Pulsos) × 100
+```
+
+**Benchmark**:
 
 | Taxa | Avaliação |
 |------|-----------|
-| > 80% | Excelente |
-| 60-80% | Bom |
-| 40-60% | Regular |
-| < 40% | Baixo |
+| **< 5%** | 🟢 Excelente |
+| **5-15%** | 🟡 Aceitável |
+| **15-30%** | 🟠 Atenção |
+| **> 30%** | 🔴 Problema grave |
 
-### Tempo Médio de Resposta
+**Causas Comuns**:
+- Prazo muito curto (< 5 dias)
+- Comunicação insuficiente
+- Período inadequado (férias, fim de ano)
+- Falta de lembretes
+- Talentos desmotivados
 
-Tempo médio entre recebimento da notificação e envio da resposta.
-
-**Cálculo:**
-
-```
-TMR = Σ(submitted_at - notified_at) / Total Respostas
-```
+---
 
 ## Métricas por Dimensão
 
-Para pulsos de clima, as métricas são calculadas por dimensão:
+### Satisfação com Liderança
 
-| Dimensão | Descrição |
-|----------|-----------|
-| **Engajamento** | Conexão emocional com o trabalho |
-| **Liderança** | Qualidade da gestão imediata |
-| **Cultura** | Alinhamento com valores da empresa |
-| **Desenvolvimento** | Oportunidades de crescimento |
-| **Bem-estar** | Equilíbrio e saúde mental |
-| **Reconhecimento** | Valorização do trabalho |
+**Campo**: `relacao_com_a_lideranca` (0-10)
 
-### Score por Dimensão
+**Cálculo da Média**:
 
-Cada dimensão recebe um score de 0 a 100:
-
-```
-Score = (Soma das Respostas / Máximo Possível) × 100
+```sql
+SELECT 
+  AVG(relacao_com_a_lideranca) as media,
+  STDDEV(relacao_com_a_lideranca) as desvio_padrao
+FROM pulsos_jovens
+WHERE status = 'respondido'
+  AND relacao_com_a_lideranca IS NOT NULL;
 ```
 
-## Comparativos
+**Interpretação**:
+
+| Média | Classificação |
+|-------|---------------|
+| **8-10** | 🟢 Excelente relação |
+| **6-7** | 🟡 Regular, pode melhorar |
+| **0-5** | 🔴 Problema crítico |
+
+**Desvio Padrão Alto** (> 2): Indica grande variação, algumas lideranças muito boas e outras muito ruins.
+
+---
+
+### Taxa de Efetivação Prevista
+
+**Campo**: `prob_efetivacao` em `Pulsos` (collection de lideranças)
+
+**Cálculo**:
+
+```sql
+SELECT 
+  prob_efetivacao,
+  COUNT(*) as quantidade,
+  ROUND(COUNT(*)::numeric / SUM(COUNT(*)) OVER () * 100, 2) as percentual
+FROM "Pulsos"
+WHERE status = 'respondido'
+  AND pulso = 5  -- Último pulso
+GROUP BY prob_efetivacao
+ORDER BY 
+  CASE prob_efetivacao
+    WHEN 'Alta' THEN 1
+    WHEN 'Média' THEN 2
+    WHEN 'Baixa' THEN 3
+    WHEN 'Nenhuma' THEN 4
+  END;
+```
+
+**Resultado Exemplo**:
+
+| Probabilidade | Quantidade | Percentual |
+|---------------|------------|------------|
+| Alta | 45 | 45% |
+| Média | 30 | 30% |
+| Baixa | 20 | 20% |
+| Nenhuma | 5 | 5% |
+
+**Uso**: Prever quantos talentos serão efetivados ao final do programa.
+
+---
+
+## Views Materializadas (Supabase)
+
+O sistema possui **4 views** pré-calculadas para dashboards:
+
+### 1. `chart_nps_pulsos_jovens`
+
+**Propósito**: NPS de jovens por pulso para gráfico de evolução.
+
+**Estrutura**:
+
+```sql
+CREATE VIEW chart_nps_pulsos_jovens AS
+SELECT 
+  pulso,
+  COUNT(*) as total_respostas,
+  AVG(nps_leapy) as media_nps_leapy,
+  AVG(nps_empresa) as media_nps_empresa,
+  -- Cálculo de eNPS
+  COUNT(*) FILTER (WHERE nps_leapy >= 9) as promotores_leapy,
+  COUNT(*) FILTER (WHERE nps_leapy <= 6) as detratores_leapy
+FROM pulsos_jovens
+WHERE status = 'respondido'
+GROUP BY pulso;
+```
+
+**Uso**: Gráfico de linha mostrando evolução do eNPS ao longo dos 5 pulsos.
+
+---
+
+### 2. `chart_nps_pulsos_liderancas`
+
+**Propósito**: Distribuição de avaliações de lideranças.
+
+**Estrutura**:
+
+```sql
+CREATE VIEW chart_nps_pulsos_liderancas AS
+SELECT 
+  pulso,
+  performance,
+  prob_efetivacao,
+  COUNT(*) as quantidade
+FROM "Pulsos"
+WHERE status = 'respondido'
+GROUP BY pulso, performance, prob_efetivacao;
+```
+
+**Uso**: Gráfico de barras empilhadas mostrando distribuição de performance.
+
+---
+
+### 3. `chart_satisfacao_empresa_por_pulsos`
+
+**Propósito**: Satisfação com empresa ao longo do tempo.
+
+**Uso**: Identificar se experiência na empresa está melhorando ou piorando.
+
+---
+
+### 4. `chart_satisfacao_leapy_por_pulsos`
+
+**Propósito**: Satisfação com Leapy ao longo do tempo.
+
+**Uso**: Medir eficácia do programa Leapy.
+
+---
+
+## Comparativos e Tendências
 
 ### Variação Temporal
 
-Compara resultados entre ciclos do mesmo pulso:
+**O que mede**: Mudança do eNPS entre pulsos consecutivos.
+
+**Fórmula**:
 
 ```
-Variação = Score Atual - Score Anterior
+Variação = eNPS_Atual - eNPS_Anterior
 ```
 
-| Variação | Indicador |
-|----------|-----------|
-| > +5 | 🟢 Melhora significativa |
-| +1 a +5 | 🟡 Leve melhora |
-| -1 a +1 | ⚪ Estável |
-| -5 a -1 | 🟠 Leve queda |
-| < -5 | 🔴 Queda significativa |
+**Interpretação**:
 
-### Benchmark de Mercado
+| Variação | Indicador | Ação |
+|----------|-----------|------|
+| **> +10** | 🟢 Melhora significativa | Identificar o que mudou positivamente |
+| **+3 a +10** | 🟢 Melhora moderada | Continuar na direção certa |
+| **-3 a +3** | 🟡 Estável | Manter ações atuais |
+| **-10 a -3** | 🟠 Queda moderada | Investigar causas |
+| **< -10** | 🔴 Queda significativa | Ação imediata necessária |
 
-Comparativo com dados agregados de outras empresas:
+**Exemplo de Análise**:
 
-<Note>
-  Benchmarks são calculados com base em dados anonimizados de empresas do mesmo segmento e porte.
-</Note>
+```
+Pulso 2: eNPS = 35
+Pulso 3: eNPS = 48
+Variação: +13 (Melhora significativa 🟢)
 
-## Dashboards Disponíveis
+Ação: Investigar o que mudou entre pulsos 2 e 3:
+- Melhorou comunicação da liderança?
+- Tarefas ficaram mais desafiadoras?
+- Ajustes no programa da Leapy?
+```
 
-<CardGroup cols={2}>
-  <Card title="Visão Geral" icon="gauge">
-    Resumo das principais métricas do pulso
+---
+
+### Comparação por Área
+
+**O que mede**: Diferença de eNPS entre áreas/departamentos.
+
+**Query**:
+
+```sql
+SELECT 
+  t.area.nome as area,
+  COUNT(*) as total_respostas,
+  ROUND(AVG(pj.nps_empresa), 2) as media_nps,
+  -- Cálculo de eNPS por área
+  (
+    COUNT(*) FILTER (WHERE pj.nps_empresa >= 9)::numeric -
+    COUNT(*) FILTER (WHERE pj.nps_empresa <= 6)::numeric
+  ) / COUNT(*)::numeric * 100 as enps
+FROM pulsos_jovens pj
+JOIN talents t ON pj.jovem_id = t.id
+WHERE pj.status = 'respondido'
+  AND pj.pulso = 3
+GROUP BY t.area.nome
+ORDER BY enps DESC;
+```
+
+**Uso**: Identificar áreas com melhor/pior experiência.
+
+---
+
+## Exportação de Métricas
+
+### Formatos Disponíveis
+
+<CardGroup cols={3}>
+  <Card title="PDF" icon="file-pdf">
+    Relatório formatado  
+    Para apresentações
   </Card>
-  <Card title="Por Área" icon="building">
-    Comparativo entre áreas/departamentos
+  <Card title="Excel" icon="file-excel">
+    Dados tabulares  
+    Para análise
   </Card>
-  <Card title="Temporal" icon="chart-line">
-    Evolução das métricas ao longo do tempo
-  </Card>
-  <Card title="Detalhado" icon="magnifying-glass">
-    Análise pergunta a pergunta
+  <Card title="CSV" icon="file-csv">
+    Dados brutos  
+    Para BI
   </Card>
 </CardGroup>
 
-## Exportação
+### Dados Incluídos na Exportação
 
-Os dados podem ser exportados em diferentes formatos:
+**Métricas Agregadas**:
+- eNPS Leapy e Empresa
+- Taxa de resposta
+- Tempo médio de resposta
+- Distribuição por status
 
-- **PDF**: Relatório formatado para apresentações
-- **Excel**: Dados brutos para análise
-- **CSV**: Integração com outras ferramentas
+**Dados Individuais** (se não anônimo):
+- ID, Nome, Área, Senioridade
+- Todas as respostas (escalas e textos)
+- Datas (aplicação, resposta, vencimento)
 
 <Warning>
-  A exportação respeita as regras de anonimato. Dados individuais não são exportáveis em pulsos anônimos.
+  Exportação de pulsos anônimos não inclui dados individuais, apenas agregados.
 </Warning>
+
+---
+
+## Dashboards
+
+### Dashboard Principal
+
+**Localização**: `/[account]/(rh)/pulsos/talentos`
+
+**Widgets**:
+
+1. **eNPS Cards**: Leapy e Empresa (grandes)
+2. **Taxa de Resposta**: Percentual com gráfico circular
+3. **Status**: Pendentes / Respondidos / Vencidos
+4. **Tendência**: Gráfico de linha (últimos 5 pulsos)
+
+### Dashboard de Análise
+
+**Filtros Disponíveis**:
+- Por status (pendente/respondido/vencido)
+- Por área/departamento
+- Por senioridade
+- Por período (range de datas)
+- Por pulso específico (1-5)
+
+**Visualizações**:
+- Gráfico de barras: Distribuição de NPS
+- Heatmap: Satisfação por área
+- Timeline: Evolução temporal
+- Tabela: Dados individuais (não anônimo)
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Analisar Resultados" icon="chart-line" href="/guides/app-rh/pulsos-analisar-resultados">
+    Guia prático de análise
+  </Card>
+  <Card title="Data Model" icon="database" href="/documentation/domains/pulses/data-model">
+    Estrutura dos dados
+  </Card>
+  <Card title="Business Rules" icon="book" href="/documentation/domains/pulses/business-rules">
+    Regras de cálculo
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/backoffice/pulsos-jovens">
+    Como acessar via API
+  </Card>
+</CardGroup>

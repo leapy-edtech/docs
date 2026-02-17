@@ -1,125 +1,394 @@
 ---
 title: "Operações - Pulsos"
-description: "Guia de operações e troubleshooting do módulo de Pulsos"
+description: "Guia técnico de operações do sistema de Pulsos"
 ---
 
-## Operações Comuns
+## Visão Geral
 
-### Reenviar Notificações
+Este documento cobre operações técnicas do sistema de Pulsos, incluindo monitoramento de jobs, troubleshooting e procedimentos de manutenção.
 
-Quando talentos reportam não ter recebido a notificação do pulso:
+<Note>
+  Para guias práticos de uso diário, consulte:
+  - [Guia de Operações CS/Ops](/guides/backoffice/pulsos-operacoes)
+  - [Troubleshooting](/guides/backoffice/pulsos-troubleshooting)
+</Note>
 
-1. Acesse o Backoffice (Directus)
-2. Navegue até **Pulses > Pulse Recipients**
-3. Filtre pelo `pulse_id` e `talent_id`
-4. Verifique o campo `notified_at`
-5. Se necessário, dispare o job de reenvio via Inngest
+---
 
-```bash
-# Via Inngest Dashboard
-inngest.send({
-  name: "pulse/notify-recipient",
-  data: { pulse_id: "...", talent_id: "..." }
-})
-```
+## Monitoramento de Jobs
 
-### Fechar Pulso Manualmente
+### Dashboard do Inngest
 
-Para fechar um pulso antes do prazo:
+**URL**: https://app.inngest.com
 
-1. Acesse o Backoffice
-2. Navegue até **Pulses**
-3. Localize o pulso e altere `status` para `closed`
-4. O job de fechamento será disparado automaticamente
+**15 Jobs Ativos** para monitorar:
 
-<Warning>
-  Ao fechar manualmente, certifique-se de que há respostas suficientes para garantir o anonimato.
-</Warning>
+<CardGroup cols={3}>
+  <Card title="Criação" icon="plus">
+    • createPulsosJovens  
+    • createPulsosLiderancas  
+    • processaPulsos
+  </Card>
+  <Card title="Status" icon="rotate">
+    • updateStatusParaPendentes (4x)  
+    • updateStatusParaVencidos (2x)
+  </Card>
+  <Card title="Notificações" icon="envelope">
+    • sendLembretes (3x)  
+    • sendLiberacoes (3x)  
+    • sendLembretePulsosRhToRh
+  </Card>
+</CardGroup>
 
-### Estender Prazo
+### Métricas Críticas por Job
 
-Para estender o prazo de um pulso ativo:
+| Job | Success Rate | Latency Média | Alerta se |
+|-----|--------------|---------------|-----------|
+| `createPulsosJovens` | > 95% | < 30s | Falha ou > 60s |
+| `sendLembretes*` | > 98% | < 10s | Falha ou > 30s |
+| `updateStatus*` | 100% | < 5s | Qualquer falha |
 
-1. Acesse o Backoffice
-2. Localize o pulso em **Pulses**
-3. Atualize o campo `end_date`
-4. Notificações de lembrete serão reajustadas automaticamente
+### Alertas Configurados
 
-## Troubleshooting
+Configure alertas no Inngest para:
 
-### Pulso não aparece para o talento
+- ⚠️ **Success Rate < 95%** em qualquer job de criação
+- ⚠️ **Latency > 60s** em job de criação
+- 🚨 **Falha total** em job de atualização de status
+- 🚨 **> 10% bounce rate** em notificações
 
-**Possíveis causas:**
+---
 
-1. Talento não está na lista de destinatários
-2. Pulso ainda está em status `draft`
-3. Data de início ainda não chegou
+## Monitoramento de Email (Resend)
 
-**Diagnóstico:**
+### Dashboard do Resend
 
-```sql
--- Verificar se talento é destinatário
-SELECT * FROM pulse_recipients 
-WHERE pulse_id = '...' AND talent_id = '...';
-
--- Verificar status do pulso
-SELECT status, start_date, end_date 
-FROM pulses WHERE id = '...';
-```
-
-### Resposta não foi salva
-
-**Possíveis causas:**
-
-1. Timeout durante envio
-2. Erro de validação
-3. Pulso foi fechado durante resposta
-
-**Diagnóstico:**
-
-1. Verificar logs no painel de Observabilidade
-2. Buscar erros no Inngest Dashboard
-3. Verificar se existe resposta parcial em `responses`
-
-### Taxa de resposta incorreta
-
-**Possíveis causas:**
-
-1. Cache desatualizado
-2. Contagem de destinatários incorreta
-3. Respostas duplicadas
-
-**Correção:**
-
-```bash
-# Recalcular métricas do pulso
-inngest.send({
-  name: "pulse/recalculate-metrics",
-  data: { pulse_id: "..." }
-})
-```
-
-## Monitoramento
+**URL**: https://resend.com/emails
 
 ### Métricas Importantes
 
-| Métrica | Descrição | Alerta |
-|---------|-----------|--------|
-| `pulse.response_rate` | Taxa de resposta | < 30% após 50% do prazo |
-| `pulse.notification_failures` | Falhas de notificação | > 5% |
-| `pulse.response_time_p95` | Tempo de resposta P95 | > 5s |
+| Métrica | Benchmark | Alerta se |
+|---------|-----------|-----------|
+| **Delivery Rate** | > 98% | < 95% |
+| **Bounce Rate** | < 2% | > 5% |
+| **Open Rate** | > 40% | < 20% |
+| **Click Rate** | > 10% | < 5% |
 
-### Dashboards
+### Tipos de Bounce
 
-- **Grafana**: Métricas de performance e erros
-- **Inngest**: Status de jobs e filas
-- **Sentry**: Erros de aplicação
+| Tipo | Causa | Ação |
+|------|-------|------|
+| **Hard Bounce** | Email inválido | Corrigir email do talento |
+| **Soft Bounce** | Caixa cheia | Esperar e reenviar |
+| **Block** | Spam filter | Whitelist `noreply@leapy.com` |
 
-## Jobs Relacionados
+**Procedimento para Bounce**:
 
-| Job | Descrição | Frequência |
-|-----|-----------|------------|
-| `pulse/activate` | Ativa pulsos agendados | A cada minuto |
-| `pulse/send-reminders` | Envia lembretes | Diário, 10h |
-| `pulse/close-expired` | Fecha pulsos expirados | A cada hora |
-| `pulse/calculate-metrics` | Calcula métricas | A cada 15 min |
+1. Resend Dashboard > Filtrar por "Bounced"
+2. Identificar emails afetados
+3. No Directus, corrigir emails em `talents` table
+4. Reenviar manualmente via Inngest
+
+---
+
+## Monitoramento de Database (Supabase)
+
+### Queries Lentas
+
+**Dashboard**: Supabase > Logs > Slow Queries
+
+**Alerta se**: Query > 5s
+
+**Queries comuns que podem ficar lentas**:
+
+```sql
+-- 1. Agregação de NPS (sem índice)
+SELECT AVG(nps_leapy) FROM pulsos_jovens WHERE status = 'respondido';
+
+-- 2. Join com relacionamentos profundos
+SELECT pj.*, t.*, a.*, p.* 
+FROM pulsos_jovens pj
+JOIN talents t ON pj.jovem_id = t.id
+JOIN areas a ON t.area_id = a.id
+JOIN positions p ON t.position_id = p.id;
+
+-- 3. Busca em texto (sem índice de texto completo)
+SELECT * FROM pulsos_jovens 
+WHERE feedback_para_leapy ILIKE '%plataforma%';
+```
+
+**Otimizações**:
+
+1. Usar views materializadas (`chart_*`)
+2. Adicionar índices em campos frequentemente filtrados
+3. Limitar resultados (paginação)
+
+---
+
+## Procedimentos de Manutenção
+
+### 1. Reprocessar Pulsos em Lote
+
+**Quando usar**: Bug foi corrigido e é necessário reprocessar pulsos afetados.
+
+**Procedimento**:
+
+```bash
+# 1. Identificar pulsos afetados
+SELECT id FROM pulsos_jovens 
+WHERE pulso = 3 
+  AND status = 'agendado' 
+  AND data_aplicacao < CURRENT_DATE;
+
+# 2. Disparar evento Inngest para cada pulso
+curl -X POST "https://api.inngest.com/v1/events" \
+  -H "Authorization: Bearer INNGEST_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "backoffice/pulsos-jovens.update-to-pendente",
+    "data": {
+      "pulso_ids": [12345, 12346, 12347]
+    }
+  }'
+```
+
+<Warning>
+  Sempre teste com 1-2 pulsos antes de reprocessar em lote.
+</Warning>
+
+---
+
+### 2. Limpar Pulsos Duplicados
+
+**Quando usar**: Bug criou pulsos duplicados para o mesmo jovem/pulso.
+
+**Diagnóstico**:
+
+```sql
+-- Identificar duplicatas
+SELECT jovem_id, pulso, COUNT(*)
+FROM pulsos_jovens
+GROUP BY jovem_id, pulso
+HAVING COUNT(*) > 1;
+```
+
+**Correção**:
+
+```sql
+-- Manter apenas o mais recente, deletar duplicatas
+DELETE FROM pulsos_jovens
+WHERE id IN (
+  SELECT id FROM (
+    SELECT id,
+      ROW_NUMBER() OVER (
+        PARTITION BY jovem_id, pulso 
+        ORDER BY created_at DESC
+      ) as rn
+    FROM pulsos_jovens
+  ) t
+  WHERE rn > 1
+);
+```
+
+**Prevenção**:
+
+```sql
+-- Adicionar constraint unique
+CREATE UNIQUE INDEX idx_pulsos_jovens_unique
+ON pulsos_jovens(jovem_id, pulso)
+WHERE status != 'vencido';
+```
+
+---
+
+### 3. Recalcular Views Materializadas
+
+**Quando usar**: Dados foram corrigidos manualmente e views precisam ser atualizadas.
+
+**Procedimento**:
+
+```sql
+-- Refresh view
+REFRESH MATERIALIZED VIEW chart_nps_pulsos_jovens;
+REFRESH MATERIALIZED VIEW chart_nps_pulsos_liderancas;
+REFRESH MATERIALIZED VIEW chart_satisfacao_empresa_por_pulsos;
+REFRESH MATERIALIZED VIEW chart_satisfacao_leapy_por_pulsos;
+```
+
+**Automação**: Views são atualizadas automaticamente a cada 1 hora.
+
+---
+
+## Backup e Recovery
+
+### Backup de Dados
+
+**Frequência**: Diário (automático via Supabase)
+
+**Retenção**: 7 dias
+
+**Localização**: Supabase Dashboard > Settings > Backups
+
+### Recovery de Pulso Deletado
+
+**Procedimento**:
+
+1. Identificar timestamp da deleção
+2. Acessar backup mais recente antes da deleção
+3. Restaurar registro específico:
+
+```sql
+-- No backup
+SELECT * FROM pulsos_jovens WHERE id = 12345;
+
+-- No banco atual
+INSERT INTO pulsos_jovens (id, jovem_id, pulso, status, ...)
+VALUES (12345, 789, 3, 'respondido', ...);
+```
+
+<Warning>
+  Recovery manual deve ser último recurso. Sempre valide integridade dos dados após restore.
+</Warning>
+
+---
+
+## Observabilidade
+
+### Logs Estruturados
+
+**Onde encontrar**:
+
+| Sistema | URL | O que ver |
+|---------|-----|-----------|
+| **Inngest** | app.inngest.com | Execução de jobs, eventos, erros |
+| **Resend** | resend.com/emails | Status de envio de emails |
+| **Supabase** | app.supabase.com | Queries, slow queries, conexões |
+| **Directus** | backoffice.leapy.com/admin | Atividades de usuários |
+
+### Queries Úteis para Debugging
+
+```sql
+-- Pulsos criados hoje
+SELECT COUNT(*) FROM pulsos_jovens 
+WHERE DATE(created_at) = CURRENT_DATE;
+
+-- Pulsos com status inconsistente
+SELECT id, status, data_aplicacao, data_vencimento, data_resposta
+FROM pulsos_jovens
+WHERE (status = 'respondido' AND data_resposta IS NULL)
+   OR (status = 'pendente' AND data_vencimento < NOW())
+   OR (status = 'agendado' AND data_aplicacao < NOW());
+
+-- Taxa de resposta hoje
+SELECT 
+  status,
+  COUNT(*) as quantidade,
+  ROUND(COUNT(*)::numeric / SUM(COUNT(*)) OVER () * 100, 2) as percentual
+FROM pulsos_jovens
+WHERE pulso = 3
+GROUP BY status;
+```
+
+---
+
+## Runbooks
+
+### Runbook 1: Pulsos Não Criados
+
+**Sintoma**: É dia de criação mas nenhum pulso foi criado.
+
+**Diagnóstico**:
+
+1. Verificar `pulsos_schedule_settings`:
+   ```sql
+   SELECT * FROM pulsos_schedule_settings 
+   WHERE profile = 'jovens' AND enabled = true;
+   ```
+
+2. Verificar logs do job `createPulsosJovens` no Inngest
+
+3. Verificar se há jovens ativos:
+   ```sql
+   SELECT COUNT(*) FROM talents WHERE status = 'active';
+   ```
+
+**Solução**: Ver [Troubleshooting completo](/guides/backoffice/pulsos-troubleshooting)
+
+---
+
+### Runbook 2: Email Não Enviado
+
+**Sintoma**: Pulso criado mas talento não recebeu email.
+
+**Diagnóstico**:
+
+1. Verificar se evento foi disparado (Inngest Events)
+2. Verificar se job rodou (Inngest Runs)
+3. Verificar status no Resend (Dashboard)
+4. Verificar se email do talento está correto (Directus)
+
+**Solução**:
+
+- Se bounced: Corrigir email
+- Se não disparado: Reenviar via Inngest
+- Se travado: Cancelar e reexecutar job
+
+---
+
+### Runbook 3: Job Travado
+
+**Sintoma**: Job em "Running" por > 5min.
+
+**Diagnóstico**:
+
+1. Inngest > Functions > [Job] > Runs
+2. Ver qual step está travado
+3. Ver logs do step
+
+**Solução**:
+
+1. Cancelar job manualmente (botão "Cancel")
+2. Investigar causa (query lenta? API timeout?)
+3. Corrigir problema
+4. Re-executar manualmente
+
+---
+
+## SLAs e Performance
+
+### SLAs Internos
+
+| Operação | SLA | Medição |
+|----------|-----|---------|
+| **Criação de pulso** | < 1min por pulso | Latency do job |
+| **Envio de email** | < 30s | Resend delivery time |
+| **Atualização de status** | < 5s | Database query time |
+| **Cálculo de métricas** | < 10s | View refresh time |
+
+### Performance Targets
+
+| Métrica | Target | Atual (Baseline) |
+|---------|--------|------------------|
+| API Response Time (p95) | < 2s | 1.2s |
+| Job Success Rate | > 99% | 98.5% |
+| Email Delivery Rate | > 98% | 97.8% |
+| Database Slow Queries | < 1% | 0.5% |
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/backoffice/pulsos-troubleshooting">
+    Resolver problemas específicos
+  </Card>
+  <Card title="Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+    Detalhes técnicos dos jobs
+  </Card>
+  <Card title="Manual Técnico" icon="book" href="/guides/backoffice/pulsos-manual-tecnico">
+    Guia para desenvolvedores
+  </Card>
+  <Card title="Integrações" icon="plug" href="/documentation/domains/pulses/integrations">
+    Serviços externos
+  </Card>
+</CardGroup>
