@@ -51,6 +51,9 @@ sequenceDiagram
 | `hook-cron-send-lembrete-pulsos-rh-to-rh` | 8:00 | Hook → Endpoint → Evento | `/pulsos/send-lembrete-pulsos-rh-to-rh` → `lembrete-to-rh.send` | Envia lembretes para RH |
 | `hook-cron-send-lembrete` | 5:00 | Hook → Endpoint → Evento | `/pulsos/send-lembrete` → `send-lembrete-pulsos.send` | Lembretes gerais |
 | `hook-cron-update-pulsos-liderancas-to-pendente` | Diário | Hook → Evento Direto | `pulsos.change_status` | Atualiza status para pendente |
+| `hook-cron-update-pulsos-jovens-to-pendente` | Diário | Hook → Evento Direto | `pulsos-jovens.update-to-pendente` | Atualiza pulsos jovens para pendente |
+| `hook-cron-update-pulsos-jovens-to-vencidos` | Diário | Hook → Evento Direto | `pulsos-jovens.update-to-vencidos` | Marca pulsos jovens como vencidos |
+| `hook-cron-update-pulsos-liderancas-to-vencidos` | Diário | Hook → Evento Direto | `pulsos.vencidos_lideranca` | Marca pulsos lideranças como vencidos |
 
 ### Exemplos de Código
 
