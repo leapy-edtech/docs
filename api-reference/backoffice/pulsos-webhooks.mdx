@@ -7,6 +7,145 @@ description: "Sistema de eventos Inngest e webhooks do módulo de Pulsos"
 
 O sistema de Pulsos utiliza **Inngest** para gerenciar eventos assíncronos e automações. São 14 eventos principais que controlam criação, atualização, notificações e processamento de pulsos.
 
+---
+
+## Origem dos Eventos: Automação com Hooks CRON
+
+Os eventos Inngest são disparados de duas formas principais:
+
+1. **Hook CRON → Endpoint Workflow → Evento** (fluxo recomendado)
+2. **Hook CRON → Evento Direto** (para eventos simples)
+
+### Fluxo de Automação
+
+```mermaid
+sequenceDiagram
+    participant CRON as Hooks CRON
+    participant Directus as Directus API
+    participant Endpoint as Endpoint Workflow
+    participant DB as Database
+    participant Inngest as Inngest API
+    participant Jobs as Inngest Jobs
+
+    Note over CRON,Inngest: Fluxo 1: Hook → Endpoint → Evento
+    CRON->>Directus: GET /pulsos/send-liberacao-*
+    Directus->>Endpoint: Rotear para handler
+    Endpoint->>DB: Query pulsos
+    DB-->>Endpoint: Dados
+    Endpoint->>Inngest: POST inn.gs/e/KEY
+    Endpoint-->>CRON: 200 OK
+    
+    Note over CRON,Inngest: Fluxo 2: Hook → Evento Direto
+    CRON->>Inngest: POST inn.gs/e/KEY
+    
+    Note over Inngest,Jobs: Processamento (ambos os fluxos)
+    Inngest->>Jobs: Trigger Jobs
+```
+
+### Mapeamento Hooks CRON → Eventos
+
+| Hook CRON | Horário | Tipo de Fluxo | Endpoint/Evento | Descrição |
+|-----------|---------|---------------|-----------------|-----------|
+| `hook-cron-send-liberacao-pulsos-rh-to-rh` | 8:00 | Hook → Endpoint → Evento | `/pulsos/send-liberacao-pulsos-rh-to-rh` → `liberacao-to-rh.send` | Libera pulsos RH para gestores |
+| `hook-cron-send-liberacao-pulsos-rh-to-jovens` | 8:05 | Hook → Endpoint → Evento | `/pulsos/send-liberacao-pulsos-rh-to-jovens` → `liberacao-to-jovens.send` | Libera pulsos RH para jovens |
+| `hook-cron-send-lembrete-pulsos-rh-to-rh` | 8:00 | Hook → Endpoint → Evento | `/pulsos/send-lembrete-pulsos-rh-to-rh` → `lembrete-to-rh.send` | Envia lembretes para RH |
+| `hook-cron-send-lembrete` | 5:00 | Hook → Endpoint → Evento | `/pulsos/send-lembrete` → `send-lembrete-pulsos.send` | Lembretes gerais |
+| `hook-cron-update-pulsos-liderancas-to-pendente` | Diário | Hook → Evento Direto | `pulsos.change_status` | Atualiza status para pendente |
+
+### Exemplos de Código
+
+**Fluxo 1: Hook chamando Endpoint**
+
+```javascript
+// extensions/hooks/src/hook-cron-send-liberacao-pulsos-rh-to-rh/index.js
+export default ({ schedule }, { env }) => {
+  schedule('0 8 * * *', async () => {
+    const directusUrl = env.PUBLIC_URL || 'http://localhost:8055';
+    const response = await fetch(
+      `${directusUrl}/pulsos/send-liberacao-pulsos-rh-to-rh?status=agendado&send_event=true`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${env.DIRECTUS_STATIC_TOKEN}`
+        }
+      }
+    );
+    const result = await response.json();
+    console.log(`✅ Liberação RH: ${result.data.pulsos_encontrados} pulsos`);
+  });
+};
+```
+
+**Fluxo 2: Hook disparando Evento Direto**
+
+```javascript
+// extensions/hooks/src/hook-cron-update-to-pendente/index.js
+export default ({ schedule }, { env }) => {
+  schedule('0 0 * * *', async () => {
+    await fetch(env.INNGEST_EVENT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.INNGEST_EVENT_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: 'backoffice/pulsos.change_status',
+        data: { trigger: 'cron', timestamp: Date.now() }
+      })
+    });
+  });
+};
+```
+
+**Endpoint Workflow disparando Evento**
+
+```javascript
+// extensions/endpoints-workflows/src/pulsos/index.js
+router.get('/send-liberacao-pulsos-rh-to-rh', async (req, res) => {
+  const { status = 'agendado', send_event = true } = req.query;
+  
+  // 1. Consultar dados
+  const pulsos = await services.ItemsService('pulsos_rh').readByQuery({
+    filter: { status: { _eq: status } }
+  });
+  
+  // 2. Disparar evento Inngest
+  if (send_event && pulsos.length > 0) {
+    await fetch(env.INNGEST_EVENT_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.INNGEST_EVENT_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: 'backoffice/pulsos_rh/liberacao-to-rh.send',
+        data: {
+          pulso_ids: pulsos.map(p => p.id),
+          count: pulsos.length
+        }
+      })
+    });
+  }
+  
+  res.json({ data: { pulsos_encontrados: pulsos.length } });
+});
+```
+
+### Quando Usar Cada Fluxo?
+
+| Critério | Hook → Endpoint → Evento | Hook → Evento Direto |
+|----------|-------------------------|---------------------|
+| **Quando usar** | Precisa consultar dados, validar regras, processar lógica antes de disparar evento | Evento simples, sem necessidade de consultas |
+| **Vantagens** | Controle fino, logging, validação, testável via HTTP | Simples, direto, menos overhead |
+| **Desvantagens** | Mais complexo, mais código | Limitado, sem lógica customizada |
+| **Exemplo** | Enviar notificações apenas para pulsos com status "agendado" | Atualizar status de todos os pulsos pendentes |
+
+<Tip>
+  Para mais detalhes sobre endpoints workflows, consulte [Endpoints Customizados - Workflows](/api-reference/backoffice/pulsos-endpoints-custom#workflows-operações-internas).
+</Tip>
+
+---
+
 ## Eventos de Criação
 
 Eventos que disparam criação de novos pulsos.
