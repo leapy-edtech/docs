@@ -1,0 +1,23 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Leapy APIs",
+    "version": "1.0.0",
+    "description": "APIs do ecossistema Leapy"
+  },
+  "servers": [
+    {
+      "url": "https://backoffice.leapy.com",
+      "description": "Backoffice API"
+    }
+  ],
+  "paths": {},
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}
