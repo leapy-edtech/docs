@@ -26,6 +26,8 @@ Retorna histórico de avaliações de performance de um talento ao longo dos úl
 **Parâmetros**:
 - `jovem_id` (path, required) - ID do talento
 
+**Resposta**: Array com objetos contendo `pulso`, `performance`, `performance_score`, `data_resposta`
+
 **Conversão de Performance para Score**:
 
 | Performance | Score |
@@ -33,6 +35,8 @@ Retorna histórico de avaliações de performance de um talento ao longo dos úl
 | Abaixo | 1 |
 | Dentro | 2 |
 | Acima | 3 |
+
+**Uso**: Gráficos de evolução de performance no dashboard
 
 ---
 
@@ -42,6 +46,14 @@ Retorna histórico de status de efetivação do talento nos últimos pulsos.
 
 **Parâmetros**:
 - `jovem_id` (path, required) - ID do talento
+
+**Resposta**: Array com objetos contendo `pulso`, `status_efetivacao`, `data_resposta`
+
+**Possíveis Status**:
+- Sem Contrato
+- Efetivado
+- Em Processo
+- Não Efetivado
 
 ---
 
@@ -56,6 +68,10 @@ Retorna configurações e permissões de pulsos do usuário autenticado.
 **Headers**:
 - `Authorization: Bearer <user_token>`
 
+**Resposta**: Objeto contendo `account_id`, `company_name`, permissões (`can_create_pulsos`, `can_view_analytics`) e `pulsos_config`
+
+**Uso**: Validar acesso do usuário antes de exibir funcionalidades
+
 ---
 
 ### GET /pulsos-access/questions/:account_id
@@ -64,6 +80,24 @@ Retorna perguntas configuradas para uma conta específica.
 
 **Parâmetros**:
 - `account_id` (path, required) - ID da conta
+
+**Resposta**: Objeto com arrays `pulsos_jovens`, `pulsos_liderancas` e `pulsos_rh`, cada um contendo perguntas com `id`, `question`, `type`, `required`, `order`
+
+**Tipos de pergunta**: rating, text, boolean, choice
+
+---
+
+### PATCH /pulsos-access/settings/:account_id
+
+Atualiza quais perfis de pulsos estão habilitados para uma conta.
+
+**Parâmetros**:
+- `account_id` (path, required) - ID da conta
+
+**Body**:
+- `profile_enabled` - Objeto com flags `jovens`, `liderancas`, `rh`
+
+**Resposta**: Configuração atualizada
 
 ---
 
@@ -78,16 +112,39 @@ Retorna configurações de agendamento de uma conta.
 **Parâmetros**:
 - `account_id` (path, required) - ID da conta
 
+**Resposta**: Objeto com `periodicidade_dias`, `data_proximo_pulso`, `auto_schedule_enabled`, `notification_days_before`
+
+**Exemplo**: Periodicidade de 90 dias significa novo pulso a cada 3 meses
+
+---
+
+### GET /pulsos-schedule/settings/me
+
+Retorna configurações de agendamento da empresa do usuário autenticado.
+
+**Headers**:
+- `Authorization: Bearer <user_token>`
+
+**Resposta**: Array de configurações por perfil (jovens, liderancas, rh), incluindo `cadence_unit`, `cadence_interval`, `next_pulso_date`, `futureOpenPulsosCount`
+
 ---
 
 ### POST /pulsos-schedule/reschedule/:pulso_id
 
-Reagenda um pulso específico.
+Reagenda um pulso específico para uma nova data.
 
 **Parâmetros**:
 - `pulso_id` (path, required) - ID do pulso
 
-**Body**: nova_data, motivo
+**Body**:
+- `nova_data` (required) - Nova data de vencimento (formato: YYYY-MM-DD)
+- `motivo` (optional) - Motivo do reagendamento
+
+**Resposta**: Objeto com `id`, `data_antiga`, `data_nova`, `reagendado_em`
+
+**Validações**:
+- Nova data deve ser futura
+- Pulso não pode estar finalizado
 
 ---
 
@@ -97,24 +154,52 @@ Endpoints para buscar pulsos com controle de acesso integrado.
 
 ### GET /pulsos-filtered/jovens
 
-Retorna pulsos de jovens que o usuário tem permissão para visualizar.
+Retorna pulsos de jovens que o usuário tem permissão para visualizar, aplicando automaticamente controle de acesso baseado no role e empresa do usuário.
 
 **Query Parameters**:
-- `status` (optional) - Filtrar por status
-- `account_id` (optional) - Filtrar por conta
-- `limit` (optional, default: 50) - Limite de resultados
+- `status` (optional) - Filtrar por status (pendente, respondido, vencido, agendado)
+- `account_id` (optional) - Filtrar por conta específica
+- `turma_id` (optional) - Filtrar por turma
+- `limit` (optional, default: 50, max: 100) - Limite de resultados
 - `offset` (optional, default: 0) - Offset para paginação
 
 **Headers**:
 - `Authorization: Bearer <user_token>`
 
+**Resposta**: Objeto com array `data` contendo pulsos expandidos (inclui dados do jovem) e `meta` com informações de paginação (`total`, `limit`, `offset`)
+
+**Controle de Acesso**:
+- RH: vê todos os pulsos da empresa
+- Liderança: vê apenas pulsos dos talentos sob sua gestão
+- Talento: vê apenas seus próprios pulsos
+
 ---
 
 ### GET /pulsos-filtered/liderancas
 
-Retorna pulsos de lideranças que o usuário tem permissão para visualizar.
+Retorna pulsos de lideranças que o usuário tem permissão para visualizar, com controle de acesso integrado.
 
-**Query Parameters**: Similar ao endpoint de jovens
+**Query Parameters**: Mesmos parâmetros do endpoint de jovens
+
+**Headers**:
+- `Authorization: Bearer <user_token>`
+
+**Resposta**: Similar ao endpoint de jovens, mas para avaliações de lideranças
+
+**Uso**: Dashboards e listagens com segurança integrada
+
+---
+
+### GET /pulsos-filtered/rh
+
+Retorna pulsos de RH filtrados por permissões.
+
+**Query Parameters**: Similar aos endpoints anteriores
+
+**Headers**:
+- `Authorization: Bearer <user_token>`
+
+**Controle de Acesso**: Apenas usuários com role RH ou Admin
 
 ---
 
@@ -124,18 +209,62 @@ Endpoints para criar múltiplos pulsos de uma vez.
 
 ### POST /pulsos/rh
 
-Cria pulsos de RH em lote para múltiplos usuários.
+Cria pulsos de RH em lote para múltiplos usuários de uma empresa.
 
 **Body**:
-- `account_id` - ID da conta
-- `data_inicio` - Data de início
-- `data_fim` - Data de fim
-- `user_ids` - Array de IDs de usuários
+- `account_id` (required) - ID da conta/empresa
+- `data_inicio` (required) - Data de início do pulso (YYYY-MM-DD)
+- `data_fim` (required) - Data de fim do pulso (YYYY-MM-DD)
+- `user_ids` (required) - Array de UUIDs de usuários RH
 
 **Validações**:
-- data_inicio deve ser no mínimo hoje
-- data_fim deve ser após data_inicio
+- `data_inicio` deve ser >= hoje
+- `data_fim` deve ser > `data_inicio`
+- Mínimo 7 dias entre início e fim
 - Usuários devem ter contratos ativos
+- Não pode haver pulsos RH abertos para os mesmos usuários
+
+**Resposta**:
+- `criados` - Número de pulsos criados
+- `pulsos` - Array com IDs e detalhes dos pulsos criados
+- `erros` (se houver) - Array com erros de validação
+
+**Processo**:
+1. Valida datas e contratos
+2. Cria pulsos em transação
+3. Dispara eventos de notificação
+4. Retorna IDs dos pulsos criados
+
+---
+
+### POST /pulsos/jovens/batch
+
+Cria múltiplos pulsos para jovens de uma vez.
+
+**Body**:
+- `account_id` (required)
+- `jovem_ids` (required) - Array de IDs de talentos
+- `data_inicio` (required)
+- `data_fim` (required)
+
+**Uso**: Criação manual de pulsos fora do agendamento automático
+
+---
+
+### POST /processa-pulsos/inngest
+
+Endpoint interno que processa criação de pulsos via Inngest.
+
+**Body**:
+- `profile` - Tipo de pulso (jovens, liderancas, rh)
+- `account_id` - ID da empresa
+- `config` - Configurações de periodicidade
+
+**Uso**: Chamado por jobs Inngest para agendamento automático
+
+<Warning>
+  Este endpoint é interno e só deve ser chamado pelo sistema Inngest.
+</Warning>
 
 ---
 
