@@ -1,33 +1,64 @@
 ---
-title: 'Introduction'
-description: 'Example section for showcasing API endpoints'
+title: "Introdução - API Reference"
+description: "APIs REST do ecossistema Leapy"
 ---
 
-<Note>
-  If you're not looking to build API reference documentation, you can delete
-  this section by removing the api-reference folder.
-</Note>
+## Bem-vindo às APIs Leapy
 
-## Welcome
+Esta seção documenta as APIs REST que compõem o ecossistema Leapy, permitindo integração com sistemas externos e automação de processos.
 
-There are two ways to build API documentation: [OpenAPI](https://mintlify.com/docs/api-playground/openapi/setup) and [MDX components](https://mintlify.com/docs/api-playground/mdx/configuration). For the starter kit, we are using the following OpenAPI specification.
+<CardGroup cols={2}>
+  <Card
+    title="API do Backoffice"
+    icon="database"
+    href="/api-reference/backoffice/index"
+  >
+    APIs baseadas em Directus para gestão de dados, incluindo endpoints customizados de Pulsos, Jovens, Vagas e mais.
+  </Card>
+  <Card
+    title="API do Agent System"
+    icon="robot"
+    href="/api-reference/agent-system/index"
+  >
+    APIs para integração com o sistema de agentes e automações via WhatsApp.
+  </Card>
+</CardGroup>
 
-<Card
-  title="Plant Store Endpoints"
-  icon="leaf"
-  href="https://github.com/mintlify/starter/blob/main/api-reference/openapi.json"
->
-  View the OpenAPI specification file
-</Card>
+## Autenticação
 
-## Authentication
+Todas as APIs utilizam autenticação via **Bearer Token**. Inclua o token no header de cada requisição:
 
-All API endpoints are authenticated using Bearer tokens and picked up from the specification file.
-
-```json
-"security": [
-  {
-    "bearerAuth": []
-  }
-]
+```bash
+Authorization: Bearer YOUR_TOKEN_HERE
 ```
+
+### Obtendo um Token
+
+**Backoffice (Directus)**:
+- Tokens de usuário: Faça login via `/auth/login`
+- Tokens estáticos: Configure em variáveis de ambiente para integrações
+
+**Agent System**:
+- Consulte a documentação específica do Agent System para obter credenciais de API
+
+<Warning>
+  Nunca exponha seus tokens em código cliente ou repositórios públicos. Use variáveis de ambiente.
+</Warning>
+
+## Rate Limiting
+
+As APIs possuem limites de taxa para garantir estabilidade:
+
+- **Backoffice**: 100 requisições/minuto por IP
+- **Agent System**: Consulte documentação específica
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="Explorar Endpoints de Pulsos" icon="pulse" href="/api-reference/backoffice/pulsos-jovens">
+    Comece com os endpoints mais utilizados
+  </Card>
+  <Card title="Webhooks e Eventos" icon="webhook" href="/api-reference/backoffice/pulsos-webhooks">
+    Integre com eventos do sistema via Inngest
+  </Card>
+</CardGroup>
