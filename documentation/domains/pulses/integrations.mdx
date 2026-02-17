@@ -148,7 +148,88 @@ await step.run("send-whatsapp", async () => {
 - `pulsos_settings` - Configuração de perguntas
 - `pulsos_schedule_settings` - Agendamento automático
 
-**API Endpoints**:
+**Arquitetura de Extensions**:
+
+O Directus possui dois tipos de endpoints customizados:
+
+#### Endpoints Públicos (Uso Externo)
+
+Acessados por **Frontend** e **Integrações Externas** via HTTPS com autenticação de usuário.
+
+| Categoria | Endpoints | Uso |
+|-----------|-----------|-----|
+| **Analytics** | `/pulsos/performance/:jovem_id`<br/>`/pulsos/efetivacao/:jovem_id` | Histórico de talentos |
+| **Acesso** | `/pulsos-access/me`<br/>`/pulsos-access/questions/:account_id` | Permissões e configurações |
+| **Agendamento** | `/pulsos-schedule/settings/*`<br/>`/pulsos-schedule/reschedule/*` | Configurar e reagendar |
+| **Filtros** | `/pulsos-filtered/jovens`<br/>`/pulsos-filtered/liderancas` | Busca com controle de acesso |
+
+**Exemplo de uso**:
+
+```typescript
+// Frontend chamando endpoint público
+const response = await fetch('https://backoffice.leapy.com/pulsos-access/me', {
+  headers: {
+    'Authorization': `Bearer ${userToken}`
+  }
+});
+```
+
+#### Endpoints-Workflows (Uso Interno)
+
+Chamados **apenas por Hooks CRON** dentro do Directus. Processam dados e disparam eventos Inngest.
+
+| Endpoint | Chamado por | Evento Disparado | Horário |
+|----------|-------------|------------------|---------|
+| `/pulsos/send-liberacao-pulsos-rh-to-rh` | Hook CRON | `liberacao-to-rh.send` | 8:00 |
+| `/pulsos/send-liberacao-pulsos-rh-to-jovens` | Hook CRON | `liberacao-to-jovens.send` | 8:05 |
+| `/pulsos/send-lembrete-pulsos-rh-to-rh` | Hook CRON | `lembrete-to-rh.send` | 8:00 |
+| `/pulsos/send-lembrete` | Hook CRON | `send-lembrete-pulsos.send` | 5:00 |
+
+**Fluxo de Automação**:
+
+```mermaid
+flowchart TB
+    subgraph Directus[Directus Extensions]
+        HOOK[Hook CRON<br/>5:00, 8:00, 8:05]
+        PUBLIC[Endpoints Públicos<br/>/pulsos-schedule/*<br/>/pulsos-filtered/*]
+        WORKFLOW[Endpoints Workflows<br/>/pulsos/send-liberacao-*<br/>/pulsos/send-lembrete-*]
+        SHARED[Shared Utils<br/>config-service<br/>date-calculator]
+    end
+    
+    subgraph External[Acesso Externo]
+        FRONTEND[Frontend Next.js]
+        API_USERS[Integrações API]
+    end
+    
+    subgraph Events[Sistema de Eventos]
+        INNGEST[Inngest API]
+        JOBS[Inngest Jobs]
+    end
+    
+    HOOK -->|"HTTP GET<br/>localhost:8055"| WORKFLOW
+    WORKFLOW -->|Query| DB[(Database)]
+    WORKFLOW -->|"POST<br/>inn.gs/e/KEY"| INNGEST
+    INNGEST -->|Trigger| JOBS
+    
+    FRONTEND -->|"HTTPS<br/>User Token"| PUBLIC
+    API_USERS -->|"HTTPS<br/>User Token"| PUBLIC
+    PUBLIC -->|Query/Update| DB
+    
+    PUBLIC --> SHARED
+    WORKFLOW --> SHARED
+```
+
+**Por que usar Endpoint intermediário ao invés de disparar evento direto?**
+
+| Vantagem | Descrição |
+|----------|-----------|
+| **Validação de Dados** | Consulta banco antes de disparar evento |
+| **Controle de Regras** | Aplica filtros (status, datas, contratos) |
+| **Logging** | Registra quantos pulsos foram processados |
+| **Testabilidade** | Pode testar via HTTP GET sem esperar CRON |
+| **Dry-run** | Usar `send_event=false` para validar sem disparar |
+
+**Endpoints CRUD padrão**:
 
 ```bash
 # Listar pulsos
@@ -160,6 +241,10 @@ POST /items/pulsos_jovens
 # Atualizar status
 PATCH /items/pulsos_jovens/12345
 ```
+
+<Tip>
+  Para documentação completa dos endpoints customizados, consulte [API Reference - Endpoints Customizados](/api-reference/backoffice/pulsos-endpoints-custom).
+</Tip>
 
 ---
 
