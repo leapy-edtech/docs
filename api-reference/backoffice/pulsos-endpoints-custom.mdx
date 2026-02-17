@@ -139,6 +139,89 @@ Cria pulsos de RH em lote para múltiplos usuários.
 
 ---
 
+## Workflows (Operações Internas)
+
+<Warning>
+  Estes endpoints são **apenas para uso interno** do Directus. São chamados por **Hooks CRON** e disparam eventos Inngest.
+</Warning>
+
+Endpoints especializados localizados em `extensions/endpoints-workflows/src/pulsos/` que fazem parte do mecanismo de automação do sistema.
+
+### Arquitetura Hook → Endpoint → Evento
+
+Estes endpoints são parte da arquitetura de automação:
+
+1. **Hook CRON** dispara em horário configurado
+2. **Endpoint Workflow** consulta dados e valida regras
+3. **Evento Inngest** é disparado para processar jobs assíncronos
+
+**URL Base**:
+- Local: `http://localhost:8055/pulsos/`
+- Produção: `https://backoffice.leapy.com/pulsos/`
+
+---
+
+### GET /pulsos/send-liberacao-pulsos-rh-to-rh
+
+Envia notificações de liberação de pulsos RH.
+
+**Chamado por**: Hook CRON `hook-cron-send-liberacao-pulsos-rh-to-rh` (diariamente às 8:00)
+
+**Query Parameters**:
+- `status` (default: "agendado") - Status dos pulsos a buscar
+- `send_event` (default: true) - Se deve disparar evento Inngest
+
+**Evento disparado**: `backoffice/pulsos_rh/liberacao-to-rh.send`
+
+---
+
+### GET /pulsos/send-liberacao-pulsos-rh-to-jovens
+
+Envia notificações de liberação para jovens.
+
+**Chamado por**: Hook CRON (diariamente às 8:05)
+
+**Query Parameters**: Similar ao endpoint RH
+
+**Evento disparado**: `backoffice/pulsos_rh/liberacao-to-jovens.send`
+
+---
+
+### GET /pulsos/send-lembrete-pulsos-rh-to-rh
+
+Envia lembretes para RH sobre pulsos pendentes.
+
+**Chamado por**: Hook CRON (diariamente às 8:00)
+
+**Evento disparado**: `backoffice/pulsos_rh/lembrete-to-rh.send`
+
+---
+
+### GET /pulsos/send-lembrete
+
+Envia lembretes gerais de pulsos pendentes.
+
+**Chamado por**: Hook CRON (diariamente às 5:00)
+
+**Evento disparado**: `backoffice/send-lembrete-pulsos.send`
+
+---
+
+### Fluxo Completo
+
+| Hook CRON | Horário | Endpoint | Evento Inngest | Job Final |
+|-----------|---------|----------|----------------|-----------|
+| `hook-cron-send-liberacao-pulsos-rh-to-rh` | 8:00 | `/pulsos/send-liberacao-pulsos-rh-to-rh` | `liberacao-to-rh.send` | Email/WhatsApp RH |
+| `hook-cron-send-liberacao-pulsos-rh-to-jovens` | 8:05 | `/pulsos/send-liberacao-pulsos-rh-to-jovens` | `liberacao-to-jovens.send` | Email/WhatsApp Jovens |
+| `hook-cron-send-lembrete-pulsos-rh-to-rh` | 8:00 | `/pulsos/send-lembrete-pulsos-rh-to-rh` | `lembrete-to-rh.send` | Lembretes RH |
+| `hook-cron-send-lembrete` | 5:00 | `/pulsos/send-lembrete` | `send-lembrete-pulsos.send` | Lembretes Gerais |
+
+<Tip>
+  Para mais detalhes sobre a arquitetura de automação, consulte [Integrações - Workflows](/documentation/domains/pulses/integrations#endpoints-workflows-uso-interno).
+</Tip>
+
+---
+
 ## Próximos Passos
 
 <CardGroup cols={2}>
