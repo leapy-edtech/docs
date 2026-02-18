@@ -62,18 +62,45 @@ erDiagram
 
 ---
 
+## Terminologia
+
+O sistema de Pulsos atende diferentes perfis de usuários, cada um com estrutura de dados específica:
+
+| Perfil | Termo Anterior | Termo Atual | Collection | Campo ID |
+|--------|---------------|-------------|------------|----------|
+| **Aprendizes** | Jovens | Aprendizes | `Jovem` | `jovem_id` (integer) |
+| **Estagiários** | - | Estagiários (novo) | `directus_users` | `user_id` (UUID) |
+| **Lideranças** | Lideranças | Lideranças | `talents` | `lideranca_id` (integer) |
+| **RH** | RH | RH | `directus_users` | `user` (UUID) |
+
+<Note>
+  **Migração de Nomenclatura**: O termo "jovens" foi atualizado para "aprendizes" para maior clareza. Os nomes de eventos e collections permanecem inalterados por compatibilidade (ex: `backoffice/jovem.created`, `pulsos_jovens`).
+</Note>
+
+<Tip>
+  Estagiários são uma adição recente e compartilham a mesma collection de pulsos (`pulsos_jovens`) que aprendizes, mas utilizam `user_id` (UUID) em vez de `jovem_id` (integer).
+</Tip>
+
+---
+
 ## Collections Principais
 
 ### 1. `pulsos_jovens`
 
-Respostas dos talentos (estagiários e aprendizes).
+Respostas de **aprendizes e estagiários** sobre seu desenvolvimento e experiência.
+
+<Tip>
+  **Campo ID Dual**: Esta collection suporta dois tipos de referência:
+  - `jovem_id` (integer) para **aprendizes** da collection `Jovem`
+  - `user_id` (UUID) para **estagiários** da collection `directus_users`
+</Tip>
 
 | Campo             | Tipo       | Descrição                              | Obrigatório |
 | ----------------- | ---------- | -------------------------------------- | :---------: |
 | `id`              | `integer`  | Identificador único (PK, serial)       |     ✅      |
 | `pulso`           | `integer`  | Número do pulso (1-5)                  |     ✅      |
-| `jovem_id`        | `integer`  | ID do talento (FK → talents.id)        |     ✅      |
-| `user_id`         | `uuid`     | ID do usuário (FK → directus_users.id) |     ✅      |
+| `jovem_id`        | `integer`  | ID do aprendiz (FK → talents.id)       |   Condicional   |
+| `user_id`         | `uuid`     | ID do estagiário (FK → directus_users.id) |   Condicional   |
 | `status`          | `string`   | Status atual                           |     ✅      |
 | `data_aplicacao`  | `datetime` | Data de disponibilização               |     ✅      |
 | `data_vencimento` | `datetime` | Data limite para resposta              |     ✅      |
@@ -89,6 +116,27 @@ Respostas dos talentos (estagiários e aprendizes).
 | `ambiente_da_empresa`                                      | `integer` | Avaliação do ambiente (0-10)      |
 | `avaliacao_tarefas_e_desafios_dia_a_dia`                   | `integer` | Qualidade das tarefas (0-10)      |
 | `avaliacao_apoio_empresa_e_lideranca_para_desenvolvimento` | `integer` | Suporte ao desenvolvimento (0-10) |
+
+#### Critérios de Elegibilidade
+
+Para que um aprendiz ou estagiário receba novos pulsos automaticamente, deve atender critérios específicos:
+
+**Aprendizes** (collection `Jovem`):
+- `status_formacao` = `"em_andamento"`
+- `"Fim de contrato"` deve ser nulo ou >= data de aplicação do pulso (contrato vigente)
+- Último pulso NÃO pode ter status `"pendente"` (evita criar pulso quando há um ativo em aberto)
+- Tem pelo menos um pulso anterior (exceto primeiro pulso)
+
+**Estagiários** (collection `directus_users`):
+- `status` = `"active"`
+- `role` = `"intern"`
+- `user_careers.end_date` deve ser nulo ou >= data de aplicação (estágio vigente)
+- Último pulso NÃO pode ter status `"pendente"` (evita criar pulso quando há um ativo em aberto)
+- Tem pelo menos um pulso anterior (exceto primeiro pulso)
+
+<Warning>
+  Pulsos não são criados se já houver um pulso ativo (status `"pendente"`) para o mesmo usuário. Isso evita duplicação e garante que apenas um pulso esteja aberto por vez.
+</Warning>
 
 #### Perguntas Sim/Não
 
@@ -274,20 +322,15 @@ Views pré-calculadas para dashboards:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> agendado
-    agendado --> pendente: Job muda status na data_aplicacao
+    [*] --> pendente
     pendente --> respondido: Usuário submete respostas
     pendente --> vencido: Prazo expira sem resposta
     respondido --> [*]
     vencido --> [*]
 
-    note right of agendado
-        Criado mas ainda não disponível
-    end note
-
     note right of pendente
-        Disponível para resposta
-        Lembretes enviados a cada 3 dias
+        Criado e disponível para resposta
+        Lembretes enviados periodicamente
     end note
 
     note right of respondido
@@ -299,14 +342,21 @@ stateDiagram-v2
     end note
 ```
 
+<Note>
+  **Mudança Recente**: Pulsos agora são criados diretamente com status `"pendente"`. O status `"agendado"` foi descontinuado.
+</Note>
+
 ### Valores de Status
 
 | Status       | Descrição                       | Editável? |
 | ------------ | ------------------------------- | :-------: |
-| `agendado`   | Criado mas não disponível ainda |    ✅     |
-| `pendente`   | Disponível para resposta        |    ✅     |
+| `pendente`   | Criado e disponível para resposta |    ✅     |
 | `respondido` | Respondido pelo usuário         |    ❌     |
 | `vencido`    | Prazo expirado sem resposta     |    ✅     |
+
+<Warning>
+  O status `"agendado"` foi removido do fluxo. Pulsos antigos podem ainda ter este status, mas novos pulsos começam como `"pendente"`.
+</Warning>
 
 ---
 
