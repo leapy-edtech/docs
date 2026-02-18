@@ -5,7 +5,7 @@ description: "Sistema de eventos Inngest e webhooks do módulo de Pulsos"
 
 ## Visão Geral
 
-O sistema de Pulsos utiliza **Inngest** para gerenciar eventos assíncronos e automações. São 15 eventos principais que controlam criação, atualização, notificações e processamento de pulsos.
+O sistema de Pulsos utiliza **Inngest** para gerenciar eventos assíncronos e automações. São 16 eventos principais que controlam criação, atualização, notificações e processamento de pulsos.
 
 ---
 
@@ -153,23 +153,24 @@ router.get("/send-liberacao-pulsos-rh-to-rh", async (req, res) => {
 
 ## Resumo de Eventos e Jobs
 
-| Evento                                                     | Job                                      | Descrição                     |
-| ---------------------------------------------------------- | ---------------------------------------- | ----------------------------- |
-| `backoffice/jovem.created`                                 | `createPulsosJovens`                     | Cria 5 pulsos para jovem      |
-| `backoffice/jovem.created`                                 | `createPulsosLiderancas`                 | Cria 5 pulsos para liderança  |
-| `backoffice/jovem.selected`                                | `processaPulsosJovensOuLiderancas`       | Processa criação/atualização  |
-| `backoffice/pulsos.change_status`                          | `updateStatusPulsosLiderancasToPendente` | Atualiza para pendente        |
-| `backoffice/pulsos.vencidos_lideranca`                     | `updateStatusPulsosLiderancasToVencido`  | Marca como vencido            |
-| `backoffice/pulsos-jovens.update-to-pendente`              | `updateStatusPulsosJovensParaPendentes`  | Atualiza jovens pendente      |
-| `backoffice/pulsos-jovens.update-to-vencidos`              | `updateStatusPulsosJovensParaVencidos`   | Marca jovens vencido          |
-| `backoffice/pulsos_jovens/lembrete-to-jovens.send`         | `sendPulsosLembretetoJovens`             | Envia lembrete jovens         |
-| `backoffice/pulsos_liderancas/lembrete-to-liderancas.send` | `sendPulsosLembretetoLiderancas`         | Envia lembrete lideranças     |
-| `backoffice/pulsos_jovens/liberacao-to-rh.send`            | `sendLiberacaoPulsosJovensToRh`          | Notifica liberação jovens     |
-| `backoffice/pulsos_liderancas/liberacao-to-rh.send`        | `sendPulsosLiderancasLiberacaotoRh`      | Notifica liberação lideranças |
-| `backoffice/pulsos_rh/liberacao-to-rh.send`                | `sendLiberacaoPulsosRhToRh`              | Notifica liberação RH         |
-| `backoffice/pulsos_rh/liberacao-to-jovens.send`            | `sendLiberacaoPulsosRhToJovens`          | Notifica liberação RH jovens  |
-| `backoffice/pulsos_rh/lembrete-rh.send`                    | `sendLembretePulsosRhToRh`               | Lembrete RH                   |
-| `emails/resend.send`                                       | `emailSendResend`                        | Envia email via Resend        |
+| Evento                                                     | Job                                      | Descrição                        |
+| ---------------------------------------------------------- | ---------------------------------------- | -------------------------------- |
+| `backoffice/jovem.created`                                 | `createPrimeiroPulsoAprendiz`            | Cria primeiro pulso para aprendiz |
+| `backoffice/jovem.created`                                 | `createPulsosLiderancas`                 | Cria pulsos para liderança       |
+| `backoffice/intern.created`                                | `createPrimeiroPulsoEstagiario`          | Cria primeiro pulso para estagiário |
+| `backoffice/jovem.selected`                                | `processaPulsosJovensOuLiderancas`       | Processa criação/atualização     |
+| `backoffice/pulsos.change_status`                          | `updateStatusPulsosLiderancasToPendente` | Atualiza para pendente           |
+| `backoffice/pulsos.vencidos_lideranca`                     | `updateStatusPulsosLiderancasToVencido`  | Marca como vencido               |
+| `backoffice/pulsos-jovens.update-to-pendente`              | `updateStatusPulsosJovensParaPendentes`  | Atualiza aprendizes pendente     |
+| `backoffice/pulsos-jovens.update-to-vencidos`              | `updateStatusPulsosJovensParaVencidos`   | Marca aprendizes vencido         |
+| `backoffice/pulsos_jovens/lembrete-to-jovens.send`         | `sendPulsosLembretetoJovens`             | Envia lembrete aprendizes        |
+| `backoffice/pulsos_liderancas/lembrete-to-liderancas.send` | `sendPulsosLembretetoLiderancas`         | Envia lembrete lideranças        |
+| `backoffice/pulsos_jovens/liberacao-to-rh.send`            | `sendLiberacaoPulsosJovensToRh`          | Notifica liberação aprendizes    |
+| `backoffice/pulsos_liderancas/liberacao-to-rh.send`        | `sendPulsosLiderancasLiberacaotoRh`      | Notifica liberação lideranças    |
+| `backoffice/pulsos_rh/liberacao-to-rh.send`                | `sendLiberacaoPulsosRhToRh`              | Notifica liberação RH            |
+| `backoffice/pulsos_rh/liberacao-to-jovens.send`            | `sendLiberacaoPulsosRhToJovens`          | Notifica liberação RH jovens     |
+| `backoffice/pulsos_rh/lembrete-rh.send`                    | `sendLembretePulsosRhToRh`               | Lembrete RH                      |
+| `emails/resend.send`                                       | `emailSendResend`                        | Envia email via Resend           |
 
 ---
 
@@ -179,7 +180,11 @@ Eventos que disparam criação de novos pulsos.
 
 ### `backoffice/jovem.created`
 
-Disparado quando um jovem (talento) é criado no sistema. Cria automaticamente 5 pulsos para o jovem e 5 pulsos para a liderança.
+Disparado quando um aprendiz (talento) é criado no sistema. Cria automaticamente pulsos para o aprendiz e para a liderança.
+
+<Note>
+  **Terminologia**: Anteriormente documentado como "jovens", agora utilizamos o termo "aprendizes" para maior clareza. O nome do evento permanece `backoffice/jovem.created` por compatibilidade.
+</Note>
 
 **Trigger**: Directus Hook `items.create` na collection `jovem`
 
@@ -200,8 +205,8 @@ Disparado quando um jovem (talento) é criado no sistema. Cria automaticamente 5
 
 **Jobs executados:**
 
-- `createPulsosJovens` - Cria 5 pulsos para o jovem
-- `createPulsosLiderancas` - Cria 5 pulsos para a liderança avaliar o jovem
+- `createPrimeiroPulsoAprendiz` - Cria primeiro pulso para o aprendiz
+- `createPulsosLiderancas` - Cria pulsos para a liderança avaliar o aprendiz
 
 ### `backoffice/jovem.selected`
 
@@ -224,6 +229,34 @@ Disparado quando um jovem é selecionado/ativado. Processa e cria/atualiza pulso
 **Job executado:**
 
 - `processaPulsosJovensOuLiderancas` - Processa criação/atualização de pulsos
+
+### `backoffice/intern.created`
+
+Disparado quando um estagiário é criado no sistema. Cria automaticamente o primeiro pulso para o estagiário.
+
+<Tip>
+  Estagiários são armazenados em `directus_users` com `role=intern`, diferente de aprendizes que usam a collection `Jovem`.
+</Tip>
+
+**Trigger**: Directus Hook `items.create` na collection `directus_users` (quando `role=intern`)
+
+**Payload:**
+
+```json
+{
+  "event": "backoffice/intern.created",
+  "data": {
+    "id": "uuid-estagiario",
+    "account_id": "uuid-da-empresa",
+    "create_pulsos_jovens": true
+  },
+  "ts": 1709470800000
+}
+```
+
+**Job executado:**
+
+- `createPrimeiroPulsoEstagiario` - Cria primeiro pulso para o estagiário
 
 ### `backoffice-inngest-functions/pulsos-liderancas-leapy.create`
 
