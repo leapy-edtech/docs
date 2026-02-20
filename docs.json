@@ -30,6 +30,7 @@
                 "pages": [
                   "documentation/domains/pulses/index",
                   "documentation/domains/pulses/data-model",
+                  "documentation/domains/pulses/webhooks",
                   "documentation/domains/pulses/jobs-inngest",
                   "documentation/domains/pulses/integrations",
                   "documentation/domains/pulses/metrics",
@@ -207,7 +208,6 @@
                   "api-reference/backoffice/pulsos-rh",
                   "api-reference/backoffice/pulsos-configuracao",
                   "api-reference/backoffice/pulsos-endpoints-custom",
-                  "api-reference/backoffice/pulsos-webhooks",
                   "api-reference/backoffice/pulsos-examples"
                 ]
               }
