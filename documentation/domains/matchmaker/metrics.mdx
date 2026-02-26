@@ -1,144 +1,196 @@
 ---
-title: "Métricas - Matchmaker"
-description: "Métricas e indicadores do módulo Matchmaker"
+title: "Métricas"
+description: "KPIs e indicadores de performance do Matchmaker"
 ---
 
-## Métricas Principais
+## Visão Geral
 
-### Time to Fill (Tempo para Preenchimento)
+As métricas do Matchmaker são extraídas da tabela `matchmaker_search_logs` e dos logs do Agent System. Permitem avaliar performance técnica, eficácia do matching e adoção pelos usuários.
 
-Tempo médio entre publicação da oportunidade e confirmação da conexão.
+---
 
-**Cálculo:**
+## Métricas de Performance
 
-```
-Time to Fill = confirmed_at - published_at
-```
+### Tempo de Processamento
 
-**Benchmarks:**
+| Métrica | Query | Alvo |
+|---------|-------|------|
+| **Tempo médio** | `AVG(execution_time_ms)` | < 5.000ms |
+| **P95** | `PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY execution_time_ms)` | < 15.000ms |
+| **P99** | `PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY execution_time_ms)` | < 30.000ms |
+| **Timeout rate** | Buscas com `error_message LIKE '%timeout%'` / total | < 2% |
 
-| Tempo | Avaliação |
-|-------|-----------|
-| < 15 dias | Excelente |
-| 15-30 dias | Bom |
-| 30-45 dias | Regular |
-| > 45 dias | Crítico |
-
-### Taxa de Preenchimento
-
-Percentual de oportunidades que foram preenchidas com sucesso.
-
-**Cálculo:**
-
-```
-Taxa = (Oportunidades Preenchidas / Total Publicadas) × 100
+```sql
+SELECT
+  AVG(execution_time_ms) as media,
+  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY execution_time_ms) as p50,
+  PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY execution_time_ms) as p95,
+  PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY execution_time_ms) as p99,
+  MAX(execution_time_ms) as maximo
+FROM matchmaker_search_logs
+WHERE success = true
+  AND date_created > NOW() - INTERVAL '7 days';
 ```
 
-### Score Médio de Candidatos
+### Tempo por Camada de Role
 
-Score médio de compatibilidade dos candidatos por oportunidade.
+Estimativa baseada nos tempos esperados:
 
+| Camada | Tempo esperado | Impacto no total |
+|--------|---------------|------------------|
+| Exact match | ~1-2ms | Mínimo |
+| Alias match | ~1-2ms | Mínimo |
+| Trigram match | ~10-30ms | Baixo |
+| LLM inference | ~500-2000ms | Alto |
+
+<Tip>
+  Se o tempo médio está alto, investigue quantas buscas estão caindo na camada 4 (LLM). Adicionar aliases para roles comuns pode reduzir significativamente.
+</Tip>
+
+---
+
+## Métricas de Eficácia
+
+### Taxa de Sucesso
+
+```sql
+SELECT
+  COUNT(CASE WHEN success = true THEN 1 END)::float / COUNT(*) * 100 as taxa_sucesso,
+  COUNT(CASE WHEN success = false THEN 1 END) as total_falhas,
+  COUNT(*) as total_buscas
+FROM matchmaker_search_logs
+WHERE date_created > NOW() - INTERVAL '30 days';
 ```
-Score Médio = Σ(score dos candidatos) / Total Candidatos
+
+| Métrica | Cálculo | Alvo |
+|---------|---------|------|
+| **Taxa de sucesso** | Buscas bem-sucedidas / total | > 90% |
+| **Taxa de resultado vazio** | Buscas com `candidates_found = 0` / total | < 20% |
+
+### Candidatos por Busca
+
+```sql
+SELECT
+  AVG(candidates_found) as media_candidatos,
+  PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY candidates_found) as mediana,
+  MIN(candidates_found) as minimo,
+  MAX(candidates_found) as maximo
+FROM matchmaker_search_logs
+WHERE success = true
+  AND date_created > NOW() - INTERVAL '30 days';
 ```
 
-### Taxa de Conversão do Funil
+| Métrica | Cálculo | Alvo |
+|---------|---------|------|
+| **Média de candidatos** | `AVG(candidates_found)` | 5-15 |
+| **Busca sem resultado** | `candidates_found = 0` | < 15% |
 
-```mermaid
-funnel
-    title Funil de Candidaturas
-    "Visualizações" : 1000
-    "Candidaturas" : 200
-    "Em Análise" : 100
-    "Entrevistas" : 40
-    "Selecionados" : 10
-    "Confirmados" : 8
+### Distribuição de Estratégias
+
+Para analisar quais estratégias estão sendo usadas (requer parse do JSONB):
+
+```sql
+SELECT
+  response_data->'flow_decision'->>'strategy' as estrategia,
+  COUNT(*) as total,
+  AVG(candidates_found) as media_candidatos,
+  AVG(execution_time_ms) as tempo_medio
+FROM matchmaker_search_logs
+WHERE success = true
+  AND response_data IS NOT NULL
+  AND date_created > NOW() - INTERVAL '30 days'
+GROUP BY estrategia
+ORDER BY total DESC;
 ```
 
-| Etapa | Métrica |
-|-------|---------|
-| Visualização → Candidatura | Taxa de interesse |
-| Candidatura → Entrevista | Taxa de qualificação |
-| Entrevista → Seleção | Taxa de aprovação |
-| Seleção → Confirmação | Taxa de aceite |
+| Estratégia | Esperado | Indica |
+|------------|----------|--------|
+| `exact_match` | ~40-60% | Base taxonômica boa |
+| `llm_match` | ~30-50% | Queries diversas |
+| `impossible` | < 5% | Queries muito vagas |
 
-## Métricas de Qualidade
+---
 
-### Satisfação Pós-Conexão
+## Métricas de Normalização
 
-Medida através de pulso enviado 30/60/90 dias após a conexão.
+Analisar como as skills estão sendo normalizadas:
 
-| Pergunta | Métrica |
-|----------|---------|
-| "A oportunidade atendeu suas expectativas?" | Score 0-10 |
-| "Você recomendaria o processo?" | NPS |
-| "A transição foi bem conduzida?" | Score 0-10 |
+```sql
+SELECT
+  (response_data->'normalization_result'->'stats'->>'exact')::int as exatas,
+  (response_data->'normalization_result'->'stats'->>'alias')::int as aliases,
+  (response_data->'normalization_result'->'stats'->>'synonym')::int as sinonimos,
+  (response_data->'normalization_result'->'stats'->>'embedding')::int as embedding,
+  (response_data->'normalization_result'->'stats'->>'new')::int as novas
+FROM matchmaker_search_logs
+WHERE success = true
+  AND response_data->'normalization_result' IS NOT NULL
+  AND date_created > NOW() - INTERVAL '7 days';
+```
 
-### Retenção Pós-Transferência
+| Camada | Alvo | Indica problema se |
+|--------|------|-------------------|
+| **Exact** | > 50% | < 30% (base desatualizada) |
+| **Alias** | 10-20% | > 40% (muitos aliases, consolidar base) |
+| **Embedding** | 5-15% | > 30% (base com gaps) |
+| **New** | < 10% | > 25% (skills muito específicas ou base defasada) |
 
-Taxa de permanência de talentos após transferência interna.
+---
 
-| Período | Benchmark |
-|---------|-----------|
-| 6 meses | > 95% |
-| 12 meses | > 90% |
-| 24 meses | > 80% |
+## Métricas de Adoção
 
-## Métricas Operacionais
+### Uso por Período
 
-### Distribuição por Tipo
+```sql
+SELECT
+  DATE_TRUNC('day', date_created) as dia,
+  COUNT(DISTINCT user_id) as usuarios_unicos,
+  COUNT(*) as total_buscas
+FROM matchmaker_search_logs
+WHERE date_created > NOW() - INTERVAL '30 days'
+GROUP BY dia
+ORDER BY dia DESC;
+```
 
-| Tipo | % Típico |
-|------|----------|
-| Vagas Internas | 40% |
-| Projetos | 35% |
-| Job Rotation | 15% |
-| Mentoria | 10% |
+### Top Usuários
 
-### Tempo Médio por Etapa
+```sql
+SELECT
+  du.first_name || ' ' || du.last_name as usuario,
+  COUNT(*) as total_buscas,
+  COUNT(DISTINCT DATE_TRUNC('day', msl.date_created)) as dias_ativos
+FROM matchmaker_search_logs msl
+JOIN directus_users du ON du.id = msl.user_id
+WHERE msl.date_created > NOW() - INTERVAL '30 days'
+GROUP BY du.id, du.first_name, du.last_name
+ORDER BY total_buscas DESC
+LIMIT 10;
+```
 
-| Etapa | Tempo Médio | SLA |
-|-------|-------------|-----|
-| Triagem inicial | 2 dias | 5 dias |
-| Análise de perfil | 3 dias | 7 dias |
-| Entrevistas | 7 dias | 14 dias |
-| Aprovação gestor | 3 dias | 5 dias |
-| Transição | 15 dias | 30 dias |
+### Rate Limit Hits
 
-## Dashboards Disponíveis
+```sql
+SELECT
+  DATE_TRUNC('day', date_created) as dia,
+  COUNT(*) as rate_limits
+FROM matchmaker_search_logs
+WHERE error_message LIKE '%rate%' OR error_message LIKE '%limite%'
+  AND date_created > NOW() - INTERVAL '30 days'
+GROUP BY dia
+ORDER BY dia DESC;
+```
 
-<CardGroup cols={2}>
-  <Card title="Visão Geral" icon="gauge">
-    KPIs principais e tendências
-  </Card>
-  <Card title="Pipeline" icon="filter">
-    Status de todas as oportunidades e candidaturas
-  </Card>
-  <Card title="Análise de Matching" icon="diagram-project">
-    Efetividade do algoritmo de matching
-  </Card>
-  <Card title="Por Área" icon="building">
-    Métricas segmentadas por área/departamento
-  </Card>
-</CardGroup>
+---
 
-## Relatórios
+## Dashboard Sugerido
 
-### Relatório Mensal de Mobilidade
+| Painel | Métricas |
+|--------|----------|
+| **Health** | Taxa de sucesso, timeout rate, erros por tipo |
+| **Performance** | Tempo médio, P95, P99, distribuição por estratégia |
+| **Eficácia** | Candidatos/busca, taxa de resultado vazio, normalização |
+| **Adoção** | Usuários ativos/dia, buscas/dia, top usuários |
 
-Inclui:
-
-- Movimentações realizadas no período
-- Time to fill médio
-- Taxa de preenchimento
-- Satisfação pós-conexão
-- Comparativo com período anterior
-
-### Relatório de Oportunidades
-
-Status de todas as oportunidades:
-
-- Abertas e em andamento
-- Próximas do vencimento
-- Sem candidaturas
-- Aguardando aprovação
+<Note>
+  Todas as métricas podem ser extraídas diretamente da tabela `matchmaker_search_logs` via SQL no Supabase ou em ferramentas de BI conectadas ao banco.
+</Note>

@@ -1,0 +1,169 @@
+---
+title: "Analisar Resultados"
+description: "Como interpretar scores, skills e perfis de candidatos do Matchmaker"
+---
+
+## Visão Geral
+
+Após uma busca no Matchmaker, você recebe uma lista de candidatos rankeada por compatibilidade. Este guia explica como interpretar cada informação.
+
+---
+
+## Percentual de Match
+
+O **match_score** é o indicador principal de compatibilidade. Ele representa a proporção de skills buscadas que o candidato possui.
+
+| Percentual | Significado | Ação recomendada |
+|------------|-------------|------------------|
+| **90-100%** | Excelente compatibilidade | Priorizar para contato |
+| **70-89%** | Boa compatibilidade | Avaliar perfil detalhado |
+| **50-69%** | Compatibilidade parcial | Considerar se pode ser desenvolvido |
+| **< 50%** | Baixa compatibilidade | Avaliar caso a caso |
+
+### Como é Calculado?
+
+```
+Match = Skills em comum / Total de skills buscadas x 100
+```
+
+**Exemplo**: Se a busca usou 10 skills e o candidato tem 7 delas:
+- Match = 7 / 10 = 70%
+
+<Note>
+  Apenas skills com nível de proficiência **intermediário ou superior** são consideradas. Skills em nível iniciante são ignoradas no cálculo.
+</Note>
+
+---
+
+## Skills na Busca
+
+Os resultados exibem 3 grupos de skills:
+
+### Skills do Input
+
+São as skills que **você mencionou** na sua query.
+
+**Exemplo**: Se você digitou "Python, AWS, Docker" -> Skills do Input = ["Python", "AWS", "Docker"]
+
+### Skills do Role
+
+São as skills que o sistema **carregou automaticamente** do cargo identificado na base taxonômica.
+
+**Exemplo**: Se o sistema identificou "Desenvolvedor Python", ele carrega skills típicas como "Django", "Flask", "PostgreSQL", "Git".
+
+### Total de Skills
+
+É a combinação de Skills do Input + Skills do Role, sem duplicatas. Este é o conjunto usado para buscar candidatos.
+
+<Tip>
+  Quanto mais skills no Total, mais refinada é a busca — mas também mais exigente. Se poucos candidatos aparecem, pode ser porque o total de skills é muito alto.
+</Tip>
+
+---
+
+## Informações do Candidato
+
+### Nome e Cargo Atual
+
+O nome completo e o cargo que o candidato exerce atualmente na organização.
+
+### Skills em Comum
+
+Lista das skills que o candidato possui e que foram buscadas. Estas são as skills que contribuíram para o percentual de match.
+
+### Explicação do Match
+
+Uma frase gerada automaticamente que contextualiza o resultado:
+
+| Percentual | Exemplo de explicação |
+|------------|----------------------|
+| 90%+ | "Excelente compatibilidade! 9 skills correspondem ao perfil buscado de 12 skills do candidato." |
+| 70-89% | "Boa compatibilidade com 7 skills correspondentes. Experiência como Desenvolvedor Backend." |
+| 50-69% | "Compatibilidade parcial com 5 skills em comum. Pode ser desenvolvido para a vaga." |
+| < 50% | "3 skills em comum com o perfil buscado." |
+
+---
+
+## Perfil Detalhado
+
+Ao clicar em um candidato, abre o **drawer de perfil** com informações completas:
+
+| Seção | Informações |
+|-------|-------------|
+| **Dados pessoais** | Nome, email, telefone |
+| **Cargo atual** | Posição na organização |
+| **Skills completas** | Todas as skills do candidato (não apenas as em comum) |
+| **Compatibilidade** | Match com target role da carreira |
+
+---
+
+## Exportar Candidatos
+
+Após os resultados, o botão **"Exportar"** aparece no final da lista de candidatos. A exportação inclui todos os candidatos da conversa atual com:
+
+- Nome
+- Cargo
+- Percentual de match
+- Skills em comum
+
+---
+
+## Estratégias de Busca
+
+O Matchmaker usa diferentes estratégias dependendo do que você forneceu:
+
+### Estratégia: exact_match
+
+**Quando**: O cargo foi encontrado na base de cargos da Leapy.
+
+**O que significa**: As skills do cargo foram carregadas automaticamente e combinadas com as skills do seu input. O ranking é baseado em quantidade de skills em comum.
+
+### Estratégia: llm_match
+
+**Quando**: O cargo não foi encontrado na base, ou você forneceu apenas uma área ou skills.
+
+**O que significa**: A IA inferiu skills adicionais e/ou fez re-ranking dos candidatos. Os resultados podem ser menos previsíveis, mas ainda relevantes.
+
+### Estratégia: impossible
+
+**Quando**: O sistema não conseguiu extrair nenhuma informação útil.
+
+**O que significa**: A query foi muito vaga. Tente novamente com mais detalhes.
+
+---
+
+## Refinando os Resultados
+
+### Muitos candidatos, mas pouco relevantes?
+
+Adicione mais skills específicas à query:
+- Em vez de "Desenvolvedor", tente "Desenvolvedor Python com Django e AWS"
+
+### Poucos candidatos?
+
+Reduza o escopo:
+- Remova skills muito específicas
+- Não especifique senioridade
+- Use termos mais genéricos
+
+### Candidatos sem o perfil esperado?
+
+Verifique se o cargo identificado pela IA está correto olhando o progresso:
+- Se aparece "Cargo: [algo inesperado]", reformule a query sendo mais específico
+
+<Warning>
+  O Matchmaker busca por **skills**, não por experiência em empresas ou anos de carreira. Um candidato com 90% de match pode ter senioridade diferente da desejada.
+</Warning>
+
+---
+
+## Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="FAQ" icon="circle-question" href="/guides/app-rh/matchmaker-faq">
+    Dúvidas frequentes
+  </Card>
+  <Card title="Busca por Texto" icon="keyboard" href="/guides/app-rh/matchmaker-busca-por-texto">
+    Técnicas para melhores queries
+  </Card>
+</CardGroup>

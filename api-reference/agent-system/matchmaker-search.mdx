@@ -1,0 +1,221 @@
+---
+title: "Matchmaker - Busca Síncrona"
+description: "POST /matchmaker/search - Busca candidatos usando o pipeline completo do Orchestrator"
+---
+
+## POST /matchmaker/search
+
+Busca candidatos compatíveis com a query do usuário usando o pipeline completo de 5 passos do Orchestrator.
+
+<Note>
+  Este endpoint é acessado **via proxy Directus** (`POST /matchmaker/search` no Directus), que adiciona autenticação, rate limiting e logging. Veja [Endpoints Proxy Directus](/api-reference/backoffice/matchmaker-endpoints-custom).
+</Note>
+
+## Request
+
+```bash
+POST /matchmaker/search
+Content-Type: application/json
+```
+
+### Body
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `query` | string | Sim | Query do usuário (texto, URL ou misto) |
+| `limit` | integer | Não | Máximo de candidatos retornados (1-100, padrão: 10) |
+| `department` | string | Não | Filtro por departamento |
+
+### Exemplos de Query
+
+| Tipo | Exemplo |
+|------|---------|
+| Cargo + skills | `"Desenvolvedor Python senior com experiência em AWS e Docker"` |
+| URL | `"https://linkedin.com/jobs/view/123456789"` |
+| Misto | `"Quero um PM com foco em dados e analytics"` |
+| Apenas skills | `"Python, React, Docker, Kubernetes"` |
+
+## Response
+
+### Sucesso (200)
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://agent-system.leapy.com/matchmaker/search" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Desenvolvedor Python senior com AWS e Docker",
+    "limit": 5
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('https://agent-system.leapy.com/matchmaker/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: 'Desenvolvedor Python senior com AWS e Docker',
+    limit: 5
+  })
+});
+const data = await response.json();
+```
+
+</CodeGroup>
+
+**Resposta:**
+
+```json
+{
+  "success": true,
+  "error_message": null,
+  "input_analysis": {
+    "role": "Desenvolvedor Python",
+    "area": "Tecnologia",
+    "skills": ["Python", "AWS", "Docker"],
+    "seniority": "senior",
+    "confidence": 0.92,
+    "input_type": "text",
+    "has_url": false
+  },
+  "flow_decision": {
+    "strategy": "exact_match",
+    "input_had_role": true,
+    "role_found": true,
+    "should_infer_skills": false,
+    "should_rerank": true,
+    "inference_context": ""
+  },
+  "skills_result": {
+    "skills_from_role": ["Python", "Django", "Flask", "PostgreSQL", "Git"],
+    "skills_from_input": ["AWS", "Docker"],
+    "skills_inferred": [],
+    "final_skills": ["Python", "Django", "Flask", "PostgreSQL", "Git", "AWS", "Docker"],
+    "inference_performed": false
+  },
+  "normalization_result": {
+    "skills": [
+      {
+        "original_name": "Python",
+        "normalized_name": "Python",
+        "skill_id": 1234,
+        "match_layer": "exact",
+        "similarity_score": null
+      },
+      {
+        "original_name": "AWS",
+        "normalized_name": "Amazon Web Services (AWS)",
+        "skill_id": 5678,
+        "match_layer": "alias",
+        "similarity_score": null
+      }
+    ],
+    "stats": {
+      "exact": 5,
+      "alias": 1,
+      "synonym": 0,
+      "embedding": 1,
+      "new": 0
+    },
+    "process_time_ms": 45.2
+  },
+  "candidates": [
+    {
+      "id": "uuid-candidato-1",
+      "name": "João Silva",
+      "email": "joao@email.com",
+      "current_role": "Desenvolvedor Backend",
+      "department": "Engenharia",
+      "seniority": "senior",
+      "match_score": 0.86,
+      "matching_skills": ["Python", "Django", "AWS", "Docker", "PostgreSQL", "Git"],
+      "matching_skills_count": 6,
+      "total_skills": 12
+    },
+    {
+      "id": "uuid-candidato-2",
+      "name": "Maria Santos",
+      "email": "maria@email.com",
+      "current_role": "Engenheira de Software",
+      "department": "Tecnologia",
+      "seniority": "pleno",
+      "match_score": 0.71,
+      "matching_skills": ["Python", "Flask", "Docker", "PostgreSQL", "Git"],
+      "matching_skills_count": 5,
+      "total_skills": 15
+    }
+  ],
+  "total_found": 23,
+  "execution_time": 3.45,
+  "steps_executed": [
+    "input_analysis",
+    "flow_decision",
+    "skill_processing",
+    "skill_normalization",
+    "candidate_matching"
+  ],
+  "warnings": []
+}
+```
+
+### Schema da Resposta
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `success` | boolean | Se a busca foi bem-sucedida |
+| `error_message` | string? | Mensagem de erro |
+| `input_analysis` | object | Resultado da análise do input |
+| `flow_decision` | object | Decisão do FlowEngine |
+| `skills_result` | object | Skills processadas |
+| `normalization_result` | object | Resultado da normalização |
+| `candidates` | array | Lista de candidatos encontrados |
+| `total_found` | integer | Total de candidatos encontrados |
+| `execution_time` | float | Tempo de execução em segundos |
+| `steps_executed` | string[] | Passos executados |
+| `warnings` | string[] | Avisos durante processamento |
+
+### input_analysis
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `role` | string? | Cargo identificado |
+| `area` | string? | Área funcional |
+| `skills` | string[] | Skills extraídas do input |
+| `seniority` | string? | Nível de senioridade |
+| `confidence` | float | Confiança da extração (0-1) |
+| `input_type` | string | Tipo: `"text"`, `"url"`, `"mixed"` |
+| `has_url` | boolean | Se continha URL |
+
+### flow_decision
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `strategy` | string | `"exact_match"`, `"llm_match"`, `"impossible"` |
+| `input_had_role` | boolean | Se o input tinha um role |
+| `role_found` | boolean | Se o role foi encontrado na base |
+| `should_infer_skills` | boolean | Se skills foram inferidas via LLM |
+| `should_rerank` | boolean | Se houve re-ranking |
+| `inference_context` | string? | Contexto usado para inferência |
+
+### candidates[]
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | string | UUID do candidato |
+| `name` | string | Nome completo |
+| `email` | string? | Email |
+| `current_role` | string? | Cargo atual |
+| `department` | string? | Departamento |
+| `seniority` | string? | Senioridade |
+| `match_score` | float | Score de match (0.0 - 1.0) |
+| `matching_skills` | string[] | Skills em comum |
+| `matching_skills_count` | integer | Quantidade de skills em comum |
+| `total_skills` | integer | Total de skills do candidato |
+
+## Erros
+
+| Status | Descrição |
+|--------|-----------|
+| 400 | Query vazia ou inválida |
+| 500 | Erro interno do Agent System |

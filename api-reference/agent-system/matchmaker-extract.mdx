@@ -1,0 +1,151 @@
+---
+title: "Matchmaker - Extração"
+description: "POST /matchmaker/extract - Extrai role e skills de texto ou URL (endpoint legado)"
+---
+
+## POST /matchmaker/extract
+
+Extrai role e skills de um texto ou URL de vaga. Este é o **endpoint legado** — para buscas completas com candidatos, use [/matchmaker/search](/api-reference/agent-system/matchmaker-search).
+
+<Warning>
+  Este endpoint **não retorna candidatos**. Ele apenas extrai e normaliza role/skills. Para o fluxo completo de matching, use `/matchmaker/search` ou `/matchmaker/search/stream`.
+</Warning>
+
+## Request
+
+```bash
+POST /matchmaker/extract
+Content-Type: application/json
+```
+
+### Body
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `query` | string | Sim | Texto ou URL para extração |
+
+## Response
+
+### Sucesso (200)
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://agent-system.leapy.com/matchmaker/extract" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Desenvolvedor Python com experiência em Django e AWS"}'
+```
+
+```typescript TypeScript
+const response = await fetch('https://agent-system.leapy.com/matchmaker/extract', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: 'Desenvolvedor Python com experiência em Django e AWS'
+  })
+});
+const data = await response.json();
+```
+
+</CodeGroup>
+
+**Resposta (input texto):**
+
+```json
+{
+  "success": true,
+  "error_message": null,
+  "input_type": "text",
+  "original_query": "Desenvolvedor Python com experiência em Django e AWS",
+  "scraped_content": null,
+  "scraped_title": null,
+  "llm_extraction": {
+    "role": "Desenvolvedor Python",
+    "seniority": null,
+    "skills": ["Python", "Django", "AWS"]
+  },
+  "db_match": {
+    "role": "Desenvolvedor Python",
+    "role_id": 4567,
+    "match_method": "exact",
+    "confidence": 1.0,
+    "seniority": null
+  },
+  "db_skills": [
+    {"name": "Python", "id": 1234, "importance": "essential"},
+    {"name": "Django", "id": 1235, "importance": "essential"},
+    {"name": "Flask", "id": 1236, "importance": "recommended"},
+    {"name": "PostgreSQL", "id": 1237, "importance": "recommended"}
+  ],
+  "total_skills": ["AWS", "Django", "Flask", "PostgreSQL", "Python"]
+}
+```
+
+**Resposta (input URL):**
+
+```json
+{
+  "success": true,
+  "error_message": null,
+  "input_type": "url",
+  "original_query": "https://job-boards.greenhouse.io/example/jobs/123",
+  "scraped_content": "Descrição da vaga extraída do site...",
+  "scraped_title": "Senior Python Developer - Example Corp",
+  "llm_extraction": {
+    "role": "Senior Python Developer",
+    "seniority": "senior",
+    "skills": ["Python", "FastAPI", "Docker", "Kubernetes", "PostgreSQL"]
+  },
+  "db_match": {
+    "role": "Python Developer",
+    "role_id": 4567,
+    "match_method": "trigram",
+    "confidence": 0.85,
+    "seniority": "senior"
+  },
+  "db_skills": [
+    {"name": "Python", "id": 1234, "importance": "essential"}
+  ],
+  "total_skills": ["Docker", "FastAPI", "Kubernetes", "PostgreSQL", "Python"]
+}
+```
+
+### Schema da Resposta
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `success` | boolean | Se a extração foi bem-sucedida |
+| `error_message` | string? | Mensagem de erro |
+| `input_type` | string | `"text"` ou `"url"` |
+| `original_query` | string | Query original do usuário |
+| `scraped_content` | string? | Conteúdo extraído (se URL) |
+| `scraped_title` | string? | Título da página (se URL) |
+| `llm_extraction` | object | Dados extraídos pela LLM |
+| `db_match` | object | Resultado do match na base |
+| `db_skills` | array | Skills do role na base |
+| `total_skills` | string[] | Merge de todas as skills |
+
+### llm_extraction
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `role` | string? | Cargo extraído pela LLM |
+| `seniority` | string? | Senioridade identificada |
+| `skills` | string[] | Skills extraídas do texto |
+
+### db_match
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `role` | string? | Nome do role encontrado na base |
+| `role_id` | integer? | ID do role na base |
+| `match_method` | string? | Método: `"exact"`, `"alias"`, `"trigram"`, `"llm"` |
+| `confidence` | float? | Confiança do match (0-1) |
+| `seniority` | string? | Senioridade |
+
+## Erros
+
+| Status | Descrição |
+|--------|-----------|
+| 400 | Query vazia |
+| 500 | Erro na extração ou scraping |

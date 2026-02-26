@@ -1,0 +1,51 @@
+---
+title: "Matchmaker - Health Check"
+description: "GET /matchmaker/health - Verifica se o serviço do Matchmaker está operacional"
+---
+
+## GET /matchmaker/health
+
+Verifica se o serviço do Matchmaker no Agent System está operacional.
+
+## Request
+
+```bash
+GET /matchmaker/health
+```
+
+## Response
+
+### Sucesso (200)
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET "https://agent-system.leapy.com/matchmaker/health"
+```
+
+```typescript TypeScript
+const response = await fetch('https://agent-system.leapy.com/matchmaker/health');
+const data = await response.json();
+```
+
+</CodeGroup>
+
+**Resposta:**
+
+```json
+{
+  "status": "healthy",
+  "service": "matchmaker"
+}
+```
+
+### Schema
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `status` | string | `"healthy"` se operacional |
+| `service` | string | Nome do serviço: `"matchmaker"` |
+
+<Note>
+  Este endpoint não requer autenticação e pode ser usado por health checks de infraestrutura.
+</Note>

@@ -1,0 +1,166 @@
+---
+title: "FAQ - Matchmaker"
+description: "Perguntas frequentes sobre o Matchmaker AI"
+---
+
+## Perguntas Gerais
+
+### O que é o Matchmaker?
+
+O Matchmaker é uma ferramenta de IA que encontra talentos compatíveis com vagas ou perfis que você descreve. Funciona como um chat inteligente — você descreve o que precisa e recebe candidatos rankeados por percentual de compatibilidade.
+
+### Quem pode usar o Matchmaker?
+
+Usuários com perfil de **RH** ou **Admin** na plataforma Leapy.
+
+### Quanto custa usar?
+
+O Matchmaker está incluído no plano da plataforma. Não há cobrança adicional por busca.
+
+### Quantas buscas posso fazer?
+
+Até **10 buscas por minuto**. Se exceder, aguarde o countdown exibido no chat.
+
+---
+
+## Sobre as Buscas
+
+### Que tipos de busca posso fazer?
+
+| Tipo | Exemplo |
+|------|---------|
+| Cargo + skills | "Dev Python sênior com AWS" |
+| URL de vaga | Cole o link de qualquer vaga |
+| Apenas skills | "Python, React, Docker" |
+| Descrição livre | "Alguém da área de dados" |
+| Misto | Texto + URL |
+
+### Quanto tempo demora uma busca?
+
+Em média **3-5 segundos** para buscas por texto. Buscas com URL podem levar **5-10 segundos** por conta do scraping.
+
+### Posso buscar em português e inglês?
+
+Sim! A IA entende ambos os idiomas. "Desenvolvedor Python" e "Python Developer" funcionam igualmente.
+
+### O que é o match_score?
+
+É a proporção de skills buscadas que o candidato possui. 85% significa que o candidato tem 85% das skills que foram buscadas.
+
+### O Matchmaker busca em toda a base de talentos?
+
+Sim, ele busca em toda a base de talentos cadastrados na plataforma, filtrando por skills e nível de proficiência.
+
+---
+
+## Sobre os Resultados
+
+### Por que o resultado veio vazio?
+
+Possíveis causas:
+1. **Query muito vaga** — tente ser mais específico
+2. **Skills muito específicas** — a combinação pode não existir na base
+3. **Skills não reconhecidas** — use nomes padrão das skills
+4. **Nenhum talento** com essas skills cadastrado
+
+### Por que o percentual de match é baixo?
+
+O match é calculado como `skills em comum / total de skills buscadas`. Se a busca usa muitas skills (ex: 15), é difícil um candidato ter todas. Considere:
+- Reduzir o número de skills
+- Focar nas skills mais importantes
+
+### Posso ver o perfil completo do candidato?
+
+Sim! Clique no candidato para abrir o drawer com perfil detalhado, incluindo todas as skills e dados de carreira.
+
+### Os resultados ficam salvos?
+
+O histórico de conversas fica salvo **localmente no navegador**. Se limpar o cache, perde o histórico. As buscas em si são registradas no servidor para análise.
+
+---
+
+## Problemas Comuns
+
+### "Limite de requisições excedido"
+
+Você atingiu o limite de 10 buscas por minuto. Aguarde o countdown exibido no chat (geralmente 30-60 segundos).
+
+### "A busca demorou muito para responder"
+
+A busca excedeu o timeout de 2 minutos. Possíveis causas:
+- URL muito pesada para scraping
+- Problema temporário no serviço
+
+**Solução**: Tente novamente com uma query mais curta, ou cole o texto da vaga em vez de usar URL.
+
+### O link da vaga não funcionou
+
+Alguns sites bloqueiam scraping automático. **Solução**: copie e cole a descrição da vaga diretamente no chat. Geralmente dá resultados até melhores.
+
+### "Nenhuma informação útil encontrada"
+
+A IA não conseguiu extrair cargo, área ou skills da sua query. **Solução**: seja mais específico. Em vez de "preciso de alguém", tente "preciso de um Desenvolvedor Frontend com React".
+
+### O cargo identificado está errado
+
+A IA pode interpretar diferente do esperado. **Solução**: reformule sendo mais direto. Em vez de "alguém de tech que mexe com dados", tente "Engenheiro de Dados".
+
+### Skills que eu mencionei não aparecem nos resultados
+
+Possíveis causas:
+1. A skill não existe na base taxonômica
+2. A skill foi escrita de forma diferente (ex: "JS" vs "JavaScript")
+3. A skill é muito específica (ex: nome de framework muito nicho)
+
+**Solução**: use nomes completos e padronizados das skills.
+
+---
+
+## Dicas e Boas Práticas
+
+### Como melhorar a qualidade dos resultados?
+
+<CardGroup cols={2}>
+  <Card title="Seja específico" icon="bullseye">
+    Inclua cargo, skills e senioridade na query
+  </Card>
+  <Card title="Use termos padrão" icon="book">
+    "JavaScript" em vez de "JS", "Amazon Web Services" em vez de "AWS"
+  </Card>
+  <Card title="Itere" icon="rotate">
+    Faça várias buscas refinando a query até achar o perfil ideal
+  </Card>
+  <Card title="Combine abordagens" icon="layer-group">
+    Se URL falhar, cole o texto. Se texto for vago, adicione skills
+  </Card>
+</CardGroup>
+
+### Quando usar URL vs texto?
+
+| Use URL quando... | Use texto quando... |
+|-------------------|-------------------|
+| Tem o link da vaga pronto | Quer descrever com suas palavras |
+| A vaga está em site público | O site requer login |
+| Quer extrair tudo automaticamente | Quer focar em skills específicas |
+
+### Quantas skills devo incluir?
+
+- **3-7 skills**: resultado ótimo, boa diversidade de candidatos
+- **1-2 skills**: resultado muito amplo, muitos candidatos
+- **8+ skills**: resultado restritivo, poucos candidatos com match alto
+
+---
+
+## Privacidade e Segurança
+
+### Quem pode ver minhas buscas?
+
+Suas buscas são registradas para fins de análise de uso. Administradores da plataforma podem acessar os logs para suporte e diagnóstico.
+
+### Os dados dos talentos são protegidos?
+
+Sim. Os resultados mostram apenas informações que você tem permissão de ver conforme seu papel na plataforma.
+
+### O Matchmaker usa dados externos?
+
+Não. O Matchmaker busca apenas na base interna de talentos da sua organização na plataforma Leapy. Quando você cola uma URL, o scraping é feito apenas para extrair a descrição da vaga — nenhum dado é enviado para sites externos.

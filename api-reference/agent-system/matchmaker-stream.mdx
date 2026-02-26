@@ -1,0 +1,210 @@
+---
+title: "Matchmaker - Busca com Streaming"
+description: "POST /matchmaker/search/stream - Busca candidatos com feedback em tempo real via SSE"
+---
+
+## POST /matchmaker/search/stream
+
+Busca candidatos com feedback em tempo real via **Server-Sent Events (SSE)**. Retorna eventos conforme cada passo do pipeline é executado.
+
+<Tip>
+  Este é o endpoint recomendado para uso no frontend. O streaming proporciona uma UX muito melhor, mostrando o progresso em tempo real.
+</Tip>
+
+## Request
+
+```bash
+POST /matchmaker/search/stream
+Content-Type: application/json
+```
+
+### Body
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `query` | string | Sim | Query do usuário (texto, URL ou misto) |
+| `limit` | integer | Não | Máximo de candidatos retornados (1-100, padrão: 10) |
+| `department` | string | Não | Filtro por departamento |
+
+## Response
+
+**Content-Type**: `text/event-stream`
+
+### Tipos de Eventos
+
+| Tipo | Descrição | Quando |
+|------|-----------|--------|
+| `step` | Progresso de uma etapa | Durante o processamento |
+| `result` | Resultado final completo | Ao final do processamento |
+| `error` | Erro durante processamento | Quando algo falha |
+
+### Formato dos Eventos
+
+Cada evento segue o formato SSE padrão:
+
+```
+data: {"type": "step", "message": "mensagem"}
+
+data: {"type": "result", "data": {...}}
+
+data: [DONE]
+```
+
+### Sequência Típica de Eventos
+
+```
+data: {"type":"step","message":"🎭 Iniciando Matchmaker..."}
+
+data: {"type":"step","message":"🔍 Analisando entrada..."}
+
+data: {"type":"step","message":"📝 Tipo: text"}
+
+data: {"type":"step","message":"🎯 Cargo: Desenvolvedor Python"}
+
+data: {"type":"step","message":"🔧 3 skills identificadas"}
+
+data: {"type":"step","message":"📊 Senioridade: senior"}
+
+data: {"type":"step","message":"🧠 Decidindo estratégia de matching..."}
+
+data: {"type":"step","message":"🎯 Estratégia: exact_match"}
+
+data: {"type":"step","message":"🔄 Vai fazer re-ranking"}
+
+data: {"type":"step","message":"🔧 7 skills para matching"}
+
+data: {"type":"step","message":"🔧 Processando skills..."}
+
+data: {"type":"step","message":"📦 5 skills do role"}
+
+data: {"type":"step","message":"📝 2 skills do input"}
+
+data: {"type":"step","message":"✅ 7 skills finais para matching"}
+
+data: {"type":"step","message":"🔄 Normalizando 7 skills..."}
+
+data: {"type":"step","message":"📊 Normalização: 5 exatas, 1 aliases, 0 sinônimos, 1 embedding, 0 novas"}
+
+data: {"type":"step","message":"👥 Buscando candidatos..."}
+
+data: {"type":"step","message":"✅ 15 candidatos encontrados"}
+
+data: {"type":"step","message":"✅ Processamento concluído em 3.45s - 15 candidatos encontrados"}
+
+data: {"type":"result","data":{"success":true,"input_analysis":{...},"flow_decision":{...},"skills_result":{...},"normalization_result":{...},"candidate_result":{"candidates":[...],"total_found":15,"strategy_used":"exact","skills_searched":[...],"execution_time":0.5},"execution_time":3.45,"steps_executed":["input_analysis","flow_decision","skill_processing","skill_normalization","candidate_matching"],"warnings":[]}}
+
+data: [DONE]
+```
+
+### Eventos para Busca com URL
+
+Quando a query contém uma URL, eventos adicionais de scraping são emitidos:
+
+```
+data: {"type":"step","message":"🌐 Capturando dados da página..."}
+
+data: {"type":"step","message":"⏳ Ainda estamos trabalhando..."}
+
+data: {"type":"step","message":"📄 Extraindo conteúdo..."}
+
+data: {"type":"step","message":"✅ URL scrapeada com sucesso"}
+```
+
+Se o scraping falhar:
+
+```
+data: {"type":"step","message":"⚠️ Não foi possível analisar a URL enviada. Verifique se ela está correta ou copie e cole a descrição da vaga."}
+```
+
+## Consumindo no Frontend
+
+### JavaScript/TypeScript (fetch + ReadableStream)
+
+```typescript
+async function searchWithStream(query: string) {
+  const response = await fetch('/api/matchmaker/search/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ query, limit: 10 })
+  });
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+
+        const message = JSON.parse(data);
+
+        switch (message.type) {
+          case 'step':
+            console.log('Progresso:', message.message);
+            break;
+          case 'result':
+            console.log('Resultado:', message.data);
+            break;
+          case 'error':
+            console.error('Erro:', message.message);
+            break;
+        }
+      }
+    }
+  }
+}
+```
+
+### EventSource (alternativa)
+
+```javascript
+const eventSource = new EventSource('/matchmaker/search/stream');
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === 'step') {
+    console.log(data.message);
+  }
+
+  if (data.type === 'result') {
+    console.log('Candidatos:', data.data.candidate_result.candidates);
+    eventSource.close();
+  }
+};
+```
+
+## Evento `result` - Schema
+
+O evento `result` contém o mesmo schema da [busca síncrona](/api-reference/agent-system/matchmaker-search), com a adição do campo `candidate_result`:
+
+### candidate_result
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `candidates` | array | Lista de candidatos |
+| `total_found` | integer | Total encontrados |
+| `strategy_used` | string | Estratégia usada: `"exact"`, `"exact+llm_rerank"` |
+| `skills_searched` | string[] | Skills usadas na busca |
+| `execution_time` | float | Tempo do matching em segundos |
+
+## Headers de Resposta
+
+| Header | Descrição |
+|--------|-----------|
+| `Content-Type` | `text/event-stream` |
+| `Cache-Control` | `no-cache` |
+| `Connection` | `keep-alive` |
+| `X-Accel-Buffering` | `no` (desativa buffering nginx) |

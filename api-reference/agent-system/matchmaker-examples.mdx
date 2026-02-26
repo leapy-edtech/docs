@@ -1,0 +1,315 @@
+---
+title: "Matchmaker - Exemplos Práticos"
+description: "Exemplos de uso da API do Matchmaker para diferentes cenários"
+---
+
+## Visão Geral
+
+Esta página apresenta exemplos práticos de uso do Matchmaker para os cenários mais comuns.
+
+---
+
+## Cenário 1: Busca por Cargo + Skills
+
+O caso mais comum: descrever o cargo desejado com skills específicas.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://backoffice.leapy.com/matchmaker/search" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Desenvolvedor Python senior com experiência em microsserviços, AWS e FastAPI",
+    "limit": 10
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('/api/matchmaker/search', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    query: 'Desenvolvedor Python senior com experiência em microsserviços, AWS e FastAPI',
+    limit: 10
+  })
+});
+
+const { candidates, total_found, execution_time } = await response.json();
+console.log(`${total_found} candidatos em ${execution_time}s`);
+```
+
+</CodeGroup>
+
+**O que acontece internamente:**
+
+1. InputProcessor extrai: role="Desenvolvedor Python", seniority="senior", skills=["microsserviços", "AWS", "FastAPI"]
+2. FlowEngine busca "Desenvolvedor Python" na base -> encontra -> EXACT_MATCH
+3. SkillProcessor combina skills do role + skills do input
+4. SkillNormalizer normaliza todas para IDs
+5. CandidateMatcher busca candidatos + re-ranking (porque tem skills extras)
+
+---
+
+## Cenário 2: Busca por URL de Vaga
+
+Cole a URL de uma vaga e o sistema extrai automaticamente.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://backoffice.leapy.com/matchmaker/search" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "https://job-boards.greenhouse.io/example/jobs/4567890",
+    "limit": 15
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('/api/matchmaker/search', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    query: 'https://job-boards.greenhouse.io/example/jobs/4567890',
+    limit: 15
+  })
+});
+```
+
+</CodeGroup>
+
+**O que acontece internamente:**
+
+1. InputProcessor detecta URL, faz scraping com httpx + BeautifulSoup
+2. Conteúdo scrapeado é enviado ao LLM para extração
+3. Role, skills e seniority são extraídos da descrição da vaga
+4. Pipeline continua normalmente
+
+<Tip>
+  Para melhor resultado com URLs, use links diretos da descrição da vaga. Links de listagem (que mostram várias vagas) podem não funcionar.
+</Tip>
+
+---
+
+## Cenário 3: Busca Apenas por Skills
+
+Quando você sabe exatamente quais skills precisa, sem especificar um cargo.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://backoffice.leapy.com/matchmaker/search" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Python, React, Docker, Kubernetes, PostgreSQL",
+    "limit": 10
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('/api/matchmaker/search', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    query: 'Python, React, Docker, Kubernetes, PostgreSQL',
+    limit: 10
+  })
+});
+```
+
+</CodeGroup>
+
+**O que acontece internamente:**
+
+1. InputProcessor extrai apenas skills (sem role)
+2. FlowEngine segue caminho "sem role, sem área, tem skills" -> LLM_MATCH sem inferência
+3. Skills são normalizadas diretamente
+4. CandidateMatcher busca candidatos com essas skills
+
+---
+
+## Cenário 4: Busca com Streaming (Recomendado para Frontend)
+
+Usando streaming SSE para feedback em tempo real.
+
+```typescript
+async function matchmakerStreamSearch(query: string) {
+  const response = await fetch('/api/matchmaker/search/stream', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({ query, limit: 10 })
+  });
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader!.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6);
+      if (data === '[DONE]') return;
+
+      const event = JSON.parse(data);
+
+      switch (event.type) {
+        case 'step':
+          updateUI('step', event.message);
+          break;
+        case 'result':
+          updateUI('candidates', event.data.candidate_result.candidates);
+          break;
+        case 'error':
+          showError(event.message);
+          break;
+      }
+    }
+  }
+}
+```
+
+---
+
+## Cenário 5: Busca por Área
+
+Quando você quer talentos de uma área específica sem um cargo definido.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://backoffice.leapy.com/matchmaker/search" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Preciso de alguém da área de Data Science com foco em machine learning",
+    "limit": 10
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('/api/matchmaker/search', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    query: 'Preciso de alguém da área de Data Science com foco em machine learning',
+    limit: 10
+  })
+});
+```
+
+</CodeGroup>
+
+**O que acontece internamente:**
+
+1. InputProcessor extrai: area="Data Science", skills=["machine learning"]
+2. FlowEngine segue caminho "sem role, tem área" -> LLM_MATCH + inferir skills
+3. SkillProcessor usa LLM para inferir skills típicas de Data Science
+4. Pipeline continua com skills inferidas + skills do input
+
+---
+
+## Cenário 6: URL + Contexto Adicional
+
+Combinar URL com informações adicionais.
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST "https://backoffice.leapy.com/matchmaker/search" \
+  -H "Authorization: Bearer SEU_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Preciso de alguém para essa vaga, mas com foco em liderança: https://linkedin.com/jobs/view/123",
+    "limit": 10
+  }'
+```
+
+```typescript TypeScript
+const response = await fetch('/api/matchmaker/search', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  },
+  body: JSON.stringify({
+    query: 'Preciso de alguém para essa vaga, mas com foco em liderança: https://linkedin.com/jobs/view/123',
+    limit: 10
+  })
+});
+```
+
+</CodeGroup>
+
+**O que acontece internamente:**
+
+1. InputProcessor detecta URL + texto adicional -> tipo "mixed"
+2. Scraping da URL + combina com contexto do texto
+3. LLM considera tanto o conteúdo da vaga quanto o pedido de "foco em liderança"
+
+---
+
+## Interpretando os Resultados
+
+### Match Score
+
+O `match_score` vai de 0.0 a 1.0 (0% a 100%):
+
+| Score | Interpretação |
+|-------|---------------|
+| 0.90+ | Excelente compatibilidade |
+| 0.70-0.89 | Boa compatibilidade |
+| 0.50-0.69 | Compatibilidade parcial |
+| < 0.50 | Baixa compatibilidade |
+
+### Normalization Stats
+
+Os `stats` de normalização indicam a qualidade da base:
+
+```json
+{
+  "stats": {
+    "exact": 5,
+    "alias": 1,
+    "synonym": 0,
+    "embedding": 1,
+    "new": 0
+  }
+}
+```
+
+| Stat | Significado |
+|------|-------------|
+| `exact` | Skills encontradas diretamente na base |
+| `alias` | Skills encontradas via aliases |
+| `synonym` | Skills encontradas via sinônimos |
+| `embedding` | Skills encontradas por similaridade vetorial |
+| `new` | Skills não encontradas (novas) |
+
+<Warning>
+  Skills com `match_layer: "new"` não são usadas no matching de candidatos. Se muitas skills caem nessa categoria, considere atualizar a base taxonômica.
+</Warning>

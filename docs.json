@@ -166,6 +166,13 @@
                   "guides/backoffice/pulsos-manual-tecnico",
                   "guides/backoffice/pulsos-acessar-via-api"
                 ]
+              },
+              {
+                "group": "Matchmaker",
+                "pages": [
+                  "guides/backoffice/matchmaker-operacoes",
+                  "guides/backoffice/matchmaker-troubleshooting"
+                ]
               }
             ]
           },
@@ -187,6 +194,17 @@
                   "guides/app-rh/pulsos-responder-lideranca",
                   "guides/app-rh/pulsos-analisar-resultados",
                   "guides/app-rh/pulsos-faq"
+                ]
+              },
+              {
+                "group": "Matchmaker",
+                "pages": [
+                  "guides/app-rh/matchmaker-introducao",
+                  "guides/app-rh/matchmaker-quickstart",
+                  "guides/app-rh/matchmaker-busca-por-texto",
+                  "guides/app-rh/matchmaker-busca-por-url",
+                  "guides/app-rh/matchmaker-analisar-resultados",
+                  "guides/app-rh/matchmaker-faq"
                 ]
               }
             ]
@@ -210,13 +228,29 @@
                   "api-reference/backoffice/pulsos-endpoints-custom",
                   "api-reference/backoffice/pulsos-examples"
                 ]
+              },
+              {
+                "group": "Matchmaker",
+                "pages": [
+                  "api-reference/backoffice/matchmaker-endpoints-custom"
+                ]
               }
             ]
           },
           {
             "dropdown": "Agent System",
             "pages": [
-              "api-reference/agent-system/index"
+              "api-reference/agent-system/index",
+              {
+                "group": "Matchmaker",
+                "pages": [
+                  "api-reference/agent-system/matchmaker-search",
+                  "api-reference/agent-system/matchmaker-stream",
+                  "api-reference/agent-system/matchmaker-extract",
+                  "api-reference/agent-system/matchmaker-health",
+                  "api-reference/agent-system/matchmaker-examples"
+                ]
+              }
             ]
           }
         ]
