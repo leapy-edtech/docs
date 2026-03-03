@@ -142,6 +142,18 @@ Toda funcionalidade é exposta via API:
 - **Server Actions**: Operações Next.js
 - **GraphQL**: Queries complexas (opcional)
 
+### Estratégia de Composição de Dados
+
+A plataforma adota DTOs como contrato de consumo no frontend e decide o ponto de composição conforme o cenário:
+
+- **Directus `/items`** para CRUD e leituras simples.
+- **BFF no Next.js** para composição de múltiplas fontes e regras de aplicação.
+- **Endpoint customizado no Directus** apenas quando há benefício claro de reúso entre múltiplos consumidores e ganho de performance no próprio Directus.
+
+<Tip>
+  Consulte a matriz de decisão em <a href="/documentation/platform/conventions">Convenções</a>.
+</Tip>
+
 ## Ambientes
 
 | Ambiente | URL | Uso |

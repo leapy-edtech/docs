@@ -151,6 +151,76 @@ DELETE /api/talents/:id       # Deletar
 | 404 | Não encontrado |
 | 500 | Erro interno |
 
+### Contrato de Dados (DTO)
+
+DTO (*Data Transfer Object*) é o contrato de dados que o frontend consome.
+
+- Não precisa refletir 1:1 o schema do banco ou do Directus.
+- Pode combinar campos de múltiplas fontes.
+- Pode incluir campos derivados/calculados.
+- Deve ser estável e orientado ao caso de uso da tela/API consumidora.
+
+Exemplo de DTO para lista de talentos:
+
+```json
+{
+  "id": "uuid",
+  "nome": "Maria Silva",
+  "email": "maria@empresa.com",
+  "faltasCurso": 2,
+  "ultimoPulso": "2026-02-10",
+  "nomeLider": "João Santos",
+  "skills": ["React", "Node.js"]
+}
+```
+
+### Matriz de Decisão: Onde montar o DTO
+
+| Cenário | Padrão recomendado |
+|---------|--------------------|
+| CRUD e leitura simples de 1 collection | Usar endpoint padrão do Directus (`/items/...`) |
+| Composição de múltiplas fontes no servidor do app | Usar serviço no Next.js (BFF) |
+| Tela client-side precisa `fetch` HTTP | Expor endpoint no Next (`/api/...`) chamando o mesmo serviço |
+| Múltiplos consumidores + dados/lógica 100% Directus + necessidade forte de performance/governança | Endpoint customizado no Directus |
+
+### Critérios para endpoint customizado no Directus
+
+Crie endpoint customizado no Directus quando estes critérios forem atendidos:
+
+1. O contrato será consumido por múltiplos clientes (web, mobile, integrações, parceiros).
+2. A lógica depende majoritariamente de dados e permissões do próprio Directus.
+3. Há evidência de ganho de performance ao centralizar a consulta no backend do Directus.
+4. O time aceita manter, versionar e monitorar código de extensão no ecossistema Directus.
+
+Se os dados dependem de contexto de aplicação (sessão NextAuth, feature flags, APIs externas), priorize BFF no Next.js.
+
+### Anti-patterns de performance
+
+Evite os padrões abaixo em listas agregadas:
+
+- **N+1 no BFF**: fazer chamadas por item (ex.: 1 request por talento para a mesma collection).
+- **Agregação no cliente**: várias chamadas no browser para montar uma única tabela.
+- **Campos excessivos**: usar `fields=*` sem necessidade.
+
+Prefira:
+
+- leitura em lote com filtros `_in`;
+- seleção explícita de campos;
+- paginação e limites coerentes;
+- montagem do DTO no servidor.
+
+### Checklist rápido de decisão
+
+- Quem consome esse contrato (só SSR, cliente web, ou múltiplos sistemas)?
+- O dado depende de contexto do app (sessão/permissão/feature flag)?
+- A composição está 100% no Directus?
+- Existe evidência de gargalo real de performance?
+- O contrato precisa ser compartilhado por outros times/sistemas?
+
+<Tip>
+  Regra prática: se a necessidade é da aplicação Next, comece com serviço BFF e evolua para endpoint custom no Directus apenas quando houver benefício claro de reúso e performance.
+</Tip>
+
 ## Convenções de Banco
 
 ### Tabelas

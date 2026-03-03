@@ -66,6 +66,24 @@ inngest.send({
   O merge preserva todos os dados históricos do talento mantido e transfere dados relevantes do duplicado.
 </Note>
 
+## Leitura Agregada de Talentos (DTO)
+
+Em telas como listagens e dashboards, o frontend pode precisar de dados além de uma única collection (ex.: faltas, skills, último pulso e liderança).
+
+Nesses casos, o padrão recomendado é:
+
+1. Definir um **DTO de Talentos** como contrato da tela.
+2. Montar esse DTO no backend (BFF no Next.js ou endpoint customizado no Directus, quando aplicável).
+3. Evitar composição no cliente com múltiplos requests independentes.
+
+<Warning>
+  Evite padrão N+1 (uma chamada por talento para cada fonte). Prefira leituras em lote com filtros `_in` e seleção explícita de campos.
+</Warning>
+
+<Tip>
+  Consulte a convenção oficial de decisão em <a href="/documentation/platform/conventions">Plataforma > Convenções</a>.
+</Tip>
+
 ## Troubleshooting
 
 ### Talento não consegue fazer login

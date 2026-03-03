@@ -155,6 +155,22 @@ flowchart LR
 3. **Documente alterações** em collections
 4. **Teste flows** em staging primeiro
 5. **Monitore performance** de queries
+6. **Use endpoint customizado com critério**: priorize `/items` para CRUD e crie extensão de endpoint quando houver necessidade de contrato compartilhado e otimização comprovada
+
+## Quando criar endpoint customizado no Directus
+
+Use endpoint customizado no Directus quando:
+
+- o contrato será consumido por múltiplos clientes/sistemas;
+- a composição depende principalmente de dados e permissões do próprio Directus;
+- existe necessidade real de reduzir múltiplas leituras para uma resposta otimizada;
+- o time está preparado para manter extensões (versionamento, observabilidade e suporte).
+
+Para regras de decisão completas entre Directus e BFF Next.js, veja:
+
+<Card title="Convenções de API e DTO" href="/documentation/platform/conventions" icon="compass">
+  Matriz de decisão para `/items`, BFF no Next e endpoint customizado no Directus.
+</Card>
 
 <Warning>
   Alterações no schema devem ser coordenadas com o time de desenvolvimento.
