@@ -81,6 +81,8 @@ erDiagram
         string first_name
         string last_name
         string email
+        uuid account FK
+        string status
     }
 
     matchmaker_search_logs {
@@ -256,8 +258,8 @@ sequenceDiagram
     Agent->>DB: Normaliza skills (skills + skill_aliases)
     DB-->>Agent: Skill IDs normalizados
 
-    Agent->>DB: Busca candidatos (user_skills + directus_users)
-    DB-->>Agent: Candidatos com match_score
+    Agent->>DB: Busca candidatos (user_skills + directus_users WHERE account = account_id)
+    DB-->>Agent: Candidatos da mesma account com match_score
 
     Agent-->>Proxy: Resultado com candidatos
     Proxy->>DB: Atualiza log com resultado

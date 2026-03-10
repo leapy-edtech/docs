@@ -42,9 +42,14 @@ Content-Type: application/json
 | Validação | Comportamento |
 |-----------|--------------|
 | **Autenticação** | Verifica `req.accountability.user`. Retorna 401 se ausente |
+| **Isolamento por conta** | Resolve `account` do usuário via `directus_users`. Retorna 403 se sem conta válida |
 | **Configuração** | Verifica `AGENT_SYSTEM_URL`. Retorna 503 se ausente |
 | **Rate Limit** | 10 req/min por usuário. Retorna 429 se excedido |
 | **Body** | `query` obrigatória e não-vazia. Retorna 400 se inválida |
+
+<Note>
+  **Isolamento multi-tenant**: O proxy resolve automaticamente o `account_id` do usuário autenticado a partir do banco de dados e o envia ao Agent System. Isso garante que o Matchmaker retorne apenas candidatos da mesma organização, sem que o frontend precise enviar o `account_id`.
+</Note>
 
 ### Response
 
@@ -151,6 +156,7 @@ Toda requisição (síncrona ou streaming) é logada na tabela `matchmaker_searc
 |--------|------|-----------|
 | 400 | Bad Request | Campo `query` ausente ou vazio |
 | 401 | Unauthorized | Sem autenticação (token ausente ou inválido) |
+| 403 | Forbidden | Usuário não está associado a uma conta válida |
 | 429 | Too Many Requests | Rate limit excedido (10 req/min) |
 | 503 | Service Unavailable | `AGENT_SYSTEM_URL` não configurada |
 | 504 | Gateway Timeout | Requisição excedeu 120 segundos |

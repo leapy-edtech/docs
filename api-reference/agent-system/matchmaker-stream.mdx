@@ -25,6 +25,11 @@ Content-Type: application/json
 | `query` | string | Sim | Query do usuário (texto, URL ou misto) |
 | `limit` | integer | Não | Máximo de candidatos retornados (1-100, padrão: 10) |
 | `department` | string | Não | Filtro por departamento |
+| `account_id` | string | Sim | UUID da account do usuário (isolamento multi-tenant) |
+
+<Note>
+  O campo `account_id` garante que apenas candidatos da mesma organização sejam retornados. Quando acessado via proxy Directus, este campo é preenchido automaticamente a partir do token de autenticação.
+</Note>
 
 ## Response
 

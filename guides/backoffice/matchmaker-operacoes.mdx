@@ -19,7 +19,7 @@ flowchart LR
     AgentSystem -->|Query| DB[(PostgreSQL)]
 ```
 
-O Directus é o ponto central de controle — toda requisição passa por ele, e toda busca é logada automaticamente.
+O Directus é o ponto central de controle — toda requisição passa por ele, e toda busca é logada automaticamente. O proxy também resolve o `account_id` do usuário autenticado, garantindo que o Matchmaker retorne apenas candidatos da mesma organização (isolamento multi-tenant).
 
 ---
 

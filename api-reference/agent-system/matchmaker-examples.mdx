@@ -7,6 +7,10 @@ description: "Exemplos de uso da API do Matchmaker para diferentes cenários"
 
 Esta página apresenta exemplos práticos de uso do Matchmaker para os cenários mais comuns.
 
+<Note>
+  Todos os exemplos abaixo acessam o Matchmaker via proxy Directus, que resolve automaticamente o `account_id` do usuário autenticado. Isso garante que apenas candidatos da mesma organização sejam retornados (isolamento multi-tenant). Não é necessário enviar `account_id` no body da requisição.
+</Note>
+
 ---
 
 ## Cenário 1: Busca por Cargo + Skills

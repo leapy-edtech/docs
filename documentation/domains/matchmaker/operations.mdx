@@ -9,6 +9,18 @@ O Matchmaker possui instrumentação completa para monitoramento e diagnóstico 
 
 ---
 
+## Isolamento Multi-Tenant
+
+O Matchmaker filtra candidatos por `account_id`, garantindo que cada organização veja apenas seus próprios talentos. O fluxo de isolamento funciona assim:
+
+1. O proxy Directus resolve o `account` do usuário autenticado via `directus_users`
+2. O `account_id` é enviado ao Agent System no body da requisição
+3. Todas as queries SQL do `CandidateMatcher` incluem `AND du.account = $account_id`
+
+Se o usuário não estiver associado a uma conta válida, o proxy retorna HTTP 403.
+
+---
+
 ## Logging
 
 ### Tabela matchmaker_search_logs
