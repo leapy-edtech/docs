@@ -66,6 +66,7 @@
                   "documentation/domains/talents/index",
                   "documentation/domains/talents/identity-model",
                   "documentation/domains/talents/data-model",
+                  "documentation/domains/talents/migration-jovens-talentos",
                   "documentation/domains/talents/operations"
                 ]
               },

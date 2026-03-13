@@ -1,0 +1,225 @@
+---
+title: "Migração e Unificação de Talentos (Aprendizes e Estagiários)"
+description: "Este documento descreve a nova estrutura de dados para o gerenciamento de talentos (aprendizes e estagiários) e as regras de migração da tabela legado `Jovens`.
+"
+---
+
+## Contexto
+
+Visando a unificação da regra de negócio para talentos, estamos migrando os dados que antes residiam exclusivamente na tabela `Jovens` para uma estrutura modular. Isso permite que tanto jovens aprendizes quanto estagiários utilizem as mesmas funcionalidades da plataforma sob a entidade "Talentos".
+
+## Estrutura das Novas Tabelas
+
+Abaixo detalhamos os campos de cada uma das novas tabelas no Directus:
+
+### 1. `user_personal_data`
+Armazena dados demográficos e informações pessoais do talento. (Antes essas informações ficavam - a maioria - em coleta_adicional do Jovem)
+
+| Campo | Descrição | Origem (Jovens) |
+|-------|-----------|------------------|
+| `user_id` | Relação com `directus_users` | `user.id` |
+| `bio` | Mini biografia | `mini_bio` |
+| `cpf` | Cadastro de Pessoa Física | `cpf` |
+| `rg` | Registro Geral | `rg` |
+| `date_of_birth` | Data de nascimento | `data_nascimento` |
+| `preferred_name` | Apelido ou Nome Social | `apelido_nome_social` |
+| `gender` | Gênero | `genero` |
+| `sexual_orientation`| Orientação Sexual | `orientacao_sexual` |
+| `ethnicity` | Etnia/Raça | `etnia` |
+| `personal_email` | E-mail de contato pessoal | `email_pessoal` |
+| `phone_number` | Número de celular/telefone | `cel` / `Celular` |
+| `address` | Endereço formatado ou JSON | `endereco` |
+| `linkedin` | Link do perfil LinkedIn | `linkedin` |
+| `education_level` | Nível de escolaridade | `escolaridade` |
+| `need_for_accessibility`| Necessidades de acessibilidade | `tipo_deficiencia` |
+
+### 2. `user_careers`
+Gerencia o ciclo de vida profissional, cargos e status do contrato.
+
+| Campo | Descrição | Origem (Jovens) |
+|-------|-----------|------------------|
+| `user_id` | Relação com `directus_users` | `user.id` |
+| `current_role_id` | Cargo atual (Taxonomic) | `cargoAtual` |
+| `target_role_id` | Cargo alvo (Taxonomic) | - |
+| `department` | Área de atuação | `area` / `lideranca.Área` |
+| `start_date` | Início do contrato | `inicio_contrato` |
+| `end_date` | Fim do contrato | `fim_contrato` |
+| `contract_status` | Status do contrato (ativo/encerrado/etc) | `status` |
+| `work_model` | Formato (Presencial/Híbrido/Remoto) | `formatoAtendimento` |
+| `input_seniority` | Senioridade informada | - |
+| `vacation_start_date`| Início das férias | `inicio_ferias` |
+| `leader_id` | Relação direta com o líder atual | `lideranca` |
+
+### 3. `leadership_relationships`
+Mapeia o relacionamento histórico e atual entre Talentos e Lideranças.
+
+| Campo | Descrição |
+|-------|-----------|
+| `leadership_id` | ID do usuário líder (`directus_users`) |
+| `team_member_id` | ID do talento (`directus_users`) |
+| `created_at` | Data de criação do vínculo |
+| `updated_at` | Data de atualização do vínculo |
+| `created_by` | ID do usuário que criou o vínculo |
+| `updated_by` | ID do usuário que atualizou o vínculo |
+
+## Regras de Migração e Sincronização
+
+### Transição Gradual
+1. **Fallbacks:** As consultas atuais na plataforma possuem fallbacks. Se os dados não forem encontrados nas tabelas novas, o sistema busca na tabela `Jovens`, e demais tabelas relacionadas como Liderança, para garantir que o usuário não perca acesso às features.
+2. **Sync Diário:** Rodamos um script diariamente para popular as novas tabelas com dados de aprendizes que existem em `Jovens` mas ainda não foram migrados ou tiveram alterações de liderança via backoffice legado.
+
+```sql
+-- SQL Script to REPLICATE data from 'Jovens' to V3 tables
+-- This script only inserts data if the user_id/team_member_id does not already exist.
+-- Fixed: Incorporating full mappings from src/app/constants.js (Etnia, Genero, Orientação, Deficiência, Escolaridade).
+
+-- 1. Populate user_personal_data
+INSERT INTO user_personal_data (
+    user_id, 
+    bio, 
+    cpf, 
+    rg, 
+    preferred_name, 
+    gender, 
+    sexual_orientation, 
+    need_for_accessibility, 
+    ethnicity, 
+    education_level, 
+    personal_email, 
+    phone_number, 
+    address, 
+    date_of_birth,
+    date_created
+)
+SELECT 
+    u.id, 
+    j.mini_bio, 
+    j.cpf, 
+    j.rg, 
+    j.apelido_nome_social, 
+    -- GeneroMap
+    CASE 
+        WHEN j.genero = 'Mulher cis' THEN 'mulher_cis'
+        WHEN j.genero = 'Mulher trans' THEN 'mulher_trans'
+        WHEN j.genero = 'Homem cis' THEN 'homem_cis'
+        WHEN j.genero = 'Homem trans' THEN 'homem_trans'
+        WHEN j.genero = 'Agênero' THEN 'agenero'
+        WHEN j.genero = 'Não-binário' THEN 'nao_binario'
+        WHEN j.genero = 'Prefiro não informar' THEN 'prefiro_nao_informar'
+        WHEN j.genero = 'Outro' THEN 'outro'
+        ELSE j.genero -- Categorical values should follow the map slugs
+    END,
+    -- OrientacaoSexualMap
+    CASE 
+        WHEN j.orientacao_sexual = 'Heterossexual' THEN 'heterossexual'
+        WHEN j.orientacao_sexual = 'Homossexual' THEN 'homossexual'
+        WHEN j.orientacao_sexual = 'Bissexual' THEN 'bissexual'
+        WHEN j.orientacao_sexual = 'Pansexual' THEN 'pansexual'
+        WHEN j.orientacao_sexual = 'Assexual' THEN 'assexual'
+        WHEN j.orientacao_sexual = 'Outra' THEN 'outra'
+        WHEN j.orientacao_sexual = 'Prefiro não informar' THEN 'prefiro_nao_informar'
+        ELSE j.orientacao_sexual
+    END,
+    -- DeficienciaMap
+    CASE 
+        WHEN j.tipo_deficiencia = 'Auditiva' THEN 'auditiva'
+        WHEN j.tipo_deficiencia = 'Visual' THEN 'visual'
+        WHEN j.tipo_deficiencia = 'Intelectual' THEN 'intelectual'
+        WHEN j.tipo_deficiencia = 'Psicossocial' THEN 'psicossocial'
+        WHEN j.tipo_deficiencia = 'Múltipla' THEN 'multipla'
+        WHEN j.tipo_deficiencia = 'Motora' THEN 'motora'
+        WHEN j.tipo_deficiencia = 'Outra' THEN 'outra'
+        WHEN j.tipo_deficiencia = 'Nenhuma' THEN 'nenhuma'
+        WHEN j.tipo_deficiencia = 'Prefiro não informar' THEN 'prefiro_nao_informar'
+        ELSE j.tipo_deficiencia
+    END,
+    -- EtniaMap
+    CASE 
+        WHEN j.etnia = 'Branca' THEN 'branca'
+        WHEN j.etnia = 'Preta' THEN 'preta'
+        WHEN j.etnia = 'Parda' THEN 'parda'
+        WHEN j.etnia = 'Amarela' THEN 'amarela'
+        WHEN j.etnia = 'Indígena' THEN 'indigena'
+        WHEN j.etnia = 'Prefiro não informar' THEN 'prefiro_nao_informar'
+        ELSE j.etnia
+    END,
+    -- EscolaridadeMap
+    CASE 
+        WHEN j.escolaridade = 'Cursando Ensino Médio' THEN 'cursando_ensino_medio'
+        WHEN j.escolaridade = 'Ensino Médio Concluído' THEN 'ensino_medio_concluido'
+        WHEN j.escolaridade = 'Cursando Ensino Superior' THEN 'cursando_ensino_superior'
+        WHEN j.escolaridade = 'Ensino Superior Concluído' THEN 'ensino_superior_concluido'
+        ELSE j.escolaridade
+    END,
+    j.email_pessoal, 
+    LEFT(j."Celular", 20), 
+    j.endereco, 
+    j.data_nascimento,
+    NOW()
+FROM "Jovens" j
+JOIN "directus_users" u ON u.jovem = j.id
+WHERE u.id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM user_personal_data upd WHERE upd.user_id = u.id
+  );
+
+-- 2. Populate user_careers
+INSERT INTO user_careers (
+    user_id, 
+    department, 
+    contract_status, 
+    vacation_start_date, 
+    start_date, 
+    end_date,
+    date_created
+)
+SELECT 
+    u.id, 
+    LEFT(l."Área", 20),
+    CASE 
+        WHEN j."Status_formacao" IN ('em_andamento', 'pausado') THEN 'ativo'
+        WHEN j."Status_formacao" IN ('efetivado', 'concluido') THEN 'concluido'
+        WHEN j."Status_formacao" = 'cancelado' THEN 'cancelado'
+        ELSE NULL
+    END,
+    j.inicio_ferias,
+    j."Início de contrato",
+    j."Fim de contrato",
+    NOW()
+FROM "Jovens" j
+JOIN "directus_users" u ON u.jovem = j.id
+LEFT JOIN "Liderancas" l ON j.lideranca_id = l.id
+WHERE u.id IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM user_careers uc WHERE uc.user_id = u.id
+  );
+
+-- 3. Populate leadership_relationships
+INSERT INTO leadership_relationships (
+    team_member_id, 
+    leadership_id,
+    created_at
+)
+SELECT 
+    u.id, 
+    l."user",
+    NOW()
+FROM "Jovens" j
+JOIN "directus_users" u ON u.jovem = j.id
+JOIN "Liderancas" l ON j.lideranca_id = l.id
+WHERE u.id IS NOT NULL 
+  AND l."user" IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM leadership_relationships lr WHERE lr.team_member_id = u.id
+  );
+```
+
+3. **Prazo:** A tabela `Jovens` continuará sendo preenchida manualmente até o final deste mês (Março/2026).
+
+### Futuro (Backoffice V2)
+- O fluxo de criação será automatizado via **Backoffice V2 / Impersonate**, populando diretamente as tabelas novas.
+- A tabela `Jovens` passará a ser **exclusiva para fins de aprendizagem** e deverá ser renomeada em breve para refletir esse propósito único.
+- **Auditoria de Features:** É necessário identificar e atualizar todas as features que ainda realizam escritas ou alterações diretamente no fluxo antigo para evitar inconsistências e perda de dados.
+
+> [!WARNING]
+> Não criar registros manualmente na tabela `Jovens` para casos que já deveriam estar no fluxo de Talentos após o lançamento oficial do Backoffice V2.
