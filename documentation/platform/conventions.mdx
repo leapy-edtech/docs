@@ -200,6 +200,56 @@ Se os dados dependem de contexto de aplicação (sessão NextAuth, feature flags
   **Leitura vs. Escrita:** o critério de atomicidade se aplica exclusivamente a operações de **escrita**. Para leitura agregada de múltiplas fontes, o BFF continua sendo o padrão recomendado — a menos que haja outro critério acima satisfeito.
 </Note>
 
+### Papel do BFF em operações de escrita (thin proxy)
+
+Quando uma operação de escrita requer endpoint customizado no Directus (ex.: atomicidade), o browser **não chama a extensão diretamente**. O BFF atua como um proxy fino entre o browser e a extensão.
+
+**O BFF em escrita é responsável apenas por:**
+1. Extrair o `accessToken` da sessão NextAuth — o browser não pode expô-lo
+2. Normalização mínima de campos (ex.: split de nome completo em `first_name`/`last_name`, `email.toLowerCase()`)
+3. Repassar a requisição para a extensão Directus com o token no header
+
+**O BFF em escrita NÃO é responsável por:**
+- Validação de negócio (fica na extensão Directus)
+- Lógica de criação ou atualização (fica na extensão Directus)
+- Envio de e-mails ou eventos (fica na extensão Directus)
+- Verificação de permissões de dados (fica na extensão Directus via `accountability`)
+
+```
+Browser
+  └── POST /api/[entidade]        ← rota Next.js (BFF thin proxy)
+        └── POST /[entidade]      ← extensão Directus (lógica + trx + e-mail + eventos)
+```
+
+Exemplo de BFF thin proxy para criação de talento:
+
+```typescript
+// /api/estagio/talent/route.ts
+export async function POST(request: Request) {
+  const session = await getServerSession(authOptions);
+  const accessToken = session?.user?.accessToken; // único motivo de existir
+
+  const body = await request.json();
+  const [first_name, ...rest] = body.name.trim().split(" "); // normalização mínima
+
+  const res = await fetch(`${DIRECTUS_URL}/talent`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`, // injeta o token
+    },
+    body: JSON.stringify({ first_name, last_name: rest.join(" "), ...body }),
+  });
+
+  const data = await res.json();
+  return Response.json(data, { status: res.status });
+}
+```
+
+<Tip>
+  Se você está colocando `if (!email) return 400` ou `await sendEmail()` no BFF de escrita, isso é um sinal de que lógica de negócio está no lugar errado. Mova para a extensão Directus.
+</Tip>
+
 ### Anti-patterns de performance
 
 Evite os padrões abaixo em listas agregadas:
