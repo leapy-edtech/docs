@@ -182,17 +182,23 @@ Exemplo de DTO para lista de talentos:
 | Composição de múltiplas fontes no servidor do app | Usar serviço no Next.js (BFF) |
 | Tela client-side precisa `fetch` HTTP | Expor endpoint no Next (`/api/...`) chamando o mesmo serviço |
 | Múltiplos consumidores + dados/lógica 100% Directus + necessidade forte de performance/governança | Endpoint customizado no Directus |
+| **Escrita transacional em múltiplas tabelas (atomicidade obrigatória)** | **Endpoint customizado no Directus** |
 
 ### Critérios para endpoint customizado no Directus
 
-Crie endpoint customizado no Directus quando estes critérios forem atendidos:
+Crie endpoint customizado no Directus quando **ao menos um** destes critérios for atendido:
 
 1. O contrato será consumido por múltiplos clientes (web, mobile, integrações, parceiros).
 2. A lógica depende majoritariamente de dados e permissões do próprio Directus.
 3. Há evidência de ganho de performance ao centralizar a consulta no backend do Directus.
 4. O time aceita manter, versionar e monitorar código de extensão no ecossistema Directus.
+5. **A operação de escrita envolve múltiplas tabelas e requer atomicidade** — ou seja, se qualquer etapa falhar, todas as anteriores devem ser desfeitas (rollback). Isso não é possível via chamadas HTTP sequenciais ao Directus; exige acesso direto ao banco via `database.transaction()`.
 
 Se os dados dependem de contexto de aplicação (sessão NextAuth, feature flags, APIs externas), priorize BFF no Next.js.
+
+<Note>
+  **Leitura vs. Escrita:** o critério de atomicidade se aplica exclusivamente a operações de **escrita**. Para leitura agregada de múltiplas fontes, o BFF continua sendo o padrão recomendado — a menos que haja outro critério acima satisfeito.
+</Note>
 
 ### Anti-patterns de performance
 
