@@ -1,0 +1,171 @@
+---
+title: "Shared Services"
+description: "Serviços compartilhados entre extensões do Directus — lógica reutilizável extraída de endpoints"
+---
+
+## Visão Geral
+
+Shared services são módulos internos do Directus que encapsulam lógica repetida entre extensões de endpoint. Vivem em `/extensions/endpoints/src/` e são importados diretamente — **não são serviços HTTP** e **não fazem parte do ecossistema fora do Directus**.
+
+<Note>
+  Escopo: esses serviços são compartilhados **dentro das extensões do Directus**, não entre repositórios ou sistemas externos.
+</Note>
+
+## `createUser`
+
+Cria (ou reutiliza) um `directus_users` com verificação de conflito de conta. Usado por pelo menos dois endpoints hoje: `/talent` e `/internship-leader`.
+
+### Problema que resolve
+
+Tanto `/talent` quanto `/internship-leader` precisam:
+
+1. Verificar se já existe usuário com o e-mail informado
+2. Se existir e pertencer a **outra conta** → rejeitar (409 Conflict)
+3. Se existir e pertencer à **mesma conta** → reutilizar o `userId`
+4. Se não existir → criar em `directus_users` com role, account e provider
+
+Essa lógica está **duplicada** nos dois endpoints com pequenas variações (ex.: role, campos extras). Extraí-la para um serviço compartilhado elimina a duplicação e garante comportamento consistente.
+
+### Contrato proposto
+
+```javascript
+// extensions/endpoints/src/shared/create-user.js
+
+/**
+ * Cria ou reutiliza um directus_users dentro de uma transação existente.
+ *
+ * @param {object}  options
+ * @param {object}  options.trx           - Knex transaction (obrigatório)
+ * @param {object}  options.schema        - req.schema do Directus
+ * @param {object}  options.accountability - req.accountability do Directus
+ * @param {object}  options.services      - { ItemsService } do Directus
+ * @param {string}  options.email         - E-mail normalizado (lowercase, trimmed)
+ * @param {string}  options.first_name
+ * @param {string}  options.last_name
+ * @param {string}  options.accountId     - UUID da account do caller
+ * @param {string}  options.roleId        - UUID do role a atribuir (ou null)
+ *
+ * @returns {Promise<{ userId: string, wasExisting: boolean }>}
+ *
+ * @throws {Error} statusCode=409 se o e-mail pertence a outra conta
+ */
+export async function createUser({
+  trx,
+  schema,
+  accountability,
+  services,
+  email,
+  first_name,
+  last_name,
+  accountId,
+  roleId,
+}) {
+  const { ItemsService } = services;
+
+  const existingUser = await trx("directus_users")
+    .select("id", "account")
+    .where({ email })
+    .first();
+
+  if (existingUser) {
+    if (existingUser.account && existingUser.account !== accountId) {
+      throw Object.assign(
+        new Error("Já existe um usuário com este e-mail associado a outra conta."),
+        { statusCode: 409, code: "CONFLICT" }
+      );
+    }
+    return { userId: existingUser.id, wasExisting: true };
+  }
+
+  const { randomUUID } = await import("crypto");
+  const userId = randomUUID();
+
+  const usersService = new ItemsService("directus_users", {
+    schema,
+    accountability,
+    knex: trx,
+  });
+
+  await usersService.createOne({
+    id: userId,
+    first_name,
+    last_name,
+    email,
+    status: "active",
+    role: roleId,
+    account: accountId,
+    provider: "default",
+  });
+
+  return { userId, wasExisting: false };
+}
+```
+
+### Uso nos endpoints
+
+#### Em `/talent`
+
+```javascript
+import { createUser } from "../shared/create-user.js";
+
+// Dentro da transação:
+const { userId, wasExisting } = await createUser({
+  trx,
+  schema: req.schema,
+  accountability,
+  services,
+  email: emailNormalized,
+  first_name,
+  last_name,
+  accountId,
+  roleId: ROLE_IDS[type],
+});
+```
+
+#### Em `/internship-leader`
+
+```javascript
+import { createUser } from "../shared/create-user.js";
+
+// Dentro da transação:
+const { userId, wasExisting } = await createUser({
+  trx,
+  schema: req.schema,
+  accountability,
+  services,
+  email: emailNormalized,
+  first_name,
+  last_name,
+  accountId,
+  roleId: null, // internship-leader não define role na criação
+});
+```
+
+### Comparação: antes vs. depois
+
+| Aspecto | Antes (duplicado) | Depois (shared service) |
+|---------|-------------------|-------------------------|
+| Linhas de lógica de criação de user | ~30 por endpoint | 1 chamada + import |
+| Verificação de conflito de conta | Inline, com variações sutis | Centralizada e consistente |
+| Tratamento de 409 | Diferente entre endpoints | Padrão único (`statusCode + code`) |
+| Testes | Testar cada endpoint separadamente | Testar o serviço + integração |
+
+### Status
+
+<Warning>
+  **Dívida técnica:** este serviço ainda não foi extraído. A lógica permanece duplicada em `/talent/index.js` e `/internship-leader/index.js`. A extração está planejada como parte da iniciativa 13 (Backoffice Lideranças).
+</Warning>
+
+Referência ao código atual:
+- `/talent/index.js` — linhas 183–216 (criação/reuso de user)
+- `/internship-leader/index.js` — linhas 47–81 (criação/reuso de user)
+
+### Padrão para novos shared services
+
+Ao identificar lógica duplicada entre extensões do Directus:
+
+1. Criar módulo em `extensions/endpoints/src/shared/`
+2. Receber `trx` como parâmetro (nunca criar transação própria — composição)
+3. Receber `services`, `schema` e `accountability` do Directus
+4. Lançar erros com `statusCode` e `code` para tratamento uniforme
+5. Documentar nesta página

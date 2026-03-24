@@ -108,7 +108,13 @@
               "documentation/platform/architecture",
               "documentation/platform/events-jobs-inngest",
               "documentation/platform/automations-make",
-              "documentation/platform/backoffice-directus",
+              {
+                "group": "Backoffice Directus",
+                "pages": [
+                  "documentation/platform/backoffice-directus",
+                  "documentation/platform/backoffice-directus/shared-services"
+                ]
+              },
               "documentation/platform/agent-system",
               "documentation/platform/observability",
               "documentation/platform/environments",
