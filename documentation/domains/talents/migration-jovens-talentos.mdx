@@ -69,149 +69,154 @@ Mapeia o relacionamento histórico e atual entre Talentos e Lideranças.
 2. **Sync Diário:** Rodamos um script diariamente para popular as novas tabelas com dados de aprendizes que existem em `Jovens` mas ainda não foram migrados ou tiveram alterações de liderança via backoffice legado.
 
 ```sql
--- SQL Script to REPLICATE data from 'Jovens' to V3 tables
--- This script only inserts data if the user_id/team_member_id does not already exist.
--- Fixed: Incorporating full mappings from src/app/constants.js (Etnia, Genero, Orientação, Deficiência, Escolaridade).
+-- Updated query for migrate jovem to v3
+-- Obs.: Comente Rollback e habilite commit para aplicar a migração. Mantenha Rollback comentado se estiver testando ou quiser ter uma prévias das alterações.
+-- O script roda para todos os jovens da base.
 
--- 1. Populate user_personal_data
-INSERT INTO user_personal_data (
-    user_id, 
-    bio, 
-    cpf, 
-    rg, 
-    preferred_name, 
-    gender, 
-    sexual_orientation, 
-    need_for_accessibility, 
-    ethnicity, 
-    education_level, 
-    personal_email, 
-    phone_number, 
-    address, 
-    date_of_birth,
-    date_created
-)
-SELECT 
-    u.id, 
-    j.mini_bio, 
-    j.cpf, 
-    j.rg, 
-    j.apelido_nome_social, 
-    -- GeneroMap
-    CASE 
-        WHEN j.genero = 'Mulher cis' THEN 'mulher_cis'
-        WHEN j.genero = 'Mulher trans' THEN 'mulher_trans'
-        WHEN j.genero = 'Homem cis' THEN 'homem_cis'
-        WHEN j.genero = 'Homem trans' THEN 'homem_trans'
-        WHEN j.genero = 'Agênero' THEN 'agenero'
-        WHEN j.genero = 'Não-binário' THEN 'nao_binario'
-        WHEN j.genero = 'Prefiro não informar' THEN 'prefiro_nao_informar'
-        WHEN j.genero = 'Outro' THEN 'outro'
-        ELSE j.genero -- Categorical values should follow the map slugs
-    END,
-    -- OrientacaoSexualMap
-    CASE 
-        WHEN j.orientacao_sexual = 'Heterossexual' THEN 'heterossexual'
-        WHEN j.orientacao_sexual = 'Homossexual' THEN 'homossexual'
-        WHEN j.orientacao_sexual = 'Bissexual' THEN 'bissexual'
-        WHEN j.orientacao_sexual = 'Pansexual' THEN 'pansexual'
-        WHEN j.orientacao_sexual = 'Assexual' THEN 'assexual'
-        WHEN j.orientacao_sexual = 'Outra' THEN 'outra'
-        WHEN j.orientacao_sexual = 'Prefiro não informar' THEN 'prefiro_nao_informar'
-        ELSE j.orientacao_sexual
-    END,
-    -- DeficienciaMap
-    CASE 
-        WHEN j.tipo_deficiencia = 'Auditiva' THEN 'auditiva'
-        WHEN j.tipo_deficiencia = 'Visual' THEN 'visual'
-        WHEN j.tipo_deficiencia = 'Intelectual' THEN 'intelectual'
-        WHEN j.tipo_deficiencia = 'Psicossocial' THEN 'psicossocial'
-        WHEN j.tipo_deficiencia = 'Múltipla' THEN 'multipla'
-        WHEN j.tipo_deficiencia = 'Motora' THEN 'motora'
-        WHEN j.tipo_deficiencia = 'Outra' THEN 'outra'
-        WHEN j.tipo_deficiencia = 'Nenhuma' THEN 'nenhuma'
-        WHEN j.tipo_deficiencia = 'Prefiro não informar' THEN 'prefiro_nao_informar'
-        ELSE j.tipo_deficiencia
-    END,
-    -- EtniaMap
-    CASE 
-        WHEN j.etnia = 'Branca' THEN 'branca'
-        WHEN j.etnia = 'Preta' THEN 'preta'
-        WHEN j.etnia = 'Parda' THEN 'parda'
-        WHEN j.etnia = 'Amarela' THEN 'amarela'
-        WHEN j.etnia = 'Indígena' THEN 'indigena'
-        WHEN j.etnia = 'Prefiro não informar' THEN 'prefiro_nao_informar'
-        ELSE j.etnia
-    END,
-    -- EscolaridadeMap
-    CASE 
-        WHEN j.escolaridade = 'Cursando Ensino Médio' THEN 'cursando_ensino_medio'
-        WHEN j.escolaridade = 'Ensino Médio Concluído' THEN 'ensino_medio_concluido'
-        WHEN j.escolaridade = 'Cursando Ensino Superior' THEN 'cursando_ensino_superior'
-        WHEN j.escolaridade = 'Ensino Superior Concluído' THEN 'ensino_superior_concluido'
-        ELSE j.escolaridade
-    END,
-    j.email_pessoal, 
-    LEFT(j."Celular", 20), 
-    j.endereco, 
-    j.data_nascimento,
-    NOW()
-FROM "Jovens" j
-JOIN "directus_users" u ON u.jovem = j.id
-WHERE u.id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM user_personal_data upd WHERE upd.user_id = u.id
-  );
+BEGIN;
 
--- 2. Populate user_careers
-INSERT INTO user_careers (
-    user_id, 
-    department, 
-    contract_status, 
-    vacation_start_date, 
-    start_date, 
-    end_date,
-    date_created
-)
-SELECT 
-    u.id, 
-    LEFT(l."Área", 20),
-    CASE 
-        WHEN j."Status_formacao" IN ('em_andamento', 'pausado') THEN 'ativo'
-        WHEN j."Status_formacao" IN ('efetivado', 'concluido') THEN 'concluido'
-        WHEN j."Status_formacao" = 'cancelado' THEN 'cancelado'
-        ELSE NULL
-    END,
-    j.inicio_ferias,
-    j."Início de contrato",
-    j."Fim de contrato",
-    NOW()
-FROM "Jovens" j
-JOIN "directus_users" u ON u.jovem = j.id
-LEFT JOIN "Liderancas" l ON j.lideranca_id = l.id
-WHERE u.id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM user_careers uc WHERE uc.user_id = u.id
-  );
+DO $$ 
+DECLARE 
+    r RECORD;
+    v_user_id UUID;
+    v_career_id UUID;
+    v_role_id UUID := 'eeee6c89-fd7e-4fcd-b81b-e20adbd5c935'; 
+BEGIN
+    -- REMOVIDO O FILTRO: Agora o loop percorre TODOS os jovens da base
+    FOR r IN 
+        SELECT 
+            j.*, 
+            j."Name" as jovem_name,                
+            j."E-mail corporativo" as email_corp,  
+            j."Celular" as jovem_celular,          
+            j."Início de contrato" as inicio_contrato, 
+            j."Fim de contrato" as fim_contrato,       
+            l."user" as lider_user_id,             
+            l."Área" as lider_area
+        FROM "Jovens" j
+        LEFT JOIN "Liderancas" l ON j.lideranca_id = l.id
+    LOOP
+        
+        -- ==========================================
+        -- 1. SCENARIO: Tratar Usuário (directus_users)
+        -- ==========================================
+        SELECT id INTO v_user_id 
+        FROM directus_users 
+        WHERE jovem = r.id 
+        LIMIT 1;
 
--- 3. Populate leadership_relationships
-INSERT INTO leadership_relationships (
-    team_member_id, 
-    leadership_id,
-    created_at
-)
-SELECT 
-    u.id, 
-    l."user",
-    NOW()
+        IF v_user_id IS NULL THEN
+            SELECT id INTO v_user_id 
+            FROM directus_users 
+            WHERE email = r.email_corp OR email = r.email_pessoal 
+            LIMIT 1;
+
+            IF v_user_id IS NULL THEN
+                v_user_id := gen_random_uuid();
+                INSERT INTO directus_users (id, first_name, email, status, role, jovem)
+                VALUES (
+                    v_user_id, 
+                    r.jovem_name, 
+                    COALESCE(r.email_corp, r.email_pessoal), 
+                    -- REGRA NOVA: Define status com base no jovem
+                    CASE 
+                        WHEN r.ativo = true AND r."Status_formacao" = 'em_andamento' THEN 'active'
+                        ELSE 'suspended'
+                    END,
+                    v_role_id,
+                    r.id 
+                );
+            ELSE
+                -- Se achou o usuário pelo email, mas estava sem o ID do jovem vinculado
+                UPDATE directus_users SET jovem = r.id WHERE id = v_user_id;
+            END IF;
+        END IF;
+
+        -- ==========================================
+        -- 2. SCENARIO: user_personal_data
+        -- ==========================================
+        IF NOT EXISTS (SELECT 1 FROM user_personal_data WHERE user_id = v_user_id) THEN
+            INSERT INTO user_personal_data (
+                user_id, bio, cpf, rg, preferred_name, gender, sexual_orientation, 
+                need_for_accessibility, ethnicity, education_level, personal_email, 
+                phone_number, address, date_of_birth, date_created
+            )
+            VALUES (
+                v_user_id, r.mini_bio, r.cpf, r.rg, r.apelido_nome_social,
+                CASE WHEN r.genero = 'Mulher cis' THEN 'mulher_cis' WHEN r.genero = 'Mulher trans' THEN 'mulher_trans' WHEN r.genero = 'Homem cis' THEN 'homem_cis' WHEN r.genero = 'Homem trans' THEN 'homem_trans' WHEN r.genero = 'Agênero' THEN 'agenero' WHEN r.genero = 'Não-binário' THEN 'nao_binario' WHEN r.genero = 'Prefiro não informar' THEN 'prefiro_nao_informar' WHEN r.genero = 'Outro' THEN 'outro' ELSE r.genero END,
+                CASE WHEN r.orientacao_sexual = 'Heterossexual' THEN 'heterossexual' WHEN r.orientacao_sexual = 'Homossexual' THEN 'homossexual' WHEN r.orientacao_sexual = 'Bissexual' THEN 'bissexual' WHEN r.orientacao_sexual = 'Pansexual' THEN 'pansexual' WHEN r.orientacao_sexual = 'Assexual' THEN 'assexual' WHEN r.orientacao_sexual = 'Outra' THEN 'outra' WHEN r.orientacao_sexual = 'Prefiro não informar' THEN 'prefiro_nao_informar' ELSE r.orientacao_sexual END,
+                CASE WHEN r.tipo_deficiencia = 'Auditiva' THEN 'auditiva' WHEN r.tipo_deficiencia = 'Visual' THEN 'visual' WHEN r.tipo_deficiencia = 'Intelectual' THEN 'intelectual' WHEN r.tipo_deficiencia = 'Psicossocial' THEN 'psicossocial' WHEN r.tipo_deficiencia = 'Múltipla' THEN 'multipla' WHEN r.tipo_deficiencia = 'Motora' THEN 'motora' WHEN r.tipo_deficiencia = 'Outra' THEN 'outra' WHEN r.tipo_deficiencia = 'Nenhuma' THEN 'nenhuma' WHEN r.tipo_deficiencia = 'Prefiro não informar' THEN 'prefiro_nao_informar' ELSE r.tipo_deficiencia END,
+                CASE WHEN r.etnia = 'Branca' THEN 'branca' WHEN r.etnia = 'Preta' THEN 'preta' WHEN r.etnia = 'Parda' THEN 'parda' WHEN r.etnia = 'Amarela' THEN 'amarela' WHEN r.etnia = 'Indígena' THEN 'indigena' WHEN r.etnia = 'Prefiro não informar' THEN 'prefiro_nao_informar' ELSE r.etnia END,
+                CASE WHEN r.escolaridade = 'Cursando Ensino Médio' THEN 'cursando_ensino_medio' WHEN r.escolaridade = 'Ensino Médio Concluído' THEN 'ensino_medio_concluido' WHEN r.escolaridade = 'Cursando Ensino Superior' THEN 'cursando_ensino_superior' WHEN r.escolaridade = 'Ensino Superior Concluído' THEN 'ensino_superior_concluido' ELSE r.escolaridade END,
+                r.email_pessoal, LEFT(r.jovem_celular, 20), r.endereco, r.data_nascimento, NOW()
+            );
+        END IF;
+
+        -- ==========================================
+        -- 3. SCENARIO: user_careers
+        -- ==========================================
+        SELECT id INTO v_career_id FROM user_careers WHERE user_id = v_user_id LIMIT 1;
+
+        IF v_career_id IS NULL THEN
+            v_career_id := gen_random_uuid();
+            INSERT INTO user_careers (
+                id, user_id, department, contract_status, vacation_start_date, start_date, end_date, date_created
+            ) VALUES (
+                v_career_id, v_user_id, LEFT(r.lider_area, 20),
+                CASE WHEN r."Status_formacao" IN ('em_andamento', 'pausado') THEN 'ativo' WHEN r."Status_formacao" IN ('efetivado', 'concluido') THEN 'concluido' WHEN r."Status_formacao" = 'cancelado' THEN 'cancelado' ELSE NULL END,
+                r.inicio_ferias, r.inicio_contrato, r.fim_contrato, NOW()
+            );
+        END IF;
+
+        UPDATE directus_users SET career_id = v_career_id WHERE id = v_user_id;
+
+        -- ==========================================
+        -- 4. SCENARIO: leadership_relationships
+        -- ==========================================
+        IF r.lider_user_id IS NOT NULL THEN
+            IF NOT EXISTS (SELECT 1 FROM leadership_relationships WHERE team_member_id = v_user_id) THEN
+                INSERT INTO leadership_relationships (team_member_id, leadership_id)
+                VALUES (v_user_id, r.lider_user_id);
+            END IF;
+        END IF;
+
+    END LOOP;
+END $$;
+
+-- ==========================================
+-- ÁREA DE VALIDAÇÃO (Agora cobrindo TODOS os Jovens)
+-- ==========================================
+SELECT '1. Total de Jovens alvo (devem ser ~1902)' as metrica, count(*) as quantidade 
+FROM "Jovens"
+UNION ALL
+SELECT '2. Desses, quantos têm user no directus_users?', count(du.id) 
 FROM "Jovens" j
-JOIN "directus_users" u ON u.jovem = j.id
-JOIN "Liderancas" l ON j.lideranca_id = l.id
-WHERE u.id IS NOT NULL 
-  AND l."user" IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM leadership_relationships lr WHERE lr.team_member_id = u.id
-  );
+JOIN directus_users du ON du.jovem = j.id
+UNION ALL
+SELECT '3. Desses, quantos têm registro de carreiras (user_careers)?', count(uc.id) 
+FROM "Jovens" j
+JOIN directus_users du ON du.jovem = j.id
+JOIN user_careers uc ON uc.user_id = du.id
+UNION ALL
+SELECT '4. Desses, quantos têm dados pessoais (user_personal_data)?', count(upd.user_id) 
+FROM "Jovens" j
+JOIN directus_users du ON du.jovem = j.id
+JOIN user_personal_data upd ON upd.user_id = du.id
+UNION ALL
+SELECT '5. Desses, quantos ganharam liderança vinculada?', count(lr.team_member_id) 
+FROM "Jovens" j
+JOIN directus_users du ON du.jovem = j.id
+JOIN leadership_relationships lr ON lr.team_member_id = du.id
+WHERE j.lideranca_id IS NOT NULL
+UNION ALL
+SELECT '6. EXTRA: Quantos users foram criados como SUSPENDED?', count(du.id) 
+FROM "Jovens" j
+JOIN directus_users du ON du.jovem = j.id
+WHERE du.status = 'suspended';
+
+-- Comente Rollback e habilite commit para aplicar a migração. Mantenha Rollback comentado se estiver testando ou quiser ter uma prévias das alterações.
+-- ROLLBACK;
+-- COMMIT;
 ```
 
 3. **Prazo:** A tabela `Jovens` continuará sendo preenchida manualmente até o final deste mês (Março/2026).
