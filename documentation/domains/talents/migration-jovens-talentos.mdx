@@ -82,7 +82,7 @@ DECLARE
     v_career_id UUID;
     v_role_id UUID := 'eeee6c89-fd7e-4fcd-b81b-e20adbd5c935'; 
 BEGIN
-    -- REMOVIDO O FILTRO: Agora o loop percorre TODOS os jovens da base
+    -- O loop percorre TODOS os jovens da base
     FOR r IN 
         SELECT 
             j.*, 
@@ -118,7 +118,7 @@ BEGIN
                     v_user_id, 
                     r.jovem_name, 
                     COALESCE(r.email_corp, r.email_pessoal), 
-                    -- REGRA NOVA: Define status com base no jovem
+                    -- REGRA: Define status com base no jovem
                     CASE 
                         WHEN r.ativo = true AND r."Status_formacao" = 'em_andamento' THEN 'active'
                         ELSE 'suspended'
@@ -127,7 +127,6 @@ BEGIN
                     r.id 
                 );
             ELSE
-                -- Se achou o usuário pelo email, mas estava sem o ID do jovem vinculado
                 UPDATE directus_users SET jovem = r.id WHERE id = v_user_id;
             END IF;
         END IF;
@@ -160,11 +159,11 @@ BEGIN
         IF v_career_id IS NULL THEN
             v_career_id := gen_random_uuid();
             INSERT INTO user_careers (
-                id, user_id, department, contract_status, vacation_start_date, start_date, end_date, date_created
+                id, user_id, department, contract_status, vacation_start_date, start_date, end_date, date_created, input_seniority
             ) VALUES (
                 v_career_id, v_user_id, LEFT(r.lider_area, 20),
                 CASE WHEN r."Status_formacao" IN ('em_andamento', 'pausado') THEN 'ativo' WHEN r."Status_formacao" IN ('efetivado', 'concluido') THEN 'concluido' WHEN r."Status_formacao" = 'cancelado' THEN 'cancelado' ELSE NULL END,
-                r.inicio_ferias, r.inicio_contrato, r.fim_contrato, NOW()
+                r.inicio_ferias, r.inicio_contrato, r.fim_contrato, NOW(), 'apprentice' -- ADICIONADO AQUI
             );
         END IF;
 
@@ -184,9 +183,9 @@ BEGIN
 END $$;
 
 -- ==========================================
--- ÁREA DE VALIDAÇÃO (Agora cobrindo TODOS os Jovens)
+-- ÁREA DE VALIDAÇÃO
 -- ==========================================
-SELECT '1. Total de Jovens alvo (devem ser ~1902)' as metrica, count(*) as quantidade 
+SELECT '1. Total de Jovens alvo' as metrica, count(*) as quantidade 
 FROM "Jovens"
 UNION ALL
 SELECT '2. Desses, quantos têm user no directus_users?', count(du.id) 
