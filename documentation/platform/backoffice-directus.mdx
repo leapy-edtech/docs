@@ -34,67 +34,97 @@ O Directus é a plataforma de backoffice da Leapy, fornecendo interface administ
 
 ## Collections Principais
 
+As collections no Directus seguem a convenção de nomes do projeto (PascalCase PT-BR). Os nomes abaixo são os nomes reais usados no banco de dados e nas APIs.
+
 ### Módulo Core
 
 | Collection | Descrição |
 |------------|-----------|
-| `tenants` | Organizações clientes |
-| `talents` | Colaboradores |
-| `areas` | Áreas/departamentos |
-| `positions` | Cargos |
+| `accounts` | Organizações clientes (empresas) |
+| `Jovens` | Jovens aprendizes e estagiários |
+| `Liderancas` | Gestores e líderes |
+| `Turmas` | Turmas de programa |
+| `directus_users` | Usuários do sistema (Directus) |
 
 ### Módulo Pulsos
 
 | Collection | Descrição |
 |------------|-----------|
-| `pulses` | Pesquisas |
-| `pulse_questions` | Perguntas |
-| `pulse_recipients` | Destinatários |
-| `responses` | Respostas |
+| `pulsos_jovens` | Pesquisas respondidas por jovens |
+| `Pulsos` | Pesquisas respondidas por lideranças |
+| `pulsos_rh` | Pesquisas respondidas por times de RH |
+| `pulsos_settings` | Configurações de pulsos por account |
+| `pulsos_schedule_settings` | Agendamento configurável por perfil |
+
+### Módulo Cursos e Conteúdos
+
+| Collection | Descrição |
+|------------|-----------|
+| `Arcos` | Arcos de aprendizagem (agrupa trilhas) |
+| `Trilhas` | Trilhas de cursos |
+| `Modulos` | Módulos de curso (com `moodle_id`) |
+| `Matriculas` | Matrículas de jovens em módulos |
+
+### Módulo Skills e PDI
+
+| Collection | Descrição |
+|------------|-----------|
+| `skills` | Catálogo taxonômico de competências |
+| `user_careers` | Carreira atual do usuário |
+| `development_plans` | Planos de desenvolvimento individual (PDI) |
+| `development_skills` | Skills no PDI com ações |
+| `skill_development_goals` | Wishlist/metas de desenvolvimento |
+| `role_skills` | Skills requeridas por cargo |
 
 ### Módulo Matchmaker
 
 | Collection | Descrição |
 |------------|-----------|
-| `opportunities` | Oportunidades |
-| `applications` | Candidaturas |
-| `matches` | Sugestões de match |
+| `vagas` | Vagas e oportunidades |
+| `matchmaker_search_logs` | Logs de buscas do Matchmaker |
+
+### Módulo Operacional
+
+| Collection | Descrição |
+|------------|-----------|
+| `follow_up_events` | Log de comunicações de follow-up |
+| `linkedin_inference_active_jobs` | Jobs ativos de inferência de skills via LinkedIn |
+| `moodle_external_links_health` | Status de links externos nos cursos Moodle |
 
 ## Usando a API
 
 ### REST API
 
 ```bash
-# Listar talentos
-GET /items/talents?filter[status][_eq]=active
+# Listar jovens ativos
+GET /items/Jovens?filter[status][_eq]=ativo
 
-# Criar talento
-POST /items/talents
-{
-  "first_name": "João",
-  "email": "joao@empresa.com"
-}
+# Listar pulsos pendentes de um jovem
+GET /items/pulsos_jovens?filter[jovem_id][_eq]=123&filter[status][_eq]=pendente
 
-# Atualizar
-PATCH /items/talents/uuid
+# Buscar matrículas de um jovem
+GET /items/Matriculas?filter[Jovens_id][_eq]=123
+
+# Atualizar matrícula
+PATCH /items/Matriculas/456
 {
-  "area_id": "nova-area-uuid"
+  "certificate_status": "available",
+  "certificate_url": "https://moodle.leapy.com/..."
 }
 ```
 
 ### GraphQL
 
 ```graphql
-query GetActivePulses {
-  pulses(filter: { status: { _eq: "active" } }) {
+query GetPulsosAtivos {
+  pulsos_jovens(filter: { status: { _eq: "pendente" } }) {
     id
-    title
-    recipients {
-      talent {
-        first_name
-        email
-      }
+    pulso
+    jovem_id {
+      Name
+      email_pessoal
     }
+    data_vencimento
   }
 }
 ```

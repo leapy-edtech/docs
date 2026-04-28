@@ -97,6 +97,8 @@
                   "documentation/domains/courses-content/journeys",
                   "documentation/domains/courses-content/business-rules",
                   "documentation/domains/courses-content/data-model",
+                  "documentation/domains/courses-content/moodle-integration",
+                  "documentation/domains/courses-content/certificates",
                   "documentation/domains/courses-content/operations"
                 ]
               }
@@ -116,6 +118,7 @@
                 ]
               },
               "documentation/platform/agent-system",
+              "documentation/platform/communications-fup",
               "documentation/platform/observability",
               "documentation/platform/environments",
               "documentation/platform/security-data",
@@ -224,6 +227,7 @@
           {
             "dropdown": "Backoffice",
             "pages": [
+              "api-reference/introduction",
               "api-reference/backoffice/index",
               {
                 "group": "Pulsos",
@@ -258,6 +262,19 @@
                   "api-reference/agent-system/matchmaker-examples"
                 ]
               }
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Ferramentas AI",
+        "groups": [
+          {
+            "group": "Configuração",
+            "pages": [
+              "ai-tools/claude-code",
+              "ai-tools/cursor",
+              "ai-tools/windsurf"
             ]
           }
         ]
