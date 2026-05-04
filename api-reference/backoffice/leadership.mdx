@@ -1,0 +1,120 @@
+---
+title: Backoffice — Gestão de Liderança
+description: Endpoints BFF para listagem e criação de lideranças no backoffice, com filtros por conta, status e busca textual.
+---
+
+## Visão geral
+
+Os endpoints `/api/backoffice/leadership` gerenciam lideranças (role `user-leadership-*`) no backoffice. Compõem dados de múltiplas coleções Directus (`directus_users`, `user_personal_data`, `user_careers`) e incluem contagem de estagiários sob cada liderança.
+
+Ambos requerem sessão NextAuth com `accessToken`.
+
+---
+
+## GET /api/backoffice/leadership
+
+Lista lideranças com filtros opcionais. A query é montada diretamente no Directus SDK (`readUsers`) com filtros compostos.
+
+### Query params
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `search` | `string` | `""` | Busca por `first_name`, `last_name` ou `email` (case-insensitive) |
+| `account_id` | `string` | `""` | Filtrar por conta |
+| `status` | `string` | `""` | Status do usuário (ex.: `"active"`, `"inactive"`). `"todos"` = sem filtro |
+| `page` | `number` | `1` | Página (base 1) |
+| `limit` | `number` | `25` | Itens por página |
+
+### Comportamento
+
+- Filtra sempre por `role = "6cf36344-400a-49a9-a6a2-103a2ee4d897"` (UUID fixo do role `user-leadership`)
+- Combina `_or` para `search`: busca simultânea em nome e email
+- Offset calculado como `(page - 1) * limit`
+
+### Resposta `200`
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "first_name": "Ana",
+      "last_name": "Costa",
+      "email": "ana@empresa.com",
+      "status": "active",
+      "account": "acct_id",
+      "estagiarios_count": 5
+    }
+  ],
+  "total": 42
+}
+```
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `401` | Sessão inválida |
+| `500` | Erro ao consultar o Directus |
+
+---
+
+## POST /api/backoffice/leadership
+
+Cria uma nova liderança. Thin proxy para `Directus POST /leadership` (extensão customizada).
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `first_name` | `string` | sim | Primeiro nome |
+| `last_name` | `string` | sim | Sobrenome |
+| `email` | `string` | sim | Email (normalizado para lowercase pelo BFF) |
+| `phone_number` | `string` | não | Telefone (somente dígitos pelo BFF) |
+| `account_id` | `string` | sim | Conta à qual a liderança pertence |
+
+### Transformações do BFF
+
+- `email.trim().toLowerCase()`
+- `phone_number.replace(/\D/g, "")` (remove não-dígitos)
+
+### Resposta
+
+Passthrough da resposta do Directus com o mesmo status code.
+
+---
+
+## Relações com outros recursos
+
+| Recurso | Descrição |
+|---------|-----------|
+| `directus_users` | Usuário base da liderança |
+| `user_personal_data` | Dados pessoais complementares |
+| `user_careers` | Dados de carreira/cargo |
+| `Jovens` | Estagiários sob esta liderança (campo `leader_id`) |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/backoffice/leadership/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/leadership/[id]/route.ts` | `leapy-rh` |
+| `extensions/endpoints/src/leadership/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Jovens — Índice" icon="users" href="/documentation/domains/jovens/index">
+    Como lideranças se relacionam com jovens no domínio
+  </Card>
+  <Card title="Jovens — Ciclo de Vida" icon="route" href="/documentation/domains/jovens/lifecycle">
+    Mudanças de liderança e eventos disparados (hook-jovem-nova-lideranca)
+  </Card>
+  <Card title="Cohorts — Importação" icon="table" href="/api-reference/backoffice/cohorts-import">
+    Resolução de lideranças durante importação em lote
+  </Card>
+</CardGroup>

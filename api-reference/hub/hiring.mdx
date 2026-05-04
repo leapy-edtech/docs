@@ -1,0 +1,152 @@
+---
+title: Hub — Hiring por Candidato
+description: Endpoints do hub do candidato para inferência de CV via IA, extração de perfil LinkedIn e consulta de job ativo.
+---
+
+## Visão geral
+
+Os endpoints `/api/hub/hiring/*` formam o módulo de **enriquecimento de perfil** do candidato no hub. Integram com a extensão Directus `linkedin-skills` e com um agente de inferência que usa LLM para extrair skills a partir de currículo ou perfil LinkedIn.
+
+Todos requerem sessão NextAuth com `accessToken` e `user.id` válidos.
+
+---
+
+## POST /api/hub/hiring/infer-cv
+
+Envia um arquivo de currículo (PDF já uploadado no Directus) para inferência de skills via LLM. Proxy para `Directus POST /hiring/profile/cv`.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `file_id` | `string` | sim | UUID do arquivo no Directus Files (previamente upado via `/api/files`) |
+
+### Comportamento
+
+O Directus encaminha para o agent-system que processa o PDF e retorna skills inferidas. O processamento pode ser assíncrono — use `GET /api/hub/hiring/linkedin-active-job` para polling do status se necessário.
+
+### Respostas
+
+| Status | Descrição |
+|--------|-----------|
+| `200` | `{ skills: [], ... }` — inferência concluída |
+| `400` | `file_id` ausente ou vazio |
+| `401` | Sessão inválida |
+| `502` | Erro retornado pelo Directus/agente |
+| `500` | Erro interno |
+
+### Exemplo
+
+```bash
+curl -X POST /api/hub/hiring/infer-cv \
+  -H "Cookie: next-auth.session-token=..." \
+  -H "Content-Type: application/json" \
+  -d '{ "file_id": "abc123-uuid" }'
+```
+
+---
+
+## POST /api/hub/hiring/infer-linkedin
+
+Inicia a inferência de skills a partir de um URL de perfil LinkedIn. Proxy para `Directus POST /linkedin-skills/infer`. O processamento é assíncrono — o endpoint dispara o job e retorna imediatamente.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `linkedin_url` | `string` | sim | URL do perfil LinkedIn do candidato |
+
+### Comportamento
+
+- O Directus cria um job de extração e retorna o `job_id`
+- O cliente deve fazer polling via `GET /api/hub/hiring/linkedin-active-job` para verificar conclusão
+- Após concluído, as skills são gravadas no perfil do usuário
+
+### Respostas
+
+| Status | Descrição |
+|--------|-----------|
+| `200` | `{ job_id: "...", status: "processing" }` — job criado |
+| `400` | `linkedin_url` ausente |
+| `401` | Sessão inválida |
+| `502` | Erro no Directus |
+
+---
+
+## GET /api/hub/hiring/linkedin-active-job
+
+Consulta o status do job de inferência LinkedIn ativo para o usuário autenticado. Proxy para `Directus GET /linkedin-skills/user/:userId/active-job`.
+
+### Autenticação
+
+`user.id` extraído da sessão (sem parâmetro de path).
+
+### Resposta `200` (job ativo)
+
+```json
+{
+  "job_id": "uuid-do-job",
+  "status": "processing",
+  "progress": 65
+}
+```
+
+### Resposta `404`
+
+Nenhum job ativo para o usuário. O cliente deve encerrar o polling.
+
+### Resposta `200` (concluído)
+
+```json
+{
+  "job_id": "uuid-do-job",
+  "status": "completed",
+  "skills": ["TypeScript", "React", "Node.js"]
+}
+```
+
+---
+
+## Padrão de polling recomendado
+
+```javascript
+async function waitForLinkedInInfer(url) {
+  await fetch("/api/hub/hiring/infer-linkedin", {
+    method: "POST",
+    body: JSON.stringify({ linkedin_url: url })
+  });
+
+  for (let i = 0; i < 30; i++) {
+    await sleep(3000);
+    const r = await fetch("/api/hub/hiring/linkedin-active-job");
+    if (r.status === 404) break; // concluído ou sem job
+    const data = await r.json();
+    if (data.status === "completed") return data.skills;
+  }
+}
+```
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/hub/hiring/infer-cv/route.ts` | `leapy-rh` |
+| `src/app/api/hub/hiring/infer-linkedin/route.ts` | `leapy-rh` |
+| `src/app/api/hub/hiring/linkedin-active-job/route.ts` | `leapy-rh` |
+| `src/lib/hiring-directus-server.ts` | `leapy-rh` |
+| `extensions/endpoints/src/linkedin-skills/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Hiring — Vagas e Candidaturas" icon="briefcase" href="/api-reference/hiring/vagas">
+    Endpoints para criar vagas e gerenciar candidaturas no funil
+  </Card>
+  <Card title="Matchmaker — Endpoints Custom" icon="sparkles" href="/api-reference/backoffice/matchmaker-endpoints-custom">
+    Endpoints Directus do matchmaker que processam os perfis enriquecidos
+  </Card>
+</CardGroup>

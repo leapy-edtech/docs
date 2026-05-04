@@ -1,0 +1,169 @@
+---
+title: Cohorts — Importação em Lote
+description: Endpoints do wizard de importação de aprendizes, empresas, entidades e cronograma em lote para um cohort.
+---
+
+## Visão geral
+
+O wizard de **importação de cohorts** é um fluxo multi-etapa que processa planilhas de aprendizes, empresas, entidades e cronograma via uma série de endpoints BFF. Cada endpoint faz proxy autenticado para o Directus, garantindo transações atômicas e auditoria por linha.
+
+Fluxo completo do wizard:
+
+```
+1. Criar batch     → POST /api/backoffice/cohorts/import/batches
+2. Resolver deps   → POST /api/backoffice/cohorts/import/empresas
+                  → POST /api/backoffice/cohorts/import/entidades
+3. Importar linhas → POST /api/backoffice/cohorts/import/aprendizes  (por linha)
+4. Cronograma      → POST /api/backoffice/cohorts/import/cronograma  (por linha)
+5. Fechar batch    → PATCH /api/backoffice/cohorts/import/batches/[id]
+```
+
+Todos os endpoints requerem sessão NextAuth com `accessToken` válido.
+
+---
+
+## POST /api/backoffice/cohorts/import/batches
+
+Cria o registro de cabeçalho do batch de importação (`import_batches`). Deve ser chamado uma vez antes de iniciar o loop de linhas.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `total_rows` | `number` | sim | Número total de linhas na planilha |
+| `cohort_id` | `number` | não | ID do cohort alvo |
+| `source_file` | `string` | não | Nome do arquivo original para auditoria |
+
+### Resposta `201`
+
+```json
+{ "batch_id": 42 }
+```
+
+O `batch_id` retornado deve ser incluído em cada chamada subsequente de `/import/aprendizes` para vincular cada linha ao batch de auditoria (`import_batch_rows`).
+
+---
+
+## POST /api/backoffice/cohorts/import/aprendizes
+
+Proxy para o endpoint `POST /talent` do Directus. Processa **uma linha por chamada** do wizard. O Directus executa a criação de forma atômica: upsert de usuário, criação nas tabelas canônicas e disparo do evento Inngest.
+
+### O que o Directus faz em cada chamada
+
+- Upsert de `directus_users` (cria ou atualiza se email já existe)
+- Cria `user_personal_data`, `user_careers`, `user_benefits`
+- Cria registro em `Jovens` com o `cohort_id`
+- Envia email de convite
+- Dispara `backoffice/jovem.created` → Inngest `create-moodle-user` + `create-matriculas-jovens`
+
+### Transformações do BFF
+
+O `builder.ts` aplica antes de repassar ao Directus:
+- `type = "aprendiz"` (hardcoded)
+- Renomeia: `empresa_id → company_id`, `lideranca_id → leader_id`, `personal_email → email_pessoal`
+- Converte datas `DD/MM/YYYY → YYYY-MM-DD` nos campos: `date_of_birth`, `start_date`, `end_date`, `primo_dia_empresa`, `expected_graduation_date`, `inicio_ferias`, `fim_ferias`
+
+### Corpo (campos principais)
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `first_name` | `string` | sim | Primeiro nome |
+| `last_name` | `string` | sim | Sobrenome |
+| `email` | `string` | sim | Email corporativo (normalizado para lowercase) |
+| `phone_number` | `string` | sim | Telefone (só dígitos no Directus) |
+| `company_id` | `number` | não | FK para empresa |
+| `leader_id` | `string` | não | UUID da liderança responsável |
+| `start_date` | `string` | não | Data de início (YYYY-MM-DD) |
+| `end_date` | `string` | não | Data de término (YYYY-MM-DD) |
+| `batch_id` | `number` | não | ID do batch de auditoria |
+
+Campos adicionais do catálogo são passados diretamente — o Directus valida via schema Zod de 60+ campos.
+
+### Respostas
+
+| Status | Descrição |
+|--------|-----------|
+| `201` | `{ id, status: "created", message, data }` — aprendiz criado |
+| `409` | `{ id, status: "updated", message }` — aprendiz já existia, atualizado |
+| `400` | Erro de validação (campo obrigatório ausente ou inválido) |
+| `401` | Sessão inválida |
+| `500` | Erro interno no Directus |
+
+---
+
+## POST /api/backoffice/cohorts/import/empresas
+
+Importação em lote de empresas. Para cada empresa na planilha, verifica se já existe (por CNPJ ou nome) e cria caso necessário.
+
+### Comportamento
+
+- Busca empresa existente por CNPJ ou nome normalizado
+- Se não encontrada: cria em `companies` via Directus SDK
+- Retorna mapa `{ [index]: empresa_id }` para resolução de FK na etapa de aprendizes
+
+### Corpo
+
+Array de objetos empresa com campos como `razao_social`, `cnpj`, `cidade`, `estado`.
+
+---
+
+## POST /api/backoffice/cohorts/import/entidades
+
+Importação em lote de entidades (instituições de ensino). Mesmo padrão que `/empresas`: lookup-or-create com retorno de mapa de IDs.
+
+### Campo booleano `is_valid`
+
+O endpoint parseia `"sim"/"true"/"1"/"yes"/"s"` como `true` e `"não"/"false"/"0"` como `false` — necessário porque a planilha usa texto em pt-BR.
+
+---
+
+## POST /api/backoffice/cohorts/import/cronograma
+
+Importação em lote de registros de cronograma. Um registro por linha da planilha.
+
+### Transformações aplicadas
+
+- Datas `DD/MM/YYYY → YYYY-MM-DD`
+- Campos numéricos: parseia string para `number` ou `null`
+- FK `turma_id` resolvida por nome de turma se ID não disponível
+
+---
+
+## Observabilidade e auditoria
+
+- Cada linha de aprendiz cria uma entrada em `import_batch_rows` vinculada ao `batch_id`
+- Erros por linha são registrados individualmente — o wizard não aborta o lote inteiro em caso de falha parcial
+- O wizard deve fechar o batch via `PATCH /api/backoffice/cohorts/import/batches/[id]` ao término
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/backoffice/cohorts/import/aprendizes/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/cohorts/import/aprendizes/builder.ts` | `leapy-rh` |
+| `src/app/api/backoffice/cohorts/import/batches/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/cohorts/import/empresas/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/cohorts/import/entidades/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/cohorts/import/cronograma/route.ts` | `leapy-rh` |
+| `extensions/endpoints/src/talent/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Jovens — Ciclo de Vida" icon="users" href="/documentation/domains/jovens/lifecycle">
+    O que acontece depois de um aprendiz ser criado: eventos Inngest, matrículas e Moodle
+  </Card>
+  <Card title="Estágio — Onboarding" icon="graduation-cap" href="/api-reference/estagio/onboarding">
+    Alternativa para criação individual ou lote menor de estagiários
+  </Card>
+  <Card title="Talentos e Planos" icon="briefcase" href="/api-reference/backoffice/talent-plans">
+    Criação direta de talento via endpoint backoffice (sem wizard)
+  </Card>
+  <Card title="Integração Moodle" icon="plug" href="/documentation/domains/courses-content/moodle-integration">
+    Como `backoffice/jovem.created` aciona a criação de usuário no Moodle
+  </Card>
+</CardGroup>

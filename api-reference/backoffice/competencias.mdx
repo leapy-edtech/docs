@@ -1,0 +1,126 @@
+---
+title: Competências e Talentos
+description: Endpoints para listagem de competências da conta e talentos associados a cada competência, via extensão Directus taxonomic.
+---
+
+## Visão geral
+
+Os endpoints de competências expõem dados da extensão Directus `taxonomic` — o mapa de skills e suas associações com usuários dentro de uma conta. O `account_id` é extraído da sessão e usado automaticamente nos dois endpoints.
+
+---
+
+## GET /api/competencias
+
+Retorna resumo geral de competências da conta: lista de skills, contagem de talentos por skill e metadados de distribuição.
+
+### Autenticação
+
+Sessão NextAuth. `account_id` extraído de `session.user.account.id`.
+
+### Proxy
+
+```
+GET ${DIRECTUS_URL}/taxonomic/accounts/:accountId/skills/summary
+```
+
+### Resposta `200`
+
+```json
+{
+  "total_skills": 12,
+  "skills": [
+    {
+      "id": "skill-uuid",
+      "name": "TypeScript",
+      "category": "Técnica",
+      "user_count": 8
+    },
+    {
+      "id": "skill-uuid-2",
+      "name": "Comunicação",
+      "category": "Comportamental",
+      "user_count": 15
+    }
+  ],
+  "summary": {
+    "technical": 7,
+    "behavioral": 5
+  }
+}
+```
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `400` | `account_id` não disponível na sessão |
+| `401` | Sessão inválida ou `accessToken` ausente |
+| `500` | Erro ao buscar no Directus |
+
+---
+
+## GET /api/competencias/{competenciaId}/talentos
+
+Retorna talentos que possuem a competência especificada, com dados de área e cargo alvo.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `competenciaId` | `string` | UUID da competência/skill |
+
+### Proxy
+
+```
+GET ${DIRECTUS_URL}/taxonomic/accounts/:accountId/skills/:competenciaId/users
+```
+
+### Resposta `200`
+
+```json
+[
+  {
+    "id": "user-uuid",
+    "nome": "Maria Silva",
+    "area": "Engenharia",
+    "cargoAlvo": "Desenvolvedora Plena"
+  },
+  {
+    "id": "user-uuid-2",
+    "nome": "João Santos",
+    "area": "Produto",
+    "cargoAlvo": "Product Manager"
+  }
+]
+```
+
+O payload vem no shape final do Directus — sem transformação adicional no BFF.
+
+---
+
+## Estado de implementação
+
+Ambos os endpoints têm comentário `TODO: Implementar busca real no backend quando a collection estiver disponível`. Indicam que a extensão `taxonomic` pode estar em desenvolvimento ativo — verificar se os endpoints Directus correspondentes estão operacionais antes de usar em produção.
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/competencias/route.js` | `leapy-rh` |
+| `src/app/api/competencias/[competenciaId]/talentos/route.js` | `leapy-rh` |
+| `extensions/endpoints/src/taxonomic/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Matchmaker — Classificação Automática" icon="sparkles" href="/documentation/domains/matchmaker/classificacao-automatica">
+    Como competências são usadas na classificação de talentos
+  </Card>
+  <Card title="Matchmaker — Endpoints Custom" icon="plug" href="/api-reference/backoffice/matchmaker-endpoints-custom">
+    Endpoints Directus do matchmaker que consomem dados de skills
+  </Card>
+</CardGroup>

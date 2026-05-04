@@ -1,0 +1,195 @@
+---
+title: Hiring — Vagas e Candidaturas
+description: Endpoints para criação e gestão de vagas, rodadas de indicação, candidaturas e execução de match no módulo de hiring.
+---
+
+## Visão geral
+
+O módulo de **hiring** cobre o ciclo de vida de vagas: criação, atualização de status, gerenciamento de candidaturas e disparo de rodadas de match. Os endpoints BFF fazem proxy para o Directus (SDK `@directus/sdk` + extensão customizada `hiring/`).
+
+Todos requerem sessão NextAuth com `accessToken` e `account.id` válidos.
+
+---
+
+## POST /api/hiring/vagas
+
+Cria uma nova vaga no `account` do usuário autenticado. Persiste em `Minhas_Vagas` no Directus.
+
+### Autenticação
+
+Sessão NextAuth. O `account_id` é extraído da sessão — não precisa ser enviado no corpo.
+
+### Corpo da requisição
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `companyId` | `string` | sim* | ID da empresa (FK). Obrigatório se `dontKnowCnpj = false` |
+| `dontKnowCnpj` | `boolean` | não | Se `true`, empresa fica `null` na vaga |
+| `admissionWindowId` | `string` | sim | ID da janela de admissão |
+| `nome_da_vaga` | `string` | sim | Título da vaga |
+| `vacancyCount` | `string` | não | Número de vagas (default `"1"`) |
+| `workModel` | `string` | não | Modelo de trabalho (ex.: `"Híbrido"`) |
+| `city` | `string` | não | Cidade |
+| `neighborhood` | `string` | não | Bairro |
+| `requisitos` | `Record<string, boolean>` | não | Mapa de requisitos marcados |
+| `salario` | `string` | não | Salário em formato BR (`"3.500,00"`) — convertido para `numeric` |
+
+O BFF normaliza `salario` (`"R$ 3.500,00" → 3500.00`), monta `local_trabalho` concatenando cidade/bairro/modelo e converte `status` inicial via `HIRING_INITIAL_STATUS_TO_DIRECTUS`.
+
+### Resposta `201`
+
+```json
+{
+  "data": {
+    "id": 12,
+    "nome_da_vaga": "Desenvolvedor Júnior",
+    "status": "1_triagem",
+    "date_created": "2026-05-04T19:00:00Z"
+  }
+}
+```
+
+### Erros
+
+| Status | Quando |
+|--------|--------|
+| `400` | Empresa não selecionada (sem `dontKnowCnpj`) ou janela de admissão inválida |
+| `401` | Sessão inválida |
+| `500` | Erro ao gravar no Directus |
+
+---
+
+## PATCH /api/hiring/vagas/[id]
+
+Atualiza status e campos de uma vaga existente.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `id` | `number` | ID da vaga (inteiro positivo) |
+
+### Corpo
+
+Subset de `VagaDetailUpdateBody`: campos como `status`, `salario`, `requisitos`, `local_trabalho`. O BFF mapeia `HiringJobStatus` → string Directus via `HIRING_JOB_STATUS_TO_DIRECTUS`.
+
+### Resposta `200`
+
+```json
+{ "data": { "id": 12, "status": "2_entrevistas", ... } }
+```
+
+---
+
+## POST /api/hiring/vagas/{id}/indication-round
+
+Solicita uma nova rodada de indicações para a vaga. Redireciona para `Directus POST /hiring/vagas/:id/indication-round`.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `id` | `number` | ID da vaga |
+
+### Resposta `200`
+
+```json
+{ "ok": true, "data": { ... } }
+```
+
+Em caso de falha no Directus, retorna `502` com o erro encaminhado.
+
+---
+
+## PATCH /api/hiring/vagas/{id}/job-applications/{applicationId}
+
+Atualiza o passo de uma candidatura dentro de uma vaga. Usado para avançar candidatos para `"invited_to_process"`.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `id` | `number` | ID da vaga |
+| `applicationId` | `string` | UUID da candidatura (`user_job_applications`) |
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `step` | `string` | não | Passo atual da candidatura para validação |
+
+### Comportamento
+
+- Se `step` estiver em `{ "indicated", "waiting_talent_decision", "accepted_by_talent" }`: atualiza `current_step = "invited_to_process"` e envia notificação de convite ao candidato via `postHiringProcessInviteNotify`
+- Se `step` já avançou além da pool de indicação: retorna `400` — não é possível convidar novamente
+- Notificação de convite: silencia erro se `candidate_id` não estiver disponível (apenas loga `warn`)
+
+### Resposta `200`
+
+```json
+{ "ok": true, "data": { "id": "...", "current_step": "invited_to_process" } }
+```
+
+---
+
+## POST /api/hiring/vagas/{id}/match-run
+
+Dispara ou re-executa o processo de match de candidatos para a vaga. Redireciona para `Directus POST /hiring/match/run`.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `id` | `number` | ID da vaga |
+
+### Resposta `200`
+
+```json
+{ "ok": true, "data": { ... } }
+```
+
+O Directus executa o match assincronamente — a resposta confirma o disparo, não a conclusão.
+
+---
+
+## Coleções Directus relevantes
+
+| Coleção | Papel |
+|---------|-------|
+| `Minhas_Vagas` | Registro canônico da vaga |
+| `user_job_applications` | Candidaturas por vaga |
+| `Admissao_Windows` | Janelas de admissão configuradas |
+| `companies` | Empresas relacionadas à vaga |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/hiring/vagas/route.ts` | `leapy-rh` |
+| `src/app/api/hiring/vagas/[id]/route.ts` | `leapy-rh` |
+| `src/app/api/hiring/vagas/[id]/indication-round/route.ts` | `leapy-rh` |
+| `src/app/api/hiring/vagas/[id]/job-applications/[applicationId]/route.ts` | `leapy-rh` |
+| `src/app/api/hiring/vagas/[id]/match-run/route.ts` | `leapy-rh` |
+| `extensions/endpoints/src/hiring/index.js` | `directus-backoffice-with-extensions` |
+| `src/lib/hiring-directus-server.ts` | `leapy-rh` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Hiring — Domínio" icon="briefcase" href="/documentation/domains/hiring/index">
+    Visão de produto, fluxos de funil e regras de negócio do módulo de hiring
+  </Card>
+  <Card title="Hub — Hiring por Candidato" icon="user" href="/api-reference/hub/hiring">
+    Inferência de CV e perfil LinkedIn para enriquecimento de candidaturas
+  </Card>
+  <Card title="Matchmaker — Classificação" icon="sparkles" href="/documentation/domains/matchmaker/classificacao-automatica">
+    Como o match-run aciona a classificação automática de candidatos
+  </Card>
+  <Card title="Matchmaker — Exportação PDF" icon="file-pdf" href="/api-reference/backoffice/matchmaker-export">
+    Exportar resultados de match em PDF
+  </Card>
+</CardGroup>
