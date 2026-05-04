@@ -1,0 +1,196 @@
+---
+title: "Integração Zoom — Agendas e Turmas"
+description: "Como a Leapy cria links Zoom individuais para jovens em agendas de turmas: hooks, jobs Inngest e Zoom API"
+---
+
+## Contexto de Produto
+
+Cada jovem de uma turma precisa de um link personalizado de Zoom para participar das aulas agendadas. A Leapy automatiza a criação desses links: quando um `zoom_id` de meeting é associado a uma agenda ou turma, o sistema registra cada jovem no meeting via Zoom API e armazena o link individual no banco.
+
+## Escopo Funcional
+
+<CardGroup cols={2}>
+  <Card title="Link por Agenda" icon="calendar">
+    Quando uma agenda recebe um `zoom_id`, links Zoom são criados para todos os jovens da turma vinculada.
+  </Card>
+  <Card title="Link por Turma" icon="users">
+    Quando uma turma recebe um `zoom_id`, links são criados para todos os jovens daquela turma.
+  </Card>
+  <Card title="Zoom API Integration" icon="video">
+    Cada jovem é registrado no meeting Zoom via API. O link de registro individual (`join_url`) é armazenado no banco.
+  </Card>
+  <Card title="Throttling" icon="gauge">
+    O job de criação por jovem é throttled (1 por 5 segundos) para respeitar os rate limits da Zoom API.
+  </Card>
+</CardGroup>
+
+## Arquitetura Técnica
+
+```mermaid
+flowchart TB
+    subgraph Directus["Directus Backoffice"]
+        H_AGENDA[hook-update-agenda-zoom-id\nitems.update → agenda\nzoom_id definido]
+        H_TURMA[hook-update-turma-zoom-id\nitems.update → Turmas\nzoom_id definido]
+    end
+
+    subgraph Workflow["Endpoint Workflow"]
+        W_AGENDA[workflows/agendas/agenda-created\ncreate_zoom_links=true]
+        W_JOVEM[workflows/jovens/jovem-created\ncreate_zoom_links=true, creations=false]
+    end
+
+    subgraph Events["Eventos Inngest"]
+        EVT_AGENDA[backoffice/agenda.created\ncreate_zoom_links=true]
+        EVT_JOVEM[backoffice/jovem.created\ncreate_zoom_links=true]
+    end
+
+    subgraph Jobs["Jobs Inngest"]
+        J_AGENDA[create-agenda-zoom-link\npor agenda/turma]
+        J_JOVEM[create-jovem-zoom-link\npor jovem\nthrottle: 1/5s]
+    end
+
+    subgraph ZoomAPI["Zoom API"]
+        ZOOM[POST /meetings/{zoom_id}/registrants]
+        TOKEN[OAuth Token]
+    end
+
+    subgraph DB["Directus DB"]
+        LINKS[(zoom_links\njovem_id + agenda_id + zoom_link)]
+    end
+
+    H_AGENDA -->|lê agenda: id, turma_id, zoom_id| W_AGENDA --> EVT_AGENDA
+    H_TURMA -->|para cada jovem da turma| W_JOVEM --> EVT_JOVEM
+
+    EVT_AGENDA --> J_AGENDA
+    EVT_JOVEM --> J_JOVEM
+
+    J_AGENDA -->|getZoomToken| TOKEN
+    J_AGENDA -->|busca jovens da turma| DB
+    J_AGENDA -->|registra cada jovem| ZOOM
+    J_AGENDA -->|cria/atualiza link| LINKS
+
+    J_JOVEM -->|getZoomToken| TOKEN
+    J_JOVEM -->|busca dados do jovem| DB
+    J_JOVEM -->|registra jovem| ZOOM
+    J_JOVEM -->|armazena join_url| LINKS
+```
+
+## Fluxos de Execução
+
+### Fluxo 1 — Zoom ID adicionado à Agenda
+
+1. Operador define o `zoom_id` (ID do meeting Zoom) na coleção `agenda` no Directus.
+2. `hook-update-agenda-zoom-id` detecta a mudança (`items.update`, campo `zoom_id` no payload).
+3. Hook busca os dados completos da agenda: `id`, `turma_id`, `zoom_id`.
+4. Se `turma_id` e `zoom_id` existem, chama `workflows/agendas/agenda-created` com `create_zoom_links=true`.
+5. Evento `backoffice/agenda.created` é enviado ao Inngest.
+6. Job `create-agenda-zoom-link` executa:
+   a. Obtém token OAuth da Zoom API.
+   b. Busca todos os jovens da turma via Directus.
+   c. Para cada jovem: registra no meeting usando o email corporativo ou pessoal.
+   d. Armazena o `join_url` na tabela `zoom_links` (cria novo ou atualiza existente).
+
+### Fluxo 2 — Zoom ID adicionado à Turma
+
+1. Operador define `zoom_id` na coleção `Turmas`.
+2. `hook-update-turma-zoom-id` detecta a mudança (`items.update`, campo `zoom_id` no payload).
+3. Hook busca todos os jovens com `turma_id` da turma atualizada.
+4. Para cada jovem, chama `workflows/jovens/jovem-created` com `create_zoom_links=true, creations=false`.
+5. Evento `backoffice/jovem.created` é enviado com o ID do jovem.
+6. Job `create-jovem-zoom-link` executa **individualmente** para cada jovem:
+   - Busca dados do jovem: email, nome, turma_id.
+   - Busca o `zoom_id` da turma.
+   - Registra o jovem no meeting Zoom.
+   - Armazena o `join_url`.
+
+## Diferença entre os dois jobs
+
+| | `create-agenda-zoom-link` | `create-jovem-zoom-link` |
+|--|--------------------------|--------------------------|
+| **Gatilho** | `agenda.zoom_id` definido | `turma.zoom_id` definido |
+| **Escopo** | Todos os jovens de uma vez | Um jovem por vez |
+| **Throttling** | Sem throttle | 1 por 5 segundos, concurrency=1 |
+| **Retries** | Padrão Inngest | 3 retries |
+| **Evento** | `backoffice/agenda.created` | `backoffice/jovem.created` |
+
+## Validações Obrigatórias
+
+**Para `create-agenda-zoom-link`:**
+- `turma_id` deve estar presente na agenda.
+- `zoom_id` deve estar presente na agenda.
+- Jovem deve ter email (`E-mail corporativo` ou `email_pessoal`).
+
+**Para `create-jovem-zoom-link`:**
+- Jovem deve ter `turma_id`.
+- Jovem deve ter pelo menos um email (`email_corporativo` ou `personal_email`).
+- Zoom token deve ser obtido com sucesso.
+
+Se qualquer validação falhar, o job retorna `success: false` sem lançar erro — **não há retry nesses casos**.
+
+## Modelo de Dados — zoom_links
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | `number` | Identificador único |
+| `jovem_id` | `number` | Referência ao Jovem |
+| `agenda_id` | `number` | Referência à agenda |
+| `zoom_link` | `string` | URL personalizada de entrada no meeting |
+
+## Feature Flags
+
+| Hook | Constant |
+|------|----------|
+| `hook-update-agenda-zoom-id` | `HOOK_UPDATE_AGENDA_ZOOM_ID` |
+| `hook-update-turma-zoom-id` | `HOOK_UPDATE_TURMA_ZOOM_ID` |
+
+## Observabilidade e Operação
+
+```sql
+-- Verificar links Zoom criados para uma agenda
+SELECT zl.id, zl.jovem_id, zl.zoom_link
+FROM zoom_links zl
+WHERE zl.agenda_id = <AGENDA_ID>;
+
+-- Jovens sem link Zoom em uma turma
+SELECT j.id, j."E-mail corporativo"
+FROM "Jovens" j
+WHERE j.turma_id = <TURMA_ID>
+  AND j.id NOT IN (
+    SELECT jovem_id FROM zoom_links WHERE agenda_id = <AGENDA_ID>
+  );
+```
+
+**Verificar se Zoom API está configurada:**
+```bash
+# O job usa getZoomToken() que requer variáveis de ambiente
+# ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET, ZOOM_ACCOUNT_ID
+```
+
+## Riscos e Limites
+
+| Risco | Impacto | Mitigação |
+|-------|---------|-----------|
+| Zoom API indisponível | Token não obtido; job retorna `success: false` | Sem retry automático para token failure — triggerar reprocessamento manual |
+| Jovem sem email | Não é registrado no Zoom | Log explícito no job; corrigir email no cadastro |
+| Rate limit Zoom API | Jobs de turma throttlados adequadamente | `create-jovem-zoom-link` usa 1/5s + concurrency=1 |
+| `zoom_id` inválido | Zoom API retorna erro | Job propaga erro; retry automático do Inngest |
+| Turma com muitos jovens | Muitos jobs individuais | Throttling protege — processo lento mas seguro |
+
+## Referências de Código (Multirepo)
+
+| Arquivo | Repositório | Descrição |
+|---------|-------------|-----------|
+| `extensions/hooks/src/hook-update-agenda-zoom-id/index.js` | `directus-backoffice-with-extensions` | Hook de agenda |
+| `extensions/hooks/src/hook-update-turma-zoom-id/index.js` | `directus-backoffice-with-extensions` | Hook de turma |
+| `src/inngest/functions/presencas/create-agenda-zoom-links.ts` | `backoffice-inngest-functions` | Job por agenda |
+| `src/inngest/functions/presencas/create-jovem-zoom-link.ts` | `backoffice-inngest-functions` | Job por jovem |
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Backoffice Directus" icon="server" href="/documentation/platform/backoffice-directus">
+    Onde agendas e turmas são gerenciadas e os hooks são configurados
+  </Card>
+  <Card title="Eventos e Jobs Inngest" icon="gear" href="/documentation/platform/events-jobs-inngest">
+    Arquitetura de eventos Inngest usada pelos jobs de Zoom
+  </Card>
+</CardGroup>

@@ -150,11 +150,34 @@ Consultam a Moodle API para cada jovem e atualizam `Matriculas` com:
 
 **Base URL:** Variável `MOODLE_API_URL`.
 
+### Fluxo 4: Atualização de Dados no Moodle (`update-moodle-user`)
+
+Quando os dados de um jovem mudam (ex: email corporativo), o job `update-moodle-user` sincroniza com o Moodle.
+
+**Evento:** `backoffice/moodle-users.update`
+**Arquivo:** `src/inngest/functions/moodle/update-moodle-user.ts`
+
+**Payload do evento:**
+```json
+{
+  "jovens": [{ "jovem_id": 123 }]
+}
+```
+
+**Lógica:**
+1. Para cada `jovem_id` no array, busca `moodle_id` e `email_corporativo` no Directus.
+2. Busca o usuário no Moodle pelo `moodle_id`.
+3. Atualiza os dados via `core_user_update_users`.
+4. Se o jovem não tiver `moodle_id` ou `email_corporativo`, pula silenciosamente.
+
+**Disparado por:** `hook-update-matriculas-jovem` quando dados do jovem são alterados no Directus.
+
 ### Eventos Inngest
 
 | Evento | Descrição |
 |--------|-----------|
 | `backoffice/jovem.created` | Aciona criação de usuário Moodle e matrículas |
+| `backoffice/moodle-users.update` | Aciona atualização de dados do usuário Moodle |
 
 ## Segurança e Permissões
 

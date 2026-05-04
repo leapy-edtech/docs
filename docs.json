@@ -40,11 +40,31 @@
                 ]
               },
               {
+                "group": "Jovens",
+                "pages": [
+                  "documentation/domains/jovens/index",
+                  "documentation/domains/jovens/lifecycle"
+                ]
+              },
+              {
+                "group": "Cronogramas",
+                "pages": [
+                  "documentation/domains/cronogramas/index"
+                ]
+              },
+              {
+                "group": "Hiring",
+                "pages": [
+                  "documentation/domains/hiring/index"
+                ]
+              },
+              {
                 "group": "Matchmaker",
                 "pages": [
                   "documentation/domains/matchmaker/index",
                   "documentation/domains/matchmaker/journeys",
                   "documentation/domains/matchmaker/business-rules",
+                  "documentation/domains/matchmaker/classificacao-automatica",
                   "documentation/domains/matchmaker/data-model",
                   "documentation/domains/matchmaker/integrations",
                   "documentation/domains/matchmaker/operations",
@@ -57,6 +77,7 @@
                   "documentation/domains/insights/index",
                   "documentation/domains/insights/metric-catalog",
                   "documentation/domains/insights/data-pipeline",
+                  "documentation/domains/insights/alertas-performance",
                   "documentation/domains/insights/operations"
                 ]
               },
@@ -67,6 +88,7 @@
                   "documentation/domains/talents/identity-model",
                   "documentation/domains/talents/data-model",
                   "documentation/domains/talents/migration-jovens-talentos",
+                  "documentation/domains/talents/pdi-workflow",
                   "documentation/domains/talents/operations"
                 ]
               },
@@ -99,6 +121,7 @@
                   "documentation/domains/courses-content/data-model",
                   "documentation/domains/courses-content/moodle-integration",
                   "documentation/domains/courses-content/certificates",
+                  "documentation/domains/courses-content/matriculas-lifecycle-crons",
                   "documentation/domains/courses-content/operations"
                 ]
               }
@@ -122,6 +145,8 @@
               "documentation/platform/observability",
               "documentation/platform/environments",
               "documentation/platform/security-data",
+              "documentation/platform/impersonation",
+              "documentation/platform/zoom-agenda",
               "documentation/platform/conventions"
             ]
           },

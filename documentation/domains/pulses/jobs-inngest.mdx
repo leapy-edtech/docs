@@ -1,6 +1,6 @@
 ---
 title: "Jobs Inngest"
-description: "Detalhes dos 15 jobs automáticos do sistema de Pulsos"
+description: "Detalhes dos jobs automáticos do sistema de Pulsos: criação, atualização de status, notificações e jobs de liderança avaliação"
 ---
 
 ## Visão Geral
@@ -430,6 +430,36 @@ Para testar ou reprocessar:
   }
 }
 ```
+
+---
+
+## Jobs de Liderança Avaliação Leapy (Adicionados)
+
+### 16. `updateStatusPulsosLiderancasAvaliacaoLeapyToVencido`
+
+**ID:** `update-status-pulsos-liderancas-avaliacao-leapy-to-vencidos`
+
+**Propósito**: Marcar como vencidos os pulsos de avaliação da Leapy para lideranças específicas.
+
+**Trigger**: Evento `backoffice-inngest-functions/pulsos-liderancas-avaliacao-leapy.update-to-vencido`
+
+**Payload**:
+```json
+{
+  "lideranca_id": 123
+}
+```
+
+**Lógica**:
+1. Busca todos os pulsos em `pulsos_liderancas_avaliacao_leapy` com `status = "pendente"` para a liderança.
+2. Atualiza os IDs encontrados para `status = "vencido"`.
+3. Retorna `success: false` se não encontrar pulsos pendentes.
+
+**Ativado por**: Job `updateStatusPulsosLiderancasToVencido` (seção 7) — ao marcar pulsos de liderança como vencidos, ele dispara este evento para cada liderança única afetada.
+
+**Arquivo**: `src/inngest/functions/pulsos/lideranca/update-status-pulsos-lideranca-avaliacao-leapy-to-vencido.ts`
+
+> **Nota**: Esta função tem flag `ativo = true` hardcoded no código atual. Se precisar desativar, alterar a constante.
 
 ---
 
