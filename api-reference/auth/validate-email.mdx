@@ -1,0 +1,69 @@
+---
+title: Auth — Validação de Email
+description: Endpoint para verificar unicidade de email antes de criação de usuário, com proxy para a extensão Directus de validação.
+---
+
+## Visão geral
+
+`POST /api/validate-user-email` verifica se um email já está em uso no sistema, chamando `Directus POST /validation/validate-email`. Usado em fluxos de onboarding para evitar duplicidade antes de submeter o formulário completo.
+
+---
+
+## POST /api/validate-user-email
+
+### Autenticação
+
+Sessão NextAuth com `accessToken`.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `user_id` | `string` | sim | UUID do usuário sendo criado/atualizado (pode ser temporário) |
+| `email` | `string` | sim | Email a verificar |
+
+### Resposta `200` (email disponível)
+
+```json
+{
+  "data": { "available": true }
+}
+```
+
+### Resposta `200` (email em uso)
+
+```json
+{
+  "data": { "available": false, "message": "Email já cadastrado" }
+}
+```
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `400` | JSON inválido, `user_id` ou `email` ausentes, ou email em uso (retornado pelo Directus) |
+| `401` | Sessão inválida ou `accessToken` ausente |
+| `4xx/5xx` | Erro retornado pelo Directus com passthrough de status |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/validate-user-email/route.js` | `leapy-rh` |
+| `extensions/endpoints/src/validation/` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Cohorts — Importação em Lote" icon="table" href="/api-reference/backoffice/cohorts-import">
+    Validação de email antes da importação de aprendizes
+  </Card>
+  <Card title="Estágio — Onboarding" icon="graduation-cap" href="/api-reference/estagio/onboarding">
+    Fluxo de criação de estagiários onde a validação é aplicada
+  </Card>
+</CardGroup>

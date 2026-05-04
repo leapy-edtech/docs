@@ -1,0 +1,151 @@
+---
+title: Impersonation — Acesso como Usuário
+description: Endpoints para iniciar e encerrar sessões de impersonation, com auditoria automática em impersonation_logs.
+---
+
+## Visão geral
+
+O módulo de impersonation permite que administradores acessem o sistema como outro usuário para suporte e diagnóstico. Toda sessão é auditada em `impersonation_logs`. A permissão é verificada no início e a sessão expira por `IMPERSONATION_TIMEOUT_MS`.
+
+A página de domínio com contexto operacional completo está em [`/documentation/platform/impersonation`](/documentation/platform/impersonation).
+
+---
+
+## POST /api/impersonate/start
+
+Inicia uma sessão de impersonation para um usuário alvo.
+
+### Autenticação
+
+Sessão NextAuth do **administrador**. Verificações:
+- `canImpersonate(adminRole)` — o admin tem permissão para impersonar
+- `canBeImpersonated(targetRole)` — o usuário alvo pode ser impersonado (ex.: não é outro admin)
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `targetUserId` | `string` | sim | UUID do usuário a ser impersonado |
+
+### Comportamento
+
+1. Valida permissões do admin e do target
+2. Gera token Directus para o usuário alvo via `generateTokenForUser`
+3. Cria registro em `impersonation_logs` com `admin_id`, `target_user_id`, `started_at`
+4. Define `session.user.isImpersonating = true` e `session.user.originalUser = adminData`
+5. Retorna `redirect` calculado pelo role do target
+
+### Rota de redirecionamento por role
+
+| Role | Redirect |
+|------|----------|
+| `blip*` (slug) | `/:accountSlug/estagio` |
+| `user-learning-*` | `/:accountSlug/home` |
+| `intern` | `/:accountSlug/home` |
+| `user-leadership*` | `/:accountSlug/talents` |
+| default | `/:accountSlug/pagina-inicial` |
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "redirect": "/acme/pagina-inicial",
+  "targetUser": {
+    "id": "target-uuid",
+    "name": "Maria Silva",
+    "role": "intern"
+  }
+}
+```
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `400` | `targetUserId` ausente |
+| `401` | Admin não autenticado |
+| `403` | Admin sem permissão (`canImpersonate` falhou) ou target não pode ser impersonado |
+| `404` | Usuário alvo não encontrado |
+| `500` | Erro ao gerar token ou criar log |
+
+---
+
+## POST /api/impersonate/stop
+
+Encerra a sessão de impersonation e restaura o usuário original.
+
+### Autenticação
+
+Sessão NextAuth com `isImpersonating = true` e `originalUser` presentes.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `reason` | `string` | não | Motivo: `"manual"` (default) \| `"timeout"` \| `"logout"` |
+
+### Comportamento
+
+1. Verifica que `session.user.isImpersonating` está ativo
+2. Busca o log ativo em `impersonation_logs` (sem `ended_at`) para o par admin/target
+3. Registra `ended_at` e `reason` no log
+4. Restaura a sessão para `session.user.originalUser`
+5. Retorna `redirect` para o backoffice do admin
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "redirect": "/admin/backoffice",
+  "sessionData": { "id": "admin-uuid", "role": "admin" }
+}
+```
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `400` | Sessão não está em modo impersonation |
+| `401` | Não autenticado |
+| `500` | Erro ao fechar log |
+
+---
+
+## Auditoria
+
+Cada sessão cria uma entrada em `impersonation_logs`:
+
+| Campo | Descrição |
+|-------|-----------|
+| `admin_id` | UUID do administrador |
+| `target_user_id` | UUID do usuário impersonado |
+| `started_at` | Timestamp de início |
+| `ended_at` | Timestamp de encerramento (nulo enquanto ativo) |
+| `reason` | Motivo do encerramento |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/impersonate/start/route.ts` | `leapy-rh` |
+| `src/app/api/impersonate/stop/route.ts` | `leapy-rh` |
+| `src/lib/auth/permissions/impersonation.ts` | `leapy-rh` |
+| `src/services/impersonation.ts` | `leapy-rh` |
+| `extensions/endpoints/src/impersonation/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Impersonation — Domínio" icon="shield" href="/documentation/platform/impersonation">
+    Contexto operacional, fluxo completo, segurança e casos de uso
+  </Card>
+  <Card title="API Reference — Backoffice" icon="book" href="/api-reference/backoffice/index">
+    Índice dos endpoints BFF do backoffice
+  </Card>
+</CardGroup>

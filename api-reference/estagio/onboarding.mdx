@@ -1,0 +1,156 @@
+---
+title: Estágio — Onboarding de Talentos
+description: Endpoints para criação individual e em lote de estagiários e líderes no módulo de estágio.
+---
+
+## Visão geral
+
+Os endpoints de **onboarding de estágio** permitem adicionar estagiários e líderes ao sistema, individualmente ou via planilha. Todos fazem proxy para extensões Directus: `talent/create`, `internship-leader/create` e `interns-spreadsheet/*`.
+
+Todos requerem sessão NextAuth com `accessToken`.
+
+---
+
+## POST /api/estagio/talent
+
+Cria um estagiário individualmente. Proxy para `Directus POST /talent/create`.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `name` | `string` | sim | Nome completo (dividido em `first_name` + `last_name` pelo BFF) |
+| `email` | `string` | sim | Email do estagiário |
+| `phone_number` | `string` | sim | Telefone |
+| `area` | `string` | não | Área/departamento |
+| `start_date` | `string` | não | Data de início (formato livre — Directus normaliza) |
+| `end_date` | `string` | não | Data de término |
+| `leader_id` | `string/null` | não | UUID da liderança responsável |
+
+### Transformações do BFF
+
+O nome é dividido: `"João Silva" → first_name="João", last_name="Silva"`. Se só um nome, `last_name="-"`.
+
+### Resposta `200`
+
+```json
+{ "data": { "user_id": "...", "jovem_id": 42 } }
+```
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `400` | `name`, `email` ou `phone_number` ausentes |
+| `401` | Sessão inválida |
+| `500` | Erro no Directus |
+
+---
+
+## POST /api/estagio/leader
+
+Cria uma liderança no módulo de estágio. Proxy para `Directus POST /internship-leader/create`.
+
+### Corpo
+
+Passthrough direto para o Directus. Campos típicos: `first_name`, `last_name`, `email`, `phone_number`, `account_id`.
+
+### Resposta `200`
+
+```json
+{ "data": { ... } }
+```
+
+---
+
+## POST /api/estagio/talent/validate-spreadsheet
+
+Valida uma planilha de estagiários antes do batch. Proxy para `Directus POST /interns-spreadsheet/validate`. Retorna erros de validação por linha.
+
+### Formato da requisição
+
+`multipart/form-data`. O arquivo da planilha deve ser enviado como campo do form.
+
+### Resposta `200` (sem erros)
+
+```json
+{ "valid": true, "rows": 25 }
+```
+
+### Resposta `200` (com erros)
+
+```json
+{
+  "valid": false,
+  "errors": [
+    { "row": 3, "field": "email", "message": "Email inválido" },
+    { "row": 7, "field": "phone_number", "message": "Telefone obrigatório" }
+  ]
+}
+```
+
+---
+
+## POST /api/estagio/talent/create-batch
+
+Cria estagiários e líderes em lote a partir de uma planilha já validada. Proxy para `Directus POST /interns-spreadsheet/create-batch`.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `leaders` | `array` | sim | Lista de objetos de liderança |
+| `talents` | `array` | sim | Lista de objetos de estagiário |
+
+### Comportamento
+
+- O Directus processa o lote em transação
+- Retorna `{ created: N, updated: M, errors: [] }` por padrão
+- Erros por linha são retornados no array `errors` sem abortar o lote inteiro
+
+### Resposta `200`
+
+```json
+{ "created": 15, "updated": 3, "errors": [] }
+```
+
+---
+
+## Diferença entre `/estagio/talent` e `/backoffice/cohorts/import/aprendizes`
+
+| Aspecto | `/estagio/talent` | `/cohorts/import/aprendizes` |
+|---------|-------------------|------------------------------|
+| Volume | Individual | Uma linha por vez (loop do wizard) |
+| Wizard | Não | Sim — requer `batch_id` |
+| Endpoint Directus | `/talent/create` | `/talent` |
+| Tipo fixo | Não explicitado | `aprendiz` |
+| Campos de férias | Não | Sim (`inicio_ferias`, `fim_ferias`) |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/estagio/talent/route.js` | `leapy-rh` |
+| `src/app/api/estagio/leader/route.js` | `leapy-rh` |
+| `src/app/api/estagio/talent/validate-spreadsheet/route.js` | `leapy-rh` |
+| `src/app/api/estagio/talent/create-batch/route.js` | `leapy-rh` |
+| `extensions/endpoints/src/internship-leader/index.js` | `directus-backoffice-with-extensions` |
+| `extensions/endpoints/src/mvp-estagio/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Jovens — Ciclo de Vida" icon="users" href="/documentation/domains/jovens/lifecycle">
+    O que acontece após a criação: eventos, matrículas e Moodle
+  </Card>
+  <Card title="Cohorts — Importação em Lote" icon="table" href="/api-reference/backoffice/cohorts-import">
+    Importação com wizard completo, auditoria por linha e campos de férias
+  </Card>
+  <Card title="Talentos e Planos" icon="briefcase" href="/api-reference/backoffice/talent-plans">
+    Criação via backoffice (administradores)
+  </Card>
+</CardGroup>

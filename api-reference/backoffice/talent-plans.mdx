@@ -1,0 +1,105 @@
+---
+title: Backoffice — Talentos e Planos
+description: Endpoints BFF para criação de talentos no backoffice e listagem de planos disponíveis.
+---
+
+## Visão geral
+
+Dois endpoints de suporte ao backoffice administrativo:
+
+- `POST /api/backoffice/talent` — cria um talento individualmente (thin proxy para extensão Directus `/talent`)
+- `GET /api/backoffice/plans` — lista planos disponíveis para o seletor de conta
+
+Ambos requerem sessão NextAuth com `accessToken`.
+
+---
+
+## POST /api/backoffice/talent
+
+Thin proxy para `Directus POST /talent`. Aceita o mesmo contrato do endpoint Directus e repassa diretamente, após normalização mínima.
+
+### Diferença em relação a `/api/estagio/talent`
+
+| Aspecto | `/backoffice/talent` | `/estagio/talent` |
+|---------|---------------------|-------------------|
+| Endpoint Directus | `/talent` | `/talent/create` |
+| Normalização BFF | email lowercase, phone apenas dígitos | Divide `name` em `first_name`/`last_name` |
+| Campos disponíveis | Todos (passthrough) | Subset (name, email, phone, area, dates, leader_id) |
+| Uso | Administradores backoffice | RH — módulo de estágio |
+
+### Corpo
+
+Passthrough para o Directus. Campos principais:
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `first_name` | `string` | sim | Primeiro nome |
+| `last_name` | `string` | sim | Sobrenome |
+| `email` | `string` | sim | Email (normalizado para lowercase) |
+| `phone_number` | `string` | não | Telefone (somente dígitos) |
+| `company_id` | `number` | não | FK empresa |
+| `leader_id` | `string` | não | UUID da liderança |
+| `start_date` | `string` | não | Data de início |
+| `type` | `string` | não | Tipo de contrato (`"aprendiz"`, `"estagiario"`, etc.) |
+
+O Directus valida o payload completo via schema Zod de 60+ campos.
+
+### Resposta
+
+Passthrough da resposta do Directus com o mesmo status code.
+
+---
+
+## GET /api/backoffice/plans
+
+Lista os planos disponíveis para seleção no drawer de configuração de conta. Chama `getPlans()` via `src/services/plans.ts`.
+
+### Resposta `200`
+
+```json
+{
+  "plans": [
+    { "id": 1, "name": "Básico", "max_jovens": 50 },
+    { "id": 2, "name": "Professional", "max_jovens": 200 },
+    { "id": 3, "name": "Enterprise", "max_jovens": null }
+  ]
+}
+```
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `401` | Sessão inválida |
+| `500` | Erro ao buscar planos no Directus |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/backoffice/talent/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/plans/route.ts` | `leapy-rh` |
+| `src/services/plans.ts` | `leapy-rh` |
+| `extensions/endpoints/src/talent/index.js` | `directus-backoffice-with-extensions` |
+| `extensions/endpoints/src/plans/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Jovens — Ciclo de Vida" icon="users" href="/documentation/domains/jovens/lifecycle">
+    O que acontece após a criação de um talento via backoffice
+  </Card>
+  <Card title="Talents — Fluxo de PDI" icon="chart-line" href="/documentation/domains/talents/pdi-workflow">
+    Como o plano do talento se conecta ao módulo de PDI
+  </Card>
+  <Card title="Cohorts — Importação em Lote" icon="table" href="/api-reference/backoffice/cohorts-import">
+    Alternativa para criação em lote com wizard e auditoria
+  </Card>
+  <Card title="Estágio — Onboarding" icon="graduation-cap" href="/api-reference/estagio/onboarding">
+    Criação de estagiários via módulo de estágio
+  </Card>
+</CardGroup>

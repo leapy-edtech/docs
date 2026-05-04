@@ -1,0 +1,164 @@
+---
+title: Vision AI — Dashboard Analítico
+description: Endpoints BFF para análise de gráficos via IA, chat contextual e insights persistidos do dashboard v2.
+---
+
+## Visão geral
+
+O módulo **Vision AI** expõe três endpoints BFF que fazem proxy autenticado para o endpoint `/vision/*` do Directus (extensão `vision`). Todos requerem sessão NextAuth ativa com `accessToken` válido.
+
+Fluxo geral:
+
+```
+Cliente → POST /api/backoffice/dashboard/v2/vision/analyze
+               ↓ Bearer ${accessToken}
+         Directus → extensão /vision/analyze → LLM
+               ↓
+         JSON { analysis, insights[] }
+```
+
+---
+
+## POST /api/backoffice/dashboard/v2/vision/analyze
+
+Analisa um gráfico de dados via LLM e retorna texto interpretativo.
+
+### Autenticação
+
+Sessão NextAuth. O BFF extrai `accessToken` da sessão e injeta como `Authorization: Bearer` no Directus.
+
+### Corpo da requisição
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `chartType` | `string` | sim | Tipo do gráfico (ex.: `"bar"`, `"line"`, `"pie"`) |
+| `chartData` | `object` | sim | Dados do gráfico (estrutura livre, repassada ao Directus) |
+| `chartTitle` | `string` | não | Título do gráfico para contexto da análise |
+| `filters` | `object` | não | Filtros ativos no dashboard no momento da análise |
+| `accountId` | `string` | não | ID da conta para segmentar o contexto |
+
+### Respostas
+
+| Status | Descrição |
+|--------|-----------|
+| `200` | `{ analysis: string, insights: string[] }` — análise gerada pelo LLM |
+| `400` | `chartType` ou `chartData` ausentes |
+| `401` | Sessão inválida ou `accessToken` não disponível |
+| `500` | Erro interno no Directus ou na chamada LLM |
+| `504` | Timeout — análise excedeu 60 segundos (`VISION_TIMEOUT_MS`) |
+
+### Exemplo
+
+```bash
+curl -X POST /api/backoffice/dashboard/v2/vision/analyze \
+  -H "Cookie: next-auth.session-token=..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "chartType": "bar",
+    "chartTitle": "NPS por turma — Q1 2026",
+    "chartData": { "labels": ["Turma A","Turma B"], "values": [72, 58] },
+    "filters": { "quarter": "Q1" },
+    "accountId": "acct_123"
+  }'
+```
+
+---
+
+## POST /api/backoffice/dashboard/v2/vision/chat/stream
+
+Chat contextual sobre os dados do dashboard com resposta em **Server-Sent Events (SSE)**.
+
+### Autenticação
+
+Sessão NextAuth com `accessToken`.
+
+### Corpo da requisição
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `message` | `string` | sim | Pergunta do usuário |
+| `sessionId` | `string` | sim | ID da sessão de chat para manter contexto entre turnos |
+| `chartContext` | `object \| null` | não | Contexto do gráfico ativo para ancoragem da resposta |
+
+### Resposta
+
+- **200**: `Content-Type: text/event-stream`. O corpo é um stream SSE repassado diretamente do Directus. Cabeçalhos: `X-Accel-Buffering: no`, `Cache-Control: no-cache`.
+- **400**: `message` ou `sessionId` ausentes.
+- **401**: Sessão inválida.
+- **504**: Timeout — resposta excedeu 120 segundos (`CHAT_STREAM_TIMEOUT_MS`).
+
+### Consumo do stream
+
+```javascript
+const es = new EventSource("/api/backoffice/dashboard/v2/vision/chat/stream");
+es.onmessage = (e) => {
+  const { delta } = JSON.parse(e.data);
+  // acumular delta de texto
+};
+es.onerror = () => es.close();
+```
+
+### Observabilidade
+
+- Timeout de 120 s controlado por `AbortController`. Ao abortar, o BFF retorna `504` com mensagem descritiva.
+- Erros de fetch para o Directus são logados em `[Vision API] Chat stream error`.
+
+---
+
+## GET /api/backoffice/dashboard/v2/vision/insights
+
+Retorna o insight mais recente gerado pelo pipeline diário de análise, persistido na coleção `vision_insights` do Directus.
+
+### Autenticação
+
+Sessão NextAuth com `accessToken`.
+
+### Resposta
+
+```json
+{
+  "data": [
+    {
+      "insights": "...",
+      "generated_at": "2026-05-03T08:00:00Z"
+    }
+  ]
+}
+```
+
+Retorna o registro mais recente (`sort=-date_created&limit=1`). Se nenhum insight existir, retorna `{ "data": [] }`.
+
+### Comportamento em erro
+
+O endpoint retorna `{ "data": [] }` com o status do Directus em caso de falha — nunca expõe 500 ao cliente. Erros são logados em `[Vision Insights API]`.
+
+---
+
+## Integrações relacionadas
+
+- **Directus endpoint `/vision`**: extensão customizada que integra LLM para análise de dados. Recebe os payloads transformados pelo BFF.
+- **Pipeline diário**: job `generate-daily-insights` que persiste insights em `vision_insights` consumidos pelo `GET /insights`.
+- **`baseUrl`**: constante `DIRECTUS_URL` configurada via variável de ambiente no Next.js.
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/backoffice/dashboard/v2/vision/analyze/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/dashboard/v2/vision/chat/stream/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/dashboard/v2/vision/insights/route.ts` | `leapy-rh` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Backoffice Directus" icon="database" href="/documentation/platform/backoffice-directus">
+    Arquitetura da extensão `/vision` e estrutura da coleção `vision_insights`
+  </Card>
+  <Card title="API Reference — Backoffice" icon="book" href="/api-reference/backoffice/index">
+    Índice completo dos endpoints BFF do backoffice
+  </Card>
+</CardGroup>

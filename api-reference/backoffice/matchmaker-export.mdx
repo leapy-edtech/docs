@@ -1,0 +1,93 @@
+---
+title: Matchmaker — Exportação PDF
+description: Endpoint para exportar resultados de match em PDF, com dados de perfil, percentual de match e reasoning por candidato.
+---
+
+## Visão geral
+
+`POST /api/matchmaker/export-pdf` gera um relatório PDF com os candidatos selecionados em uma busca de matchmaker. O PDF é construído server-side via `buildMatchmakerReportPdf` e entregue como download direto.
+
+---
+
+## POST /api/matchmaker/export-pdf
+
+### Autenticação
+
+Sessão NextAuth.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `candidateIds` | `string[]` | sim | Lista de UUIDs dos talentos a incluir no PDF |
+| `candidates` | `object[]` | não | Dados de match do cliente (enriquece os dados do Directus) |
+| `query` | `string` | não | Query da busca, usada no nome do arquivo |
+
+**Limite:** máximo de 50 candidatos por exportação.
+
+### Estrutura de `candidates` (opcional)
+
+```json
+[
+  {
+    "id": "user-uuid",
+    "matchPercentage": 87,
+    "skills": ["TypeScript", "React"],
+    "reasoning": "Perfil alinhado com os requisitos técnicos e comportamentais"
+  }
+]
+```
+
+Se não fornecido, o PDF usa `match_percentage` e dados do Directus diretamente.
+
+### Comportamento
+
+1. Para cada `candidateId`, busca o perfil completo via `getTalentByUserId`
+2. Mescla com dados de `candidates` (se fornecidos): `matchPercentage`, `matchingSkills`, `reasoning`
+3. Gera PDF binário via `buildMatchmakerReportPdf`
+4. Nome do arquivo: `matchmaker-{slug-da-query}-{timestamp}.pdf`
+
+### Resposta `200`
+
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="matchmaker-desenvolvedor-junior-1746400000000.pdf"
+Cache-Control: no-store
+```
+
+Corpo: binário do PDF.
+
+### Erros
+
+| Status | Descrição |
+|--------|-----------|
+| `400` | `candidateIds` ausente, vazio ou com mais de 50 itens |
+| `401` | Sessão inválida |
+| `404` | Nenhum talento encontrado com os IDs fornecidos |
+| `500` | Erro ao gerar PDF |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/matchmaker/export-pdf/route.js` | `leapy-rh` |
+| `src/lib/pdf/matchmaker-report.ts` | `leapy-rh` |
+| `src/services/talents.ts` (`getTalentByUserId`) | `leapy-rh` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Matchmaker — Classificação Automática" icon="sparkles" href="/documentation/domains/matchmaker/classificacao-automatica">
+    Como candidatos são ranqueados antes da exportação
+  </Card>
+  <Card title="Matchmaker — Endpoints Custom" icon="plug" href="/api-reference/backoffice/matchmaker-endpoints-custom">
+    Endpoints Directus de busca e stream do matchmaker
+  </Card>
+  <Card title="Hiring — Vagas e Candidaturas" icon="briefcase" href="/api-reference/hiring/vagas">
+    Como os candidatos entram no funil de hiring
+  </Card>
+</CardGroup>

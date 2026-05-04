@@ -268,9 +268,60 @@
               {
                 "group": "Matchmaker",
                 "pages": [
-                  "api-reference/backoffice/matchmaker-endpoints-custom"
+                  "api-reference/backoffice/matchmaker-endpoints-custom",
+                  "api-reference/backoffice/matchmaker-export"
+                ]
+              },
+              {
+                "group": "Gestão de Pessoas",
+                "pages": [
+                  "api-reference/backoffice/leadership",
+                  "api-reference/backoffice/talent-plans",
+                  "api-reference/backoffice/competencias",
+                  "api-reference/backoffice/cohorts-import"
+                ]
+              },
+              {
+                "group": "Dashboard & AI",
+                "pages": [
+                  "api-reference/backoffice/vision-ai"
+                ]
+              },
+              {
+                "group": "Segurança",
+                "pages": [
+                  "api-reference/backoffice/impersonation"
                 ]
               }
+            ]
+          },
+          {
+            "dropdown": "Hiring & Hub",
+            "pages": [
+              {
+                "group": "Vagas",
+                "pages": [
+                  "api-reference/hiring/vagas"
+                ]
+              },
+              {
+                "group": "Hub do Candidato",
+                "pages": [
+                  "api-reference/hub/hiring"
+                ]
+              }
+            ]
+          },
+          {
+            "dropdown": "Estágio",
+            "pages": [
+              "api-reference/estagio/onboarding"
+            ]
+          },
+          {
+            "dropdown": "Auth & Utilities",
+            "pages": [
+              "api-reference/auth/validate-email"
             ]
           },
           {
