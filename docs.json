@@ -33,6 +33,7 @@
                   "documentation/domains/pulses/webhooks",
                   "documentation/domains/pulses/jobs-inngest",
                   "documentation/domains/pulses/skills-sync",
+                  "documentation/domains/pulses/lideranca-avaliacao-leapy",
                   "documentation/domains/pulses/integrations",
                   "documentation/domains/pulses/metrics",
                   "documentation/domains/pulses/journeys",
@@ -44,7 +45,8 @@
                 "group": "Jovens",
                 "pages": [
                   "documentation/domains/jovens/index",
-                  "documentation/domains/jovens/lifecycle"
+                  "documentation/domains/jovens/lifecycle",
+                  "documentation/domains/jovens/solicitacoes-rh"
                 ]
               },
               {
@@ -109,6 +111,7 @@
                 "pages": [
                   "documentation/domains/presences/index",
                   "documentation/domains/presences/justificativas",
+                  "documentation/domains/presences/alinhamento",
                   "documentation/domains/presences/journeys",
                   "documentation/domains/presences/business-rules",
                   "documentation/domains/presences/data-model",
@@ -150,6 +153,8 @@
               "documentation/platform/security-data",
               "documentation/platform/impersonation",
               "documentation/platform/zoom-agenda",
+              "documentation/platform/moodle-sso",
+              "documentation/platform/moodle-links-weekly",
               "documentation/platform/conventions"
             ]
           },
@@ -325,6 +330,12 @@
             "dropdown": "Auth & Utilities",
             "pages": [
               "api-reference/auth/validate-email"
+            ]
+          },
+          {
+            "dropdown": "Career Map",
+            "pages": [
+              "api-reference/career-map/index"
             ]
           },
           {

@@ -1,0 +1,470 @@
+---
+title: "Career Map — API de Mapa de Carreira e Skills"
+description: "Endpoints BFF do módulo de Mapa de Carreira: cargo alvo, gap de competências, transições de skill e recomendações"
+---
+
+## Visão Geral
+
+O Career Map é o módulo de desenvolvimento de carreira da plataforma Leapy. Os endpoints são
+**BFF (Backend for Frontend)** que fazem proxy para a API **Taxonomic** (serviço de catálogo de
+cargos e competências) e para o Directus (senioridades). Toda autenticação é via sessão NextAuth —
+o token de sessão é propagado internamente.
+
+<CardGroup cols={2}>
+  <Card title="Cargo Alvo" icon="bullseye">
+    Define e consulta o cargo para o qual o talento está desenvolvendo competências
+  </Card>
+  <Card title="Gap de Skills" icon="chart-bar">
+    Análise completa: skills que possui, está desenvolvendo, e precisa adquirir
+  </Card>
+  <Card title="Transições" icon="arrows-rotate">
+    Move skills entre colunas: precisa → desenvolvendo → possui
+  </Card>
+  <Card title="Recomendações" icon="wand-magic-sparkles">
+    Cargos sugeridos com base no perfil atual de competências
+  </Card>
+</CardGroup>
+
+## Autenticação e Autorização
+
+Todos os endpoints requerem sessão NextAuth ativa. Retornam `401` quando não autenticado.
+Os endpoints de leitura operam com o usuário da sessão como contexto implícito — exceto
+`/skill-gap?userId=`, que aceita `userId` opcional (para leitura de outros perfis por RH/admin).
+
+## Endpoints
+
+---
+
+### Busca de Cargos
+
+#### `GET /api/career-map/search`
+
+Busca cargos no catálogo Taxonomic com filtros.
+
+**Query params:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `q` | `string` | Sim | Termo de busca — mínimo 2 caracteres |
+| `seniority` | `string` | Não | Filtro: `intern`, `junior`, `midlevel`, `senior` |
+| `band` | `string` | Não | Filtro por band/faixa salarial |
+| `limit` | `number` | Não | Máximo de resultados (default: `50`) |
+
+**Response `200`:**
+
+```json
+{
+  "roles": [
+    {
+      "id": 1234,
+      "title": "Analista de Dados",
+      "inferred_seniority": "junior",
+      "seniority": "junior",
+      "seniorityLabel": "Júnior",
+      "band": "B2",
+      "description": "Analista responsável por...",
+      "skillCount": 12,
+      "shortDescription": "Cargo de Analista de Dados"
+    }
+  ],
+  "count": 1
+}
+```
+
+**Validações:**
+- `q` com menos de 2 caracteres retorna `{ roles: [], count: 0 }` sem erro
+- `seniority` fora das opções aceitas retorna `400`
+
+---
+
+### Cargo Alvo
+
+#### `GET /api/career-map/target-role`
+
+Retorna o cargo alvo atual do usuário da sessão.
+
+**Response `200` (com cargo alvo):**
+
+```json
+{
+  "hasTargetRole": true,
+  "targetRoleId": 1234,
+  "targetRole": {
+    "id": 1234,
+    "name": "Analista de Dados",
+    "description": "..."
+  }
+}
+```
+
+**Response `200` (sem cargo alvo):**
+
+```json
+{
+  "hasTargetRole": false,
+  "targetRole": null
+}
+```
+
+---
+
+#### `POST /api/career-map/target-role`
+
+Define o cargo alvo do usuário. Registra evento de analytics (`PDI.TARGET_ROLE_SELECTED`).
+
+**Body:**
+
+```json
+{ "roleId": 1234 }
+```
+
+**Response `200`:**
+
+```json
+{
+  "success": true,
+  "userCareerId": "uuid",
+  "role": { "id": 1234, "name": "Analista de Dados" },
+  "hasSkillMappings": true,
+  "skillCount": 12
+}
+```
+
+**Erros:** `400` se `roleId` ausente, `401` se não autenticado.
+
+---
+
+#### `DELETE /api/career-map/target-role`
+
+Remove o cargo alvo (limpa a seleção).
+
+**Response `200`:**
+
+```json
+{ "success": true, "message": "Cargo alvo removido com sucesso" }
+```
+
+---
+
+### Gap de Competências
+
+#### `GET /api/career-map/skill-gap`
+
+Endpoint central do Career Map. Consolida dados de 4 fontes em paralelo e retorna a análise
+completa de competências do usuário em relação ao cargo alvo.
+
+**Query params:**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `userId` | `string` | Não | UUID do usuário (omitir = usuário da sessão) |
+
+**Response `200`:**
+
+```json
+{
+  "hasTargetRole": true,
+  "targetRole": {
+    "id": 1234,
+    "name": "Analista de Dados",
+    "description": "..."
+  },
+  "userSeniority": "junior",
+  "matchPercent": 58,
+  "developedCount": 7,
+  "totalCount": 12,
+  "skills": {
+    "strengths": [{ "id": 10, "label": "SQL", "level": "Intermediário", "origin": "self" }],
+    "gaps": [{ "id": 20, "label": "Python", "level": "Básico", "gapSize": 2, "status": "GAP_MISSING" }],
+    "inDevelopment": [{ "id": 15, "label": "Power BI", "devStatus": "active" }]
+  },
+  "targetRoleSkills": {
+    "strengths": [...],
+    "gaps": [...],
+    "inDevelopment": [...]
+  },
+  "warning": null
+}
+```
+
+**Colunas de skills:**
+- `skills.strengths` — **todas** as skills que o usuário possui (página `/competencias`)
+- `skills.gaps` — skills que precisa para o cargo alvo + metas do usuário (página `/competencias`)
+- `skills.inDevelopment` — **todas** as skills em desenvolvimento
+- `targetRoleSkills.*` — idem, filtrado apenas pelas skills requeridas pelo cargo alvo (página `/mapa-de-carreiras`)
+
+**Status de gap:**
+
+| Status | Significado |
+|---|---|
+| `GAP_MISSING` | Skill requerida que o usuário não possui |
+| `GAP_INSUFFICIENT` | Skill presente mas com proficiência abaixo do requerido |
+| `HAS` | Skill requerida e presente com proficiência adequada |
+
+**Origens de skill (`origin`):**
+
+| Valor | Fonte |
+|---|---|
+| `self` | Autodeclarada pelo usuário |
+| `linkedin` | Inferida do LinkedIn |
+| `pulsos` | Avaliada via pulsos de feedback |
+| `feleapy` | Inferida por IA da Leapy |
+| `role_gap` | Necessária pelo cargo alvo |
+| `user_goal` | Meta definida pelo próprio usuário |
+
+<Note>
+  Quando o usuário não tem cargo alvo definido, `hasTargetRole: false` e `skills.gaps` contém
+  apenas metas do usuário (`user_goal`). O frontend deve mostrar estado inicial sem gap.
+</Note>
+
+---
+
+### Competências do Usuário
+
+#### `GET /api/career-map/user-skills`
+
+Retorna todas as competências do usuário com proficiência e avaliações.
+
+**Response `200`:**
+
+```json
+{
+  "user_id": "uuid",
+  "skills": [
+    {
+      "skill_id": 10,
+      "skill": { "id": 10, "name": "SQL", "category": "Technical" },
+      "proficiency": 2,
+      "is_validated": true,
+      "assessments": [{ "origin": "self_declared", "assessment_method": "input" }]
+    }
+  ],
+  "count": 5
+}
+```
+
+**Normalização:** `proficiency` é sempre numérico (0-4). Valores inválidos retornam `0`.
+
+---
+
+#### `POST /api/career-map/skills`
+
+Adiciona ou atualiza uma skill do usuário. Registra evento `PDI.SKILLS_MAPPED`.
+
+**Body:**
+
+```json
+{
+  "skill_id": 10,
+  "proficiency": 2,
+  "assessment": {
+    "origin": "self_declared",
+    "assessment_method": "input"
+  }
+}
+```
+
+**Campos:**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `skill_id` | `number` | Sim | ID da skill no catálogo Taxonomic |
+| `proficiency` | `number` | Não | Nível 0-4 (default: `2`) |
+| `assessment` | `object` | Não | Metadados da avaliação (origin, method) |
+
+---
+
+#### `GET /api/career-map/skills/search`
+
+Busca skills no catálogo para autocompletar.
+
+**Query params:** `q` (mínimo 1 caractere), `category`, `limit` (default: `20`).
+
+**Response `200`:** passthrough da API Taxonomic — `{ skills: [...], count: N }`.
+
+---
+
+### Metas de Desenvolvimento
+
+#### `GET /api/career-map/skill-goals`
+
+Retorna metas de desenvolvimento do usuário.
+
+**Query params:** `status` — `active` (default), `completed`, `cancelled`.
+
+---
+
+#### `POST /api/career-map/skill-goals`
+
+Cria uma meta de desenvolvimento. Registra evento `PDI.PERSONAL_GOAL_CREATED`.
+
+**Body:**
+
+```json
+{
+  "skill_id": 10,
+  "priority": "high",
+  "target_proficiency": 2,
+  "reason": "Necessário para o cargo alvo",
+  "source": "user_wishlist"
+}
+```
+
+**Validações:**
+- `priority`: `high`, `medium` ou `low`
+- `target_proficiency`: `1`, `2` ou `3`
+- Retorna `501` se a API de goals não estiver habilitada no backend
+
+---
+
+### Transições de Skill
+
+#### `POST /api/career-map/skill-transitions`
+
+Move uma skill entre as colunas do Kanban de competências. Registra eventos de analytics.
+
+**Body:**
+
+```json
+{
+  "skill_id": 10,
+  "from_status": "precisa",
+  "to_status": "desenvolvendo",
+  "proficiency": 2
+}
+```
+
+**Transições suportadas:**
+
+| `from_status` | `to_status` | Ação interna |
+|---|---|---|
+| `precisa` | `desenvolvendo` | `addSkillToDevelopment` |
+| `desenvolvendo` | `precisa` | `removeSkillFromDevelopment` |
+| `desenvolvendo` | `possui` | `completeDevelopmentSkill` |
+| `precisa` | `possui` | `addOrUpdateUserSkill` (self_declared) |
+| `possui` | `precisa` | `transitionSkill` |
+| `possui` | `desenvolvendo` | `transitionSkill` |
+
+**Validação:** `from_status === to_status` retorna `400`.
+
+---
+
+### Recomendações
+
+#### `GET /api/career-map/recommendations`
+
+Retorna cargos recomendados com base nas skills atuais do usuário. `Cache-Control: no-store`.
+
+**Query params:**
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `limit` | `number` | 1-50 (clampado) |
+| `band` | `string` | Filtro por band |
+| `seniority` | `string` | Filtro por senioridade |
+| `min_intersection` | `number` | Mínimo de skills em comum (1-10, clampado) |
+
+**Response `200`:**
+
+```json
+{
+  "user_id": "uuid",
+  "roles": [
+    {
+      "id": 1234,
+      "name": "Analista de Dados",
+      "seniorityLabel": "Júnior",
+      "inferred_seniority": "junior"
+    }
+  ],
+  "count": 5
+}
+```
+
+---
+
+#### `POST /api/career-map/roles/match`
+
+Calcula percentual de match em batch para múltiplos cargos. Útil para exibir match em listas.
+`Cache-Control: no-store`. Máximo de 200 `role_ids` por requisição.
+
+**Body:**
+
+```json
+{
+  "role_ids": [1234, 1235, 1236],
+  "user_id": "uuid-opcional"
+}
+```
+
+---
+
+### Utilitários
+
+#### `GET /api/career-map/seniorities`
+
+Retorna as senioridades disponíveis consultando diretamente o Directus (não a API Taxonomic).
+Filtra apenas roles com `status: active` e `is_template: true`.
+
+**Response `200`:**
+
+```json
+{
+  "seniorities": [
+    { "id": "junior", "value": "junior", "label": "Júnior" },
+    { "id": "midlevel", "value": "midlevel", "label": "Pleno" },
+    { "id": "senior", "value": "senior", "label": "Sênior" }
+  ],
+  "count": 3
+}
+```
+
+**Ordem:** `intern → junior → midlevel → senior → staff → principal`
+
+---
+
+## Observabilidade
+
+Eventos de analytics rastreados via `sendServerEvent` (fire-and-forget):
+
+| Evento | Trigger |
+|---|---|
+| `PDI.TARGET_ROLE_SELECTED` | `POST /target-role` |
+| `PDI.SKILLS_MAPPED` | `POST /skills` |
+| `PDI.PERSONAL_GOAL_CREATED` | `POST /skill-goals` |
+| `PDI.SKILL_STARTED` | `POST /skill-transitions` (→ `desenvolvendo`) |
+| `PDI.SKILL_COMPLETED` | `POST /skill-transitions` (→ `possui`) |
+
+Todos os erros são logados via `console.error` com `details: error.message`.
+
+## Referências de Código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `src/app/api/career-map/search/route.js` | `leapy-rh` | Busca de cargos |
+| `src/app/api/career-map/target-role/route.js` | `leapy-rh` | GET/POST/DELETE cargo alvo |
+| `src/app/api/career-map/skill-gap/route.js` | `leapy-rh` | Análise completa de gap |
+| `src/app/api/career-map/user-skills/route.js` | `leapy-rh` | Skills do usuário |
+| `src/app/api/career-map/skills/route.js` | `leapy-rh` | POST skill |
+| `src/app/api/career-map/skills/search/route.js` | `leapy-rh` | Busca de skills |
+| `src/app/api/career-map/skill-goals/route.js` | `leapy-rh` | Metas de desenvolvimento |
+| `src/app/api/career-map/skill-transitions/route.js` | `leapy-rh` | Transições Kanban |
+| `src/app/api/career-map/recommendations/route.js` | `leapy-rh` | Recomendações de cargos |
+| `src/app/api/career-map/roles/match/route.js` | `leapy-rh` | Match em batch |
+| `src/app/api/career-map/seniorities/route.js` | `leapy-rh` | Senioridades disponíveis |
+| `src/services/careers.js` | `leapy-rh` | Client da API Taxonomic |
+
+<CardGroup cols={2}>
+  <Card title="Talentos e PDI" icon="user" href="/documentation/domains/talents/pdi-workflow">
+    Fluxo de criação de PDI que usa cargo alvo e gap de skills
+  </Card>
+  <Card title="Pulsos — Skills Sync" icon="gear" href="/documentation/domains/pulses/skills-sync">
+    Como avaliações de pulsos alimentam o perfil de skills
+  </Card>
+  <Card title="Agent System" icon="robot" href="/documentation/platform/agent-system">
+    Agente de IA que usa contexto de carreira para follow-ups
+  </Card>
+  <Card title="Matchmaker" icon="magnifying-glass" href="/documentation/domains/matchmaker/index">
+    Sistema de match de vagas que usa skills e cargo alvo
+  </Card>
+</CardGroup>

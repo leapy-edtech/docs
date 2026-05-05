@@ -1,0 +1,138 @@
+---
+title: "Alinhamento de Presenças"
+description: "Job que consolida registros de presença de jovens e envia emails de confirmação ou ausência com base em reuniões Zoom"
+---
+
+## Contexto de Produto
+
+Após reuniões/encontros registrados via Zoom, o sistema processa os registros de presença de
+cada jovem (`presente`, `presente_com_atraso`, `ausente`) e envia um email de confirmação.
+O email serve como evidência do registro e como comunicação direta com o jovem sobre sua presença.
+
+## Evento e Job
+
+### Evento: `backoffice/alinhar-presencas.send`
+
+Disparado por outros jobs ou por integração com Zoom quando presenças são processadas.
+
+**Payload:**
+
+```json
+{
+  "name": "backoffice/alinhar-presencas.send",
+  "data": {
+    "ids": [101, 102, 103],
+    "chunk_size": 10
+  }
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `ids` | `number[]` | IDs de registros na collection `report_presenca_zoom` |
+| `chunk_size` | `number` | Tamanho do chunk para processamento paralelo (default: `10`) |
+
+### Job: `alinhar-presencas`
+
+**Lógica de chunking:**
+
+Quando `ids.length > chunk_size`, o job divide os IDs em chunks e processa cada chunk via
+`step.invoke` sequencialmente (com delay de 1s entre chunks). Isso evita sobrecarga na API
+de email e no Directus.
+
+```
+ids: [1..50]  →  chunks: [[1..10], [11..20], ..., [41..50]]
+                  ↓ processar chunk 1 → esperar 1s → chunk 2 → ...
+```
+
+**Por cada ID de presença:**
+
+1. Lê o registro de `report_presenca_zoom` (`jovem`, `meeting_date`, `presenca`)
+2. Se algum campo estiver vazio → pula (log + continua)
+3. Busca dados do jovem (`email_corporativo`, `personal_email`) via `directus_users` + `user_personal_data`
+4. Se jovem sem email → pula (log + continua)
+5. Determina se `presente` ou `ausente`
+6. Envia email com o template correspondente
+
+## Templates de Email
+
+### Presença confirmada
+
+- **Template:** `presenca-confirmada`
+- **Assunto:** `[LEAPY] - Presença confirmada e coração quentinho! {meeting_date}`
+- **Dados:** `meeting_date` (formatado)
+
+### Presença não confirmada (ausente)
+
+- **Template:** `presenca-nao-confirmada`
+- **Assunto:** `[LEAPY] - Ei, você pulou o encontro do dia {meeting_date}?`
+- **Dados:** `meeting_date` (formatado)
+
+<Note>
+  Os emails são enviados para o email do jovem (`email_corporativo` ou `personal_email`) e
+  também com cópia fixa para `mariana.jales@leapy.com.br` (hardcoded no job).
+</Note>
+
+**Mapeamento de presenças:**
+
+| Valor `presenca` | Classificação | Email enviado |
+|---|---|---|
+| `presente` | Presente | `presenca-confirmada` |
+| `presente_com_atraso` | Presente | `presenca-confirmada` |
+| `ausente` | Ausente | `presenca-nao-confirmada` |
+| outro valor | Nenhum | Sem email |
+
+## Collection: `report_presenca_zoom`
+
+Campos lidos pelo job:
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | `number` | ID do registro |
+| `jovem` | `number` | ID do jovem (FK para Jovens) |
+| `meeting_date` | `string` | Data/hora da reunião |
+| `presenca` | `string` | Status: `presente`, `presente_com_atraso`, `ausente` |
+
+## Observabilidade
+
+O job loga cada etapa com os IDs processados. Para verificar presença de um jovem específico:
+
+```sql
+-- Presenças de um jovem nas últimas reuniões
+SELECT id, meeting_date, presenca
+FROM report_presenca_zoom
+WHERE jovem = {jovem_id}
+ORDER BY meeting_date DESC
+LIMIT 20;
+```
+
+## Riscos, Limites e Trade-offs
+
+| Risco | Mitigação |
+|---|---|
+| Jovem sem email no Directus | Job pula silenciosamente (log + continua) |
+| Presença com campos incompletos | Job pula e continua os demais registros |
+| Email de cópia hardcoded | Depende de mudança de código para alterar destinatário de cópia |
+| Chunks grandes travam o job | `chunk_size` default 10; `step.invoke` distribui carga |
+| Delay de 1s entre chunks → job lento | Trade-off intencional para não sobrecarregar APIs externas |
+
+## Referências de Código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `src/inngest/functions/presencas/alinhar-presencas.ts` | `backoffice-inngest-functions` | Job principal — consolidação e envio |
+
+<CardGroup cols={2}>
+  <Card title="Presenças" icon="calendar-check" href="/documentation/domains/presences/index">
+    Domínio de presenças — visão geral, fluxos e regras
+  </Card>
+  <Card title="Justificativas de Presença" icon="file-pen" href="/documentation/domains/presences/justificativas">
+    Fluxo de justificativa de faltas via hook e job
+  </Card>
+  <Card title="Zoom e Agenda" icon="video" href="/documentation/platform/zoom-agenda">
+    Integração Zoom para criação de links de reunião
+  </Card>
+  <Card title="Jobs e Eventos Inngest" icon="gear" href="/documentation/platform/events-jobs-inngest">
+    Arquitetura de eventos assíncronos
+  </Card>
+</CardGroup>
