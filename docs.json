@@ -34,6 +34,7 @@
                   "documentation/domains/pulses/jobs-inngest",
                   "documentation/domains/pulses/skills-sync",
                   "documentation/domains/pulses/lideranca-avaliacao-leapy",
+                  "documentation/domains/pulses/crons-lembretes-liberacoes",
                   "documentation/domains/pulses/integrations",
                   "documentation/domains/pulses/metrics",
                   "documentation/domains/pulses/journeys",
@@ -285,8 +286,10 @@
                 "pages": [
                   "api-reference/backoffice/leadership",
                   "api-reference/backoffice/talent-plans",
+                  "api-reference/backoffice/talent-followup",
                   "api-reference/backoffice/competencias",
-                  "api-reference/backoffice/cohorts-import"
+                  "api-reference/backoffice/cohorts-import",
+                  "api-reference/backoffice/estagiarios-planilha"
                 ]
               },
               {
