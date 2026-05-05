@@ -1,0 +1,260 @@
+---
+title: "Importação de Estagiários por Planilha"
+description: "Dois endpoints para onboarding em massa de líderes e talentos via planilha XLSX: validação de dados e criação transacional com envio de convites"
+---
+
+## Visão Geral
+
+O endpoint `interns-spreadsheet` oferece um fluxo em dois passos para importar líderes e
+talentos em lote a partir de uma planilha Excel (`.xlsx`):
+
+1. **Validar** a planilha e retornar erros por linha antes de criar qualquer registro.
+2. **Criar** os usuários em transação atômica e enviar emails de convite.
+
+Autenticação Directus obrigatória na criação (`POST /create-batch`). A validação
+(`POST /validate`) não exige autenticação, mas é projetada para uso em fluxo autenticado.
+
+---
+
+## `POST /estagiarios-planilha/validate`
+
+Valida uma planilha XLSX sem persistir nada no banco.
+
+### Request
+
+- **Content-Type:** `multipart/form-data`
+- **Body field:** `file` (arquivo `.xlsx`)
+
+### Colunas obrigatórias na planilha
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `lider` | `"true"`, `1` ou `"1"` | Indica se a linha é um líder ou talento |
+| `nome_completo` | string | Nome completo |
+| `email` | string | Email — validado com regex RFC-5322 simples |
+| `telefone` | string | Telefone — formato `55 DD XXXXX-XXXX` (aceita variações) |
+| `area` | string | Área/departamento |
+| `inicio` | string | Data de início do estagiário (`YYYY-MM-DD`) |
+| `fim` | string | Data de fim do estagiário (`YYYY-MM-DD`) |
+| `email_do_lider` | string (opcional) | Email do líder associado ao talento |
+| `cargo` | string (opcional) | Cargo do líder |
+
+### Validações aplicadas
+
+| Campo | Regra |
+|---|---|
+| `email` | Formato RFC-5322 simples; duplicatas dentro da planilha |
+| `telefone` | Regex `\+?55 (DDD) XXXXX-XXXX`; deve começar com `55`; sem duplicatas por tipo (líder/talento) |
+| `nome_completo` | Não pode ser vazio |
+| `inicio` / `fim` | Formato `YYYY-MM-DD`; obrigatório para talentos |
+
+### Response `200 OK`
+
+```json
+{
+  "is_valid": true,
+  "errors": [],
+  "interns": [
+    {
+      "nome": "Ana Lima",
+      "email": "ana@empresa.com",
+      "telefone": "5511987654321",
+      "area": "Tecnologia",
+      "inicio": "2026-06-01",
+      "fim": "2027-06-01",
+      "lideranca": "carlos@empresa.com"
+    }
+  ],
+  "leaders": [
+    {
+      "nome": "Carlos Souza",
+      "email": "carlos@empresa.com",
+      "telefone": "5511912345678",
+      "cargo": "Gerente",
+      "area": "Tecnologia"
+    }
+  ],
+  "summary": {
+    "totalInterns": 1,
+    "totalLeaders": 1,
+    "errors": 0
+  }
+}
+```
+
+### Response `400` — planilha inválida
+
+```json
+{
+  "is_valid": false,
+  "errors": [
+    {
+      "linha": 3,
+      "entidade": "talento",
+      "campo": "email",
+      "mensagem": "Email inválido: não-é-um-email"
+    },
+    {
+      "linha": 5,
+      "entidade": "lider",
+      "campo": "telefone",
+      "mensagem": "Telefone inválido: 123 (deve começar com 55)"
+    }
+  ],
+  "interns": [],
+  "leaders": [],
+  "summary": { "totalInterns": 0, "totalLeaders": 0, "errors": 2 }
+}
+```
+
+Casos de 400 específicos:
+- Nenhum arquivo enviado
+- Planilha vazia (zero linhas)
+- Colunas obrigatórias ausentes (`"Colunas ausentes: inicio, fim"`)
+
+---
+
+## `POST /estagiarios-planilha/create-batch`
+
+Cria líderes e talentos em lote dentro de uma transação atômica. Após o commit, envia emails
+de convite para todos via Inngest (`emails/resend.send`).
+
+### Autenticação
+
+Requer sessão Directus ativa. Retorna `403` se não autenticado.
+
+O endpoint usa a `account` do usuário autenticado para vincular todos os registros criados.
+O usuário autenticado deve ter uma `account` associada; sem ela, a transação falha.
+
+### Request
+
+```json
+{
+  "leaders": [
+    {
+      "first_name": "Carlos",
+      "last_name": "Souza",
+      "email": "carlos@empresa.com",
+      "phone_number": "5511912345678",
+      "position": "Gerente",
+      "department": "Tecnologia"
+    }
+  ],
+  "talents": [
+    {
+      "first_name": "Ana",
+      "last_name": "Lima",
+      "email": "ana@empresa.com",
+      "phone_number": "5511987654321",
+      "start_date": "2026-06-01",
+      "end_date": "2027-06-01",
+      "graduation_course": "Sistemas de Informação",
+      "graduation_institution": "USP",
+      "department": "Tecnologia",
+      "leader_email": "carlos@empresa.com"
+    }
+  ]
+}
+```
+
+### Lógica de criação (transação atômica)
+
+1. Verifica que o usuário autenticado tem `account` associada
+2. Pré-carrega todos os emails (`directus_users`) para detectar usuários já existentes
+3. Para cada **líder**:
+   - Se email já existe em `directus_users` → usa o `id` existente (não duplica)
+   - Se não existe → cria em `directus_users` com `status: "active"`
+   - Verifica se já existe em `internship_leaders` → reutiliza ou cria
+4. Para cada **talento**:
+   - Mesma lógica de dedup em `directus_users`
+   - Cria em `talents` com `leader_id` associado (por `leader_email`)
+5. Commit da transação
+6. Envia eventos Inngest `emails/resend.send` em paralelo para todos os convites
+
+### Emails de convite
+
+| Destinatário | Assunto | Dados |
+|---|---|---|
+| Talento | "Leapy chegou – vamos construir sua carreira a partir de agora!" | `talentName`, `companyName`, `email` |
+| Líder | "Bem-vindo à Leapy 🚀" | `leaderName`, `companyName`, `talentsNames` (lista de talentos associados) |
+
+Os emails são enviados via `emails/resend.send` (Inngest) com:
+- `from`: `"Leapy <noreply@mail.leapy.online>"`
+- `tags`: `[{name: "template", value: "talent-invite"/"leader-invite"}, {name: "account_id", value: "..."}]`
+
+### Response `201 Created`
+
+```json
+{
+  "success": true,
+  "queuedEmails": 3
+}
+```
+
+`queuedEmails` = total de eventos Inngest disparados (1 por líder + 1 por talento criado).
+
+### Status Codes
+
+| Status | Condição |
+|---|---|
+| `201` | Todos os registros criados e emails enfileirados |
+| `400` | `leaders` ou `talents` não são arrays |
+| `403` | Usuário não autenticado |
+| `500` | Erro interno (transação falhou — nenhum registro criado) |
+
+<Note>
+  A transação é atômica: se qualquer criação falhar, nenhum usuário é criado. Os emails
+  só são enfileirados **após** o commit bem-sucedido da transação.
+</Note>
+
+## Deduplicação de Usuários
+
+O endpoint verifica `directus_users` por email antes de criar. Se o email já existir:
+- O `directus_user` existente é reutilizado
+- O registro em `internship_leaders` ou `talents` ainda é criado/atualizado
+
+Isso evita duplicatas de autenticação quando um líder ou talento já estava cadastrado por outro
+meio (ex: convite manual anterior).
+
+## Observabilidade
+
+```sql
+-- Verificar líderes criados em lote (por conta)
+SELECT dl.id, du.email, du.first_name, il.department, il.status, il.date_created
+FROM internship_leaders il
+JOIN directus_users du ON il.user_id = du.id
+JOIN directus_users dl ON dl.account = du.account
+WHERE du.account = {account_id}
+ORDER BY il.date_created DESC
+LIMIT 20;
+
+-- Verificar talentos criados em lote (por líder)
+SELECT t.id, du.email, t.start_date, t.end_date, t.leader_id
+FROM talents t
+JOIN directus_users du ON t.user_id = du.id
+WHERE t.leader_id = {leader_id}
+ORDER BY t.date_created DESC;
+```
+
+## Referências de Código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `extensions/endpoints/src/estagiarios-planilha/index.js` | `directus-backoffice-with-extensions` | Endpoints `validate` e `create-batch` |
+| `extensions/endpoints/src/utils/build-leader-invite-email.js` | `directus-backoffice-with-extensions` | Template HTML do convite de líder |
+| `extensions/endpoints/src/utils/build-talent-invite-email.js` | `directus-backoffice-with-extensions` | Template HTML do convite de talento |
+
+<CardGroup cols={2}>
+  <Card title="Backoffice — Visão Geral" icon="database" href="/api-reference/backoffice/index">
+    Índice dos endpoints do backoffice Directus
+  </Card>
+  <Card title="Jovens" icon="user" href="/documentation/domains/jovens/index">
+    Domínio de jovens aprendizes e estagiários
+  </Card>
+  <Card title="Talentos" icon="star" href="/documentation/domains/talents/index">
+    Gestão de talentos, PDI e progressão
+  </Card>
+  <Card title="Jobs e Eventos Inngest" icon="gear" href="/documentation/platform/events-jobs-inngest">
+    Arquitetura de eventos assíncronos
+  </Card>
+</CardGroup>

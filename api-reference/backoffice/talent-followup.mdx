@@ -1,0 +1,173 @@
+---
+title: "Talent Followup — Resumo por WhatsApp"
+description: "Endpoint que envia mensagem WhatsApp de resumo de jornada para talentos de uma conta via template aprovado Meta"
+---
+
+## Visão Geral
+
+O endpoint `talent-followup` envia uma mensagem WhatsApp para talentos usando o template
+`resumo_jornada` (Meta Business, idioma `en`). Cada talento recebe uma mensagem personalizada
+com o primeiro nome como variável dinâmica.
+
+O endpoint consulta talentos da conta e cria eventos Inngest `followup/send` para cada
+destinatário elegível (com `phone_number` cadastrado).
+
+---
+
+## `POST /talent-followup/summary`
+
+### Autenticação
+
+Requer sessão Directus ativa. Retorna `403` sem autenticação.
+
+### Request
+
+```json
+{
+  "account_id": 10,
+  "user_ids": ["uuid-user-1", "uuid-user-2"]
+}
+```
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `account_id` | `number` | Sim | ID da conta — filtra talentos desta empresa |
+| `user_ids` | `string[]` | Não | Lista de `directus_users.id` — se omitido, envia para todos os talentos ativos da conta com telefone |
+
+### Lógica de execução
+
+1. Valida autenticação e presença de `account_id`
+2. Consulta `talents` com join em `directus_users`:
+   - `du.account = account_id`
+   - `t.date_deleted IS NULL` (não deletados)
+   - `t.phone_number IS NOT NULL` (só quem tem telefone)
+   - Se `user_ids` fornecido: `du.id IN (user_ids)`
+3. Para cada talento elegível, monta evento `followup/send` com template WhatsApp
+4. Envia todos os eventos em paralelo via Inngest
+
+### Template WhatsApp
+
+| Propriedade | Valor |
+|---|---|
+| Template name | `resumo_jornada` |
+| Language code | `en` |
+| Parâmetros | `[nome]` — primeiro nome do talento |
+| Parameter names | `["nome"]` |
+| From number | `551140401565` (Leapy) |
+
+### Evento Inngest disparado
+
+```json
+{
+  "name": "followup/send",
+  "data": {
+    "user_id": "uuid-user-1",
+    "user_email": "ana@empresa.com",
+    "talent_id": "uuid-talent-1",
+    "followup_type": "TALENT_PROGRESS_SUMMARY",
+    "method": "whatsapp",
+    "phone_number": "5511987654321",
+    "from_number": "551140401565",
+    "template": {
+      "name": "resumo_jornada",
+      "language_code": "en",
+      "parameters": ["Ana"],
+      "parameter_names": ["nome"]
+    }
+  }
+}
+```
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "talents": 5,
+  "queued": 4,
+  "details": [
+    {
+      "talent_id": "uuid-talent-1",
+      "user_id": "uuid-user-1",
+      "phone_number": "5511987654321",
+      "template": "resumo_jornada"
+    }
+  ]
+}
+```
+
+| Campo | Descrição |
+|---|---|
+| `talents` | Total de talentos encontrados na query |
+| `queued` | Eventos Inngest disparados (pode ser < `talents` se algum sem telefone) |
+| `details` | Lista dos talentos que receberam o evento |
+
+**Caso sem talentos ou sem telefone:**
+```json
+{ "success": true, "queued": 0, "talents": 0, "details": [] }
+```
+
+### Status Codes
+
+| Status | Condição |
+|---|---|
+| `200` | Eventos enfileirados (ou zero destinatários — sem erro) |
+| `400` | `account_id` ausente no body |
+| `403` | Usuário não autenticado |
+| `500` | Erro interno ou template não configurado |
+
+### Erro 500 — template não configurado
+
+```json
+{
+  "error": "Template not configured",
+  "message": "WHATSAPP_TEMPLATE_TALENT_PROGRESS_SUMMARY must be configured with an approved WhatsApp template name"
+}
+```
+
+<Note>
+  O template `resumo_jornada` precisa estar aprovado na Meta Business API antes de ser usado.
+  Alterações no nome do template exigem atualização da constante `TALENT_TEMPLATE_NAME`
+  no código e redeploy.
+</Note>
+
+## Comportamento com `user_ids`
+
+| Cenário | Comportamento |
+|---|---|
+| `user_ids` omitido ou `[]` | Envia para **todos** os talentos ativos da conta com telefone |
+| `user_ids` com IDs específicos | Filtra apenas esses usuários (ainda aplicando filtros de account + telefone) |
+| Talento sem `phone_number` | Ignorado silenciosamente — não gera evento nem erro |
+
+## Observabilidade
+
+```sql
+-- Talentos de uma conta com telefone (candidatos ao followup)
+SELECT t.id as talent_id, du.id as user_id, du.email, du.first_name, t.phone_number
+FROM talents t
+JOIN directus_users du ON t.user_id = du.id
+WHERE du.account = {account_id}
+  AND t.date_deleted IS NULL
+  AND t.phone_number IS NOT NULL;
+```
+
+## Referências de Código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `extensions/endpoints/src/talent-followup/index.js` | `directus-backoffice-with-extensions` | Endpoint `POST /summary` |
+
+<CardGroup cols={2}>
+  <Card title="Talentos" icon="star" href="/documentation/domains/talents/index">
+    Domínio de talentos, PDI e progressão de carreira
+  </Card>
+  <Card title="PDI Workflow" icon="map" href="/documentation/domains/talents/pdi-workflow">
+    Criação e gestão de planos de desenvolvimento individual
+  </Card>
+  <Card title="Planos de Talentos" icon="list-check" href="/api-reference/backoffice/talent-plans">
+    Endpoints de gestão de planos e metas
+  </Card>
+  <Card title="Jobs e Eventos Inngest" icon="gear" href="/documentation/platform/events-jobs-inngest">
+    Arquitetura de eventos assíncronos
+  </Card>
+</CardGroup>
