@@ -35,7 +35,8 @@ A Leapy mantém uma régua de comunicação ativa para engajar jovens ao longo d
 ```mermaid
 flowchart TB
     subgraph Directus Hooks
-        CRON[hook-cron-followup-triggers]
+        CRON_V1[hook-cron-followup-triggers]
+        CRON_V2[hook-cron-followup-v2-triggers]
         REGUA_CRON[hooks cron por domínio]
     end
 
@@ -57,7 +58,8 @@ flowchart TB
         AGENT[agent_context]
     end
 
-    CRON -->|followup-v2/send| FUP2
+    CRON_V1 -->|"followup-v2/send\n(alreadySentSince)"| FUP2
+    CRON_V2 -->|"followup-v2/send\n(SQL NOT EXISTS + cooldownDays)"| FUP2
     REGUA_CRON -->|backoffice/regua-comunicacao/jovens.send| REGUA_J
     REGUA_J --> EMAIL
     FUP1 --> WA
@@ -193,13 +195,13 @@ Equivalente à régua de jovens, mas para gestores.
 
 Comunicações para o time de RH das empresas clientes.
 
-## Triggers Automáticos (hook-cron-followup-triggers)
+## Triggers Automáticos v1 (hook-cron-followup-triggers)
 
-O hook `hook-cron-followup-triggers` no Directus avalia condições periodicamente e dispara eventos `followup-v2/send` para jovens que atendem critérios de cada tipo de follow-up.
+O hook `hook-cron-followup-triggers` é a implementação original dos triggers de follow-up. Avalia condições via `ItemsService` do Directus e dispara eventos `followup-v2/send`.
 
-### Lógica de deduplicação
+### Lógica de deduplicação (v1)
 
-Antes de disparar, o hook verifica se já foi enviado o mesmo `followup_type` para o mesmo usuário desde um ponto de referência (ex: `last_status_change_at`):
+Cada handler verifica se o mesmo `followup_type` já foi enviado para o usuário desde um ponto de referência (`last_status_change_at`):
 
 ```javascript
 await alreadySentSince({
@@ -210,9 +212,9 @@ await alreadySentSince({
 })
 ```
 
-Se já foi enviado, o trigger é pulado para evitar spam.
+Se já foi enviado no período, o trigger é pulado.
 
-### Templates WhatsApp e nomes de parâmetros
+### Templates WhatsApp e nomes de parâmetros (v1)
 
 | Template | Parâmetros |
 |----------|-----------|
@@ -223,6 +225,87 @@ Se já foi enviado, o trigger é pulado para evitar spam.
 | `skills_mapping_pending` | `first_name` |
 | `target_role_pending` | `first_name` |
 | `warm_up_pending` | `first_name` |
+
+---
+
+## Triggers Automáticos v2 (hook-cron-followup-v2-triggers)
+
+Implementação mais recente dos triggers de follow-up. Usa SQL/Knex direto em vez de `ItemsService`, com dedup embutido nas queries via cláusula `NOT EXISTS` na tabela `follow_up_events`.
+
+<Note>
+  Diferença chave do v1: o dedup não é `alreadySentSince` (comparação por evento pontual) mas sim uma janela de cooldown configurada por FUP type. Cada FUP tem seu `cooldownDays` e a query já inclui o filtro `NOT EXISTS ... WHERE sent_at >= cooldownDate`.
+</Note>
+
+### Requisito de subscription
+
+Todos os FUPs v2 só disparam para usuários de contas com a feature `feleapy-whatsapp` ativa em sua subscription:
+
+```sql
+-- commonFilters() verifica internamente:
+WHERE EXISTS (
+  SELECT 1 FROM subscriptions sub
+  JOIN plan_features pf ON pf.plan_id = sub.plan_id
+  JOIN features feat ON feat.id = pf.feature_id
+  WHERE sub.account_id = du.account
+    AND feat.normalized_name = 'feleapy-whatsapp'
+)
+```
+
+Contas sem essa feature na subscription não recebem nenhum FUP v2.
+
+### Definições de FUP v2 — schedules, cooldowns e templates
+
+| FUP type | Schedule | Cooldown | Template Meta | Parâmetros |
+|----------|----------|----------|--------------|------------|
+| `primeiro_acesso_pendente` | `0 13 * * 1-5` (13h úteis) | 7 dias | `primeiro_acesso_pendente` | `empresa` |
+| `warmup_pending` | `0 13 * * 1-5` | 7 dias | `warm_up_pending` | `first_name` |
+| `target_role_pending` | `0 13 * * 1-5` | 7 dias | `target_role_pending` | `first_name` |
+| `skills_mapping_pending` | `0 13 * * 1-5` | 7 dias | `skills_mapping_pending` | `first_name` |
+| `pdi_pending` | `0 13 * * 1-5` | 7 dias | `pdi_pending_confirmation` | `nome` |
+| `pdi_in_progress_day3` | `0 14 * * 1-5` (14h úteis) | **36500 dias** (lifetime — dispara uma vez por PDI) | `pdi_in_progress_day3` | `first_name` |
+| `engagement_practical_actions` | `0 16 * * 1-5` (16h úteis) | 7 dias | `engagement_practical_actions` | `first_name`, `agreed_action`, `skill_name` |
+| `engagement_peer_exchange` | `0 16 * * 1-5` | 7 dias | `engagement_peer_exchange` | `first_name` |
+| `engagement_no_active_action` | `0 18 * * 1-5` (18h úteis) | 7 dias | `engagement_no_active_action` | `first_name`, `competencia`, `lista_acoes` |
+| `engagement_inactive_3days` | `0 18 * * 1-5` | 7 dias | `engagement_inactive_3days` | `first_name` |
+| `engagement_inactive_7days` | `0 18 * * 1-5` | 7 dias | `engagement_inactive_7days` | `first_name` |
+
+**Sobreposição 3d/7d:** `engagement_inactive_3days` filtra inatividade de 3–7 dias; `engagement_inactive_7days` filtra 7+ dias. As janelas não se sobrepõem.
+
+**Cooldown lifetime de `pdi_in_progress_day3`:** `cooldownDays = 36500` (~100 anos). Garante que o lembrete de "3 dias de PDI" dispara no máximo uma vez por plano de desenvolvimento.
+
+### Condições de disparo por FUP
+
+| FUP type | Condição principal |
+|----------|--------------------|
+| `primeiro_acesso_pendente` | `user_career.onboarding_status = 'not_started'` e `last_agent_interaction_at IS NULL` |
+| `warmup_pending` | `onboarding_status = 'warmup_started'` |
+| `target_role_pending` | `onboarding_status = 'warmup_done'` e `target_role_id IS NULL` |
+| `skills_mapping_pending` | `onboarding_status = 'target_set'` e sem `user_skills` para a carreira |
+| `pdi_pending` | `development_plan.status = 'pending_review'` |
+| `pdi_in_progress_day3` | `development_plan.status = 'active'` e `start_date` entre 2 e 5 dias atrás |
+| `engagement_practical_actions` | PDI ativo com `development_action.status = 'in_progress'` e `type = 'pratica'` |
+| `engagement_peer_exchange` | PDI ativo com action do `type = 'troca'` em `pending` ou `in_progress` |
+| `engagement_no_active_action` | PDI ativo com skill ativa mas **sem** action `in_progress` |
+| `engagement_inactive_3days` | `last_agent_interaction_at` entre 3 e 7 dias atrás |
+| `engagement_inactive_7days` | `last_agent_interaction_at` há mais de 7 dias |
+
+### Fluxo de execução
+
+```javascript
+// hook-cron-followup-v2-triggers/index.js
+for (const fup of FUP_DEFINITIONS) {
+  schedule(fup.schedule, async () => {
+    if (!fup.flagKey) return; // feature flag desabilitada
+    await runFupCron({ definition: fup, database });
+  });
+}
+
+// runFupCron em utils.js:
+// 1. cooldownDate = agora - cooldownDays
+// 2. rows = fup.query(database, cooldownDate)
+//    └─ query já tem NOT EXISTS em follow_up_events WHERE sent_at >= cooldownDate
+// 3. Para cada row: dispatchFollowupV2() → Inngest followup-v2/send
+```
 
 ## Observabilidade
 
@@ -259,10 +342,12 @@ HAVING MAX(sent_at) < NOW() - INTERVAL '14 days';
 
 | Risco | Mitigação |
 |-------|-----------|
-| Spam (múltiplos envios) | `alreadySentSince` impede reenvio no mesmo período |
+| Spam (v1) — múltiplos envios | `alreadySentSince` impede reenvio no mesmo período |
+| Spam (v2) — múltiplos envios | NOT EXISTS em `follow_up_events` com `cooldownDays` por FUP type |
 | Template WhatsApp rejeitado pela Meta | Erro logado; Inngest faz retry (max 2x) |
-| Usuário sem telefone | Validação no trigger antes de disparar evento |
+| Usuário sem telefone | Validação em `dispatchFollowupV2` antes de enviar evento (`phone_number` NULL → skip) |
 | FUP v2 falha ao atualizar agent context | Erro capturado e logado; não bloqueia o envio |
+| Conta sem `feleapy-whatsapp` recebe FUP v2 | Impossível — `commonFilters()` na query filtra no nível SQL |
 
 ## Triggers Automáticos — Régua de Comunicação
 
@@ -306,7 +391,10 @@ Para desativar temporariamente um evento específico dentro de um hook (ex: emai
 | `src/inngest/functions/follow-up-v2/follow-up-v2-send.ts` | `backoffice-inngest-functions` | Job FUP v2 |
 | `src/inngest/functions/follow-up-v2/types.ts` | `backoffice-inngest-functions` | Tipos de FUP v2 |
 | `src/inngest/functions/regua-comunicacao/` | `backoffice-inngest-functions` | Jobs de régua |
-| `extensions/hooks/src/hook-cron-followup-triggers/` | `directus-backoffice-with-extensions` | Triggers automáticos FUP |
+| `extensions/hooks/src/hook-cron-followup-triggers/` | `directus-backoffice-with-extensions` | Triggers FUP v1 (ItemsService + alreadySentSince) |
+| `extensions/hooks/src/hook-cron-followup-v2-triggers/index.js` | `directus-backoffice-with-extensions` | Triggers FUP v2 (SQL direto + NOT EXISTS dedup) |
+| `extensions/hooks/src/hook-cron-followup-v2-triggers/fup-definitions.js` | `directus-backoffice-with-extensions` | 11 FUP definitions com schedules e cooldowns |
+| `extensions/hooks/src/hook-cron-followup-v2-triggers/utils.js` | `directus-backoffice-with-extensions` | `runFupCron` e `dispatchFollowupV2` |
 | `extensions/hooks/src/hook-regua-comunicacao-jovens/` | `directus-backoffice-with-extensions` | Cron régua jovens |
 | `extensions/hooks/src/hook-regua-comunicacao-lideranca/` | `directus-backoffice-with-extensions` | Cron régua lideranças |
 | `extensions/hooks/src/hook-regua-comunicacao-rh/` | `directus-backoffice-with-extensions` | Cron régua RH |
