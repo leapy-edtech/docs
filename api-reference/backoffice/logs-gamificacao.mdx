@@ -1,0 +1,106 @@
+---
+title: Gamificação — Logs por Talento
+description: Endpoint Directus para consulta de médias mensais de indicadores de gamificação (termômetro) por talento.
+---
+
+## Visão geral
+
+O endpoint `logs-gamificacao` expõe médias mensais de valores de gamificação registrados na tabela `logs_gamificacao` do Directus. É usado pelo app RH para renderizar o gráfico de termômetro no perfil do talento.
+
+---
+
+## GET /logs-gamificacao/average-value-by-month/:jovem_id
+
+Retorna a média mensal de um indicador de gamificação (`tipo`) para um talento específico, filtrado por ano. Também retorna os anos disponíveis para filtro (derivados dos registros existentes).
+
+### Autenticação
+
+Sessão Directus ativa (`403` sem auth).
+
+### Path Parameters
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `jovem_id` | `string` | ID do talento (`jovens.id`) |
+
+### Query Parameters
+
+| Parâmetro | Tipo | Default | Descrição |
+|-----------|------|---------|-----------|
+| `tipo` | `string` | — | Tipo do indicador de gamificação (ex.: `"termometro"`) |
+| `year` | `number` | Ano atual | Ano para filtrar os registros |
+| `percentage` | `boolean` | `true` | Se `true`, inclui `percentage_value` (valor / 10 × 100) |
+
+### Lógica de cálculo
+
+Para cada mês do ano, a query agrupa por `DATE_TRUNC('month', date_created)` e calcula `ROUND(AVG(valor::numeric), 0)`. Meses sem registros retornam `value: 0`.
+
+Quando `percentage=true`:
+```
+percentage_value = round((average_value / 10) * 100)
+```
+
+### Resposta `200`
+
+```json
+{
+  "year": 2026,
+  "total_by_month": [
+    { "month_name": "Jan", "value": 8, "percentage_value": 80 },
+    { "month_name": "Fev", "value": 7, "percentage_value": 70 },
+    { "month_name": "Mar", "value": 9, "percentage_value": 90 },
+    { "month_name": "Abr", "value": 0, "percentage_value": 0 },
+    { "month_name": "Mai", "value": 8, "percentage_value": 80 },
+    { "month_name": "Jun", "value": 0, "percentage_value": 0 },
+    { "month_name": "Jul", "value": 0, "percentage_value": 0 },
+    { "month_name": "Ago", "value": 0, "percentage_value": 0 },
+    { "month_name": "Set", "value": 0, "percentage_value": 0 },
+    { "month_name": "Out", "value": 0, "percentage_value": 0 },
+    { "month_name": "Nov", "value": 0, "percentage_value": 0 },
+    { "month_name": "Dez", "value": 0, "percentage_value": 0 }
+  ],
+  "possible_years_to_filter": [2025, 2026]
+}
+```
+
+Quando `percentage=false`:
+
+```json
+{
+  "year": 2026,
+  "total_by_month": [
+    { "month_name": "Jan", "value": 8 },
+    ...
+  ],
+  "possible_years_to_filter": [2025, 2026]
+}
+```
+
+### Status Codes
+
+| Status | Condição |
+|--------|----------|
+| `200` | Dados retornados (meses sem registros têm `value: 0`) |
+| `403` | Não autenticado |
+| `500` | Erro interno |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `extensions/endpoints/src/logs-gamificacao/index.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Jovens — Perfil e Ciclo de Vida" icon="users" href="/documentation/domains/jovens/lifecycle">
+    Como os indicadores de gamificação se encaixam na jornada do talento
+  </Card>
+  <Card title="Presenças — Endpoints" icon="calendar" href="/api-reference/backoffice/presenca">
+    Outros endpoints de métricas individuais por jovem_id
+  </Card>
+</CardGroup>

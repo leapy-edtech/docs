@@ -1,0 +1,341 @@
+---
+title: Accounts — Gestão de Contas
+description: Endpoints BFF para criar, listar e gerenciar accounts (contas cliente), incluindo healthcheck, subscription e empresas associadas.
+---
+
+## Visão geral
+
+Os endpoints de accounts são BFF Next.js que expõem gestão completa de contas cliente para o painel backoffice Leapy. Todas as rotas requerem sessão NextAuth ativa.
+
+| Endpoint | Descrição |
+|----------|-----------|
+| `GET /api/backoffice/accounts` | Lista todas as accounts com healthcheck e plano |
+| `POST /api/backoffice/accounts` | Cria nova account |
+| `GET /api/backoffice/accounts/list` | Lista leve (id + name) para selects |
+| `GET /api/backoffice/accounts/:id` | Detalhes de uma account |
+| `PATCH /api/backoffice/accounts/:id` | Atualiza account (ou inativa) |
+| `GET /api/backoffice/accounts/:id/healthcheck` | Calcula healthcheck da account |
+| `GET /api/backoffice/accounts/:id/subscription` | Retorna plano e features da account |
+| `PATCH /api/backoffice/accounts/:id/subscription` | Atribui ou altera plano |
+| `GET /api/backoffice/accounts/:id/companies` | Lista empresas da account |
+
+---
+
+## GET /api/backoffice/accounts
+
+Lista todas as accounts com healthcheck calculado e plano ativo. Executa N+1 paralelo (healthcheck + subscription por account via `Promise.all`).
+
+### Query Parameters
+
+| Parâmetro | Tipo | Default | Descrição |
+|-----------|------|---------|-----------|
+| `search` | `string` | `""` | Filtro por nome |
+| `page` | `number` | `1` | Página atual |
+| `limit` | `number` | `20` | Itens por página |
+
+### Resposta `200`
+
+```json
+{
+  "accounts": [
+    {
+      "id": "uuid",
+      "name": "Empresa ABC",
+      "slug": "empresa-abc",
+      "logo": "https://...",
+      "healthcheck": {
+        "score": 80,
+        "status": "good",
+        "last_check": "2026-05-05T18:00:00.000Z",
+        "checks": [...],
+        "recommendations": []
+      },
+      "plan": { "id": 2, "name": "Professional", "max_jovens": 200 }
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 72,
+    "totalPages": 4,
+    "hasNext": true,
+    "hasPrev": false
+  }
+}
+```
+
+---
+
+## POST /api/backoffice/accounts
+
+Cria uma nova account no Directus. Após criar, dispara automaticamente `createAccountPulseSettings` para configurar os padrões de pulsos da conta.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Validação |
+|-------|------|-------------|-----------|
+| `name` | `string` | sim | Mínimo 3 caracteres |
+| `slug` | `string` | sim | Regex: `^[a-z0-9]+(?:-[a-z0-9]+)*$` — único |
+| `logo` | `string` | não | URL do logo |
+| `link_janelas_admissao_airtable` | `string` | não | Link Airtable para janelas de admissão |
+| `link_shortlist_airtable` | `string` | não | Link Airtable para shortlist |
+
+<Note>
+  O `slug` deve ser único. Se já existir, retorna `400` com `"Slug já está em uso"`. Após criação bem-sucedida, as configurações de pulsos (`pulsos_settings`) são criadas automaticamente para a nova account.
+</Note>
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "account": { "id": "new-uuid", "name": "Nova Empresa", "slug": "nova-empresa" },
+  "message": "Account criada com sucesso"
+}
+```
+
+### Status Codes
+
+| Status | Condição |
+|--------|----------|
+| `200` | Account criada |
+| `400` | Nome < 3 chars, slug inválido ou slug já em uso |
+| `401` | Não autenticado |
+| `500` | Erro interno |
+
+---
+
+## GET /api/backoffice/accounts/list
+
+Retorna lista leve de accounts (apenas `id` e `name`) para uso em dropdowns e filtros. Não executa healthcheck nem subscription — sem N+1.
+
+### Resposta `200`
+
+```json
+{
+  "accounts": [
+    { "id": "uuid-1", "name": "Empresa ABC" },
+    { "id": "uuid-2", "name": "Empresa XYZ" }
+  ]
+}
+```
+
+---
+
+## GET /api/backoffice/accounts/:id
+
+Retorna detalhes completos de uma account, incluindo healthcheck e plano ativo (execução paralela via `Promise.all`).
+
+### Resposta `200`
+
+```json
+{
+  "account": {
+    "id": "uuid",
+    "name": "Empresa ABC",
+    "slug": "empresa-abc",
+    "logo": "https://...",
+    "link_janelas_admissao_airtable": "https://airtable.com/...",
+    "link_shortlist_airtable": "https://airtable.com/...",
+    "healthcheck": { "score": 80, "status": "good", ... },
+    "plan": { "id": 2, "name": "Professional", "max_jovens": 200 }
+  }
+}
+```
+
+---
+
+## PATCH /api/backoffice/accounts/:id
+
+Atualiza campos da account. Se `ativo: false` for enviado, chama `inactivateAccount` em vez de `updateAccount`.
+
+### Corpo
+
+Todos os campos são opcionais. Apenas os campos presentes são atualizados.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `name` | `string` | Nome da account |
+| `slug` | `string` | Slug único (validação regex aplicada) |
+| `logo` | `string \| null` | URL do logo |
+| `link_janelas_admissao_airtable` | `string \| null` | Link Airtable |
+| `link_shortlist_airtable` | `string \| null` | Link Airtable |
+| `ativo` | `boolean` | `false` inativa a account |
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "account": { "id": "uuid", "name": "Empresa Atualizada", ... },
+  "message": "Account atualizada com sucesso"
+}
+```
+
+---
+
+## GET /api/backoffice/accounts/:id/healthcheck
+
+Calcula e retorna o healthcheck da account com score de 0 a 100 baseado em 5 verificações.
+
+### Lógica de score
+
+```
+score = (checks_ok / 5) × 100
+```
+
+| Score | Status |
+|-------|--------|
+| ≥ 90 | `excellent` |
+| ≥ 70 | `good` |
+| ≥ 50 | `warning` |
+| < 50 | `critical` |
+
+### 5 Checks
+
+| Key | O que verifica | Fonte |
+|-----|----------------|-------|
+| `users` | Account tem pelo menos 1 usuário | `aggregate(users)` |
+| `companies` | Account tem pelo menos 1 empresa | `aggregate(empresas)` |
+| `talentos` | Account tem pelo menos 1 talento | `aggregate(jovens)` |
+| `pdi` | Talentos com PDI ativo | Sempre `0` (TODO pendente) |
+| `activity` | Atividade recente | Sempre `true` (TODO pendente) |
+
+<Note>
+  Os checks `pdi` e `activity` ainda não estão implementados — retornam valores fixos (`0` e `true`). O score máximo real dado o estado atual é 80 (`excellent` requer workaround).
+</Note>
+
+### Resposta `200`
+
+```json
+{
+  "healthcheck": {
+    "score": 60,
+    "status": "warning",
+    "last_check": "2026-05-05T18:00:00.000Z",
+    "checks": [
+      { "key": "users", "status": "ok", "message": "5 usuários cadastrados", "count": 5 },
+      { "key": "companies", "status": "ok", "message": "2 empresas associadas", "count": 2 },
+      { "key": "talentos", "status": "ok", "message": "48 talentos cadastrados", "count": 48 },
+      { "key": "pdi", "status": "info", "message": "0 talentos com PDI ativo", "count": 0 },
+      { "key": "activity", "status": "ok", "message": "Atividade recente detectada" }
+    ],
+    "recommendations": [
+      "Criar PDIs para os talentos"
+    ]
+  }
+}
+```
+
+---
+
+## GET /api/backoffice/accounts/:id/subscription
+
+Retorna a subscription ativa e o plano da account, incluindo todas as features disponíveis no plano.
+
+### Resposta `200`
+
+```json
+{
+  "subscription": {
+    "id": 42,
+    "account_id": "uuid",
+    "plan_id": 2,
+    "start_date": "2026-01-01",
+    "due_date": null
+  },
+  "plan": {
+    "id": 2,
+    "name": "Professional",
+    "max_jovens": 200
+  },
+  "features": [
+    { "id": "feature-uuid", "name": "Matchmaker AI", "normalized_name": "matchmaker-ai", "type": "ai" },
+    { "id": "feature-uuid-2", "name": "FeLEAPy WhatsApp", "normalized_name": "feleapy-whatsapp", "type": "communication" }
+  ]
+}
+```
+
+Se não há subscription ativa, `subscription` e `plan` retornam `null` e `features` é `[]`.
+
+---
+
+## PATCH /api/backoffice/accounts/:id/subscription
+
+Atribui ou altera o plano da account. Cria ou substitui a subscription ativa.
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `plan_id` | `number` | sim | ID do plano (ver `GET /api/backoffice/plans`) |
+| `due_date` | `string` | não | Data de vencimento ISO 8601. `null` = sem vencimento |
+
+### Resposta `200`
+
+```json
+{
+  "subscription": { "id": 43, "plan_id": 3, ... },
+  "plan": { "id": 3, "name": "Enterprise", "max_jovens": null },
+  "features": [...]
+}
+```
+
+### Status Codes
+
+| Status | Condição |
+|--------|----------|
+| `200` | Subscription atualizada |
+| `400` | `plan_id` ausente ou NaN |
+| `401` | Não autenticado |
+| `500` | Erro interno |
+
+---
+
+## GET /api/backoffice/accounts/:id/companies
+
+Lista as empresas vinculadas à account.
+
+### Resposta `200`
+
+```json
+{
+  "companies": [
+    { "id": 1, "name": "Empresa Parceira SA", "cnpj": "00.000.000/0001-00" }
+  ],
+  "stats": { "total": 1 }
+}
+```
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/backoffice/accounts/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/accounts/[id]/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/accounts/[id]/healthcheck/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/accounts/[id]/subscription/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/accounts/[id]/companies/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/accounts/list/route.ts` | `leapy-rh` |
+| `src/services/accounts.js` | `leapy-rh` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Planos e Features" icon="star" href="/api-reference/backoffice/talent-plans">
+    Endpoints Directus de subscription e contabilização de uso de features
+  </Card>
+  <Card title="Admin — Roles e Permissões" icon="shield" href="/documentation/overview/roles-permissions">
+    Quais roles têm acesso ao backoffice (backoffice:access)
+  </Card>
+  <Card title="Cohorts — Importação" icon="table" href="/api-reference/backoffice/cohorts-import">
+    Criação em lote de talentos dentro de uma account
+  </Card>
+  <Card title="Lideranças" icon="users" href="/api-reference/backoffice/leadership">
+    Gestão de lideranças vinculadas às accounts
+  </Card>
+</CardGroup>

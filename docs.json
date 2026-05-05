@@ -284,6 +284,7 @@
               {
                 "group": "Gestão de Pessoas",
                 "pages": [
+                  "api-reference/backoffice/accounts",
                   "api-reference/backoffice/leadership",
                   "api-reference/backoffice/talent-plans",
                   "api-reference/backoffice/talent-followup",
@@ -307,7 +308,8 @@
               {
                 "group": "Dashboard & AI",
                 "pages": [
-                  "api-reference/backoffice/vision-ai"
+                  "api-reference/backoffice/vision-ai",
+                  "api-reference/backoffice/logs-gamificacao"
                 ]
               },
               {
