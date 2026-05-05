@@ -62,7 +62,74 @@ Content-Type: application/json
 }
 ```
 
-## Endpoints Principais
+## Endpoints Customizados
+
+Além da API padrão do Directus (`/items/*`), o backoffice expõe endpoints com lógica de negócio:
+
+### Pulsos
+
+| Endpoint | Descrição | Documentação |
+|---|---|---|
+| `POST /pulsos/change_status` | Atualiza status de pulso e aciona notificações | [pulsos-endpoints-custom](/api-reference/backoffice/pulsos-endpoints-custom) |
+| `GET /pulsos-access/*` | Filtragem de pulsos por acesso do usuário | [pulsos-endpoints-custom](/api-reference/backoffice/pulsos-endpoints-custom) |
+| `GET /pulsos-filtered/*` | Pulsos filtrados por contexto | [pulsos-endpoints-custom](/api-reference/backoffice/pulsos-endpoints-custom) |
+| `GET\|POST /pulsos-schedule/*` | Configuração de agendamento | [pulsos-configuracao](/api-reference/backoffice/pulsos-configuracao) |
+
+### Matchmaker (Proxy para Agent System)
+
+| Endpoint | Descrição | Documentação |
+|---|---|---|
+| `POST /matchmaker/search` | Busca síncrona de talentos por IA | [matchmaker-endpoints-custom](/api-reference/backoffice/matchmaker-endpoints-custom) |
+| `POST /matchmaker/search/stream` | Busca com SSE em tempo real | [matchmaker-endpoints-custom](/api-reference/backoffice/matchmaker-endpoints-custom) |
+| `POST /matchmaker/extract` | Extrai role/skills de texto ou URL | [matchmaker-endpoints-custom](/api-reference/backoffice/matchmaker-endpoints-custom) |
+| `GET /matchmaker/export` | Exporta resultados para PDF/Excel | [matchmaker-export](/api-reference/backoffice/matchmaker-export) |
+
+### Gestão de Pessoas
+
+| Endpoint | Descrição | Documentação |
+|---|---|---|
+| `GET\|POST /leadership/*` | Gestão de lideranças | [leadership](/api-reference/backoffice/leadership) |
+| `GET\|POST /plans/*` | Planos de desenvolvimento (PDI) | [talent-plans](/api-reference/backoffice/talent-plans) |
+| `POST /talent-followup/summary` | Envio de resumo de jornada por WhatsApp | [talent-followup](/api-reference/backoffice/talent-followup) |
+| `GET\|POST /competencias/*` | Gestão de competências | [competencias](/api-reference/backoffice/competencias) |
+| `POST /estagiarios-planilha/validate` | Valida planilha XLSX de estagiários | [estagiarios-planilha](/api-reference/backoffice/estagiarios-planilha) |
+| `POST /estagiarios-planilha/create-batch` | Cria líderes e talentos em lote | [estagiarios-planilha](/api-reference/backoffice/estagiarios-planilha) |
+
+### LinkedIn Skills
+
+| Endpoint | Descrição | Documentação |
+|---|---|---|
+| `POST /linkedin-skills/infer` | Inicia inferência de skills por perfil LinkedIn | [linkedin-skills](/api-reference/backoffice/linkedin-skills) |
+| `GET /linkedin-skills/status/:requestId` | Consulta status de job de inferência | [linkedin-skills](/api-reference/backoffice/linkedin-skills) |
+| `GET /linkedin-skills/user/:userId/active-job` | Job ativo de um usuário | [linkedin-skills](/api-reference/backoffice/linkedin-skills) |
+
+### Presenças
+
+| Endpoint | Descrição | Documentação |
+|---|---|---|
+| `GET /presenca/presenca/:jovem_id` | Histórico agregado por mês | [presenca](/api-reference/backoffice/presenca) |
+| `GET /presenca/grafico/:jovem_id` | Dados diários para gráfico/calendário | [presenca](/api-reference/backoffice/presenca) |
+| `GET /presenca/planilha/:empresa_id` | Exportação do mês corrente por empresa | [presenca](/api-reference/backoffice/presenca) |
+
+### Hiring e Hub
+
+| Endpoint | Descrição | Documentação |
+|---|---|---|
+| `GET\|POST /hiring/*` | Vagas e processo seletivo | [hiring/vagas](/api-reference/hiring/vagas) |
+| `GET /hub/*` | Hub do candidato | [hub/hiring](/api-reference/hub/hiring) |
+
+### Outros
+
+| Endpoint | Descrição | Documentação |
+|---|---|---|
+| `POST /impersonation/*` | Impersonação de usuários (admin) | [impersonation](/api-reference/backoffice/impersonation) |
+| `POST /vision/*` | Análise de imagens por IA | [vision-ai](/api-reference/backoffice/vision-ai) |
+| `POST /emails/send` | Envio de email via template | — |
+| `POST /cohorts/import` | Importação de coortes | [cohorts-import](/api-reference/backoffice/cohorts-import) |
+
+---
+
+## Endpoints Padrão Directus (Items)
 
 ### Items (CRUD)
 
