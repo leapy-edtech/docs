@@ -1,16 +1,19 @@
 ---
-title: Backoffice — Talentos e Planos
-description: Endpoints BFF para criação de talentos no backoffice e listagem de planos disponíveis.
+title: Backoffice — Talentos, Planos e Features
+description: Endpoints BFF para criação de talentos e listagem de planos; endpoints Directus para verificação de acesso e contabilização de uso de features por conta.
 ---
 
 ## Visão geral
 
-Dois endpoints de suporte ao backoffice administrativo:
+Endpoints de suporte ao backoffice administrativo, organizados em dois grupos:
 
-- `POST /api/backoffice/talent` — cria um talento individualmente (thin proxy para extensão Directus `/talent`)
-- `GET /api/backoffice/plans` — lista planos disponíveis para o seletor de conta
+**BFF (Next.js) — requerem sessão NextAuth:**
+- `POST /api/backoffice/talent` — cria talento individualmente (proxy para Directus `/talent`)
+- `GET /api/backoffice/plans` — lista planos disponíveis para seletor de conta
 
-Ambos requerem sessão NextAuth com `accessToken`.
+**Directus (`/plans/*`) — requerem token Directus:**
+- `GET /plans/subscription/:account/:feature` — verifica se conta tem acesso a uma feature
+- `POST /plans/subscription/:account/:feature/use` — incrementa uso de feature na subscription
 
 ---
 
@@ -72,6 +75,102 @@ Lista os planos disponíveis para seleção no drawer de configuração de conta
 |--------|-----------|
 | `401` | Sessão inválida |
 | `500` | Erro ao buscar planos no Directus |
+
+---
+
+---
+
+## GET /plans/subscription/:account/:feature
+
+Verifica se uma conta tem acesso a uma feature específica via subscription ativa. Retorna `has_access`, `use_limit` e `current_usage`.
+
+<Note>
+  Este endpoint é usado internamente por outros módulos (ex.: FUP v2 verifica `feleapy-whatsapp` via SQL direto na query; outros módulos chamam este endpoint). Retorna sempre `200 OK` — `has_access: false` é resultado de negócio, não erro.
+</Note>
+
+### Autenticação
+
+Sessão Directus ativa (`403` sem auth).
+
+### Path Parameters
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `account` | `string` (UUID) | ID da conta (`accounts.id`) |
+| `feature` | `string` | `normalized_name` da feature (ex.: `feleapy-whatsapp`, `matchmaker-ai`) |
+
+### Response `200 OK`
+
+```json
+{
+  "has_access": true,
+  "use_limit": 100,
+  "current_usage": 12,
+  "feature": { "id": "uuid", "name": "Matchmaker AI", "type": "ai" },
+  "subscription": { "id": 42, "plan_id": 3, "start_date": "2026-01-01", "due_date": null },
+  "plan_feature": { "period": "monthly" }
+}
+```
+
+Quando `has_access: false` (sem subscription ativa):
+```json
+{
+  "has_access": false,
+  "use_limit": null,
+  "current_usage": 0,
+  "feature": { "id": "uuid", "name": "Matchmaker AI", "type": "ai" },
+  "message": "Nenhuma subscription ativa encontrada para a account 'uuid'."
+}
+```
+
+### Status Codes
+
+| Status | Condição |
+|--------|----------|
+| `200` | Resultado de acesso retornado (incluindo `has_access: false`) |
+| `400` | `account` ou `feature` ausentes |
+| `403` | Não autenticado |
+| `404` | `normalized_name` da feature não encontrado em `features` |
+| `500` | Erro interno |
+
+---
+
+## POST /plans/subscription/:account/:feature/use
+
+Incrementa em 1 o contador de uso (`features_usage.use`) da feature para a subscription ativa da conta. Usado para rastrear consumo de features por período.
+
+Executa em **transação atômica**:
+1. Busca feature por `normalized_name`
+2. Busca subscription ativa (por `account_id`, `due_date IS NULL OR > now()`)
+3. Upsert em `features_usage` (cria com `use = 1` ou incrementa com `use + 1`)
+4. Insere registro de audit em `events`
+5. Retorna `current_usage` atualizado
+
+### Autenticação
+
+Sessão Directus ativa (`403` sem auth).
+
+### Response `200 OK`
+
+```json
+{
+  "success": true,
+  "message": "Uso da feature registrado com sucesso.",
+  "feature": { "id": "uuid", "name": "Matchmaker AI", "type": "ai" },
+  "subscription": { "id": 42, "plan_id": 3 },
+  "current_usage": 13
+}
+```
+
+### Status Codes
+
+| Status | Condição |
+|--------|----------|
+| `200` | Uso registrado com sucesso |
+| `400` | Parâmetros ausentes |
+| `403` | Não autenticado |
+| `404` | Feature ou subscription ativa não encontrada |
+| `500` | Erro interno ou falha na transação |
 
 ---
 
