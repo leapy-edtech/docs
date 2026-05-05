@@ -1,74 +1,326 @@
 ---
-title: "Papéis e Permissões"
-description: "Visão geral dos papéis de usuário e suas permissões na plataforma Leapy"
+title: Papéis e Permissões
+description: Referência completa dos 11 roles do Directus com UUIDs, permissões exatas por recurso e regras de impersonação.
 ---
 
-## Papéis de Usuário
+## Visão geral
 
-A plataforma Leapy possui diferentes papéis de usuário, cada um com permissões específicas.
+A plataforma Leapy controla o acesso via **roles do Directus** definidos em `leapy-rh`. Cada sessão NextAuth carrega o `role_id` do usuário e o BFF verifica permissões usando a lista `PERMISSIONS` antes de servir dados ou executar ações.
 
-### Super Admin
+Há dois grupos de roles:
 
-Acesso completo à plataforma, incluindo configurações de sistema e gestão de tenants.
+| Grupo | Roles | Contexto |
+|-------|-------|----------|
+| **Leapy internos** | `system-admin`, `tech-team`, `operations-owner`, `operations-team` | Equipe Leapy — nunca atribuídos a clientes |
+| **Clientes** | `rh-account-admin`, `rh-account-manager`, `user-leadership`, `user-learning-leaper`, `intern`, `entidade-account-admin`, `user-candidate` | Usuários das contas cliente |
+
+---
+
+## Roles — Referência
+
+### system-admin
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `42144055-9e79-4c37-b3b6-e86b8269fedc` |
+| Contexto | Equipe de produto e engenharia Leapy |
+| Permissões | Todas (`Object.values(PERMISSIONS)`) |
+| Pode impersonar | Sim |
+| Pode ser impersonado | **Não** (protegido) |
+
+---
+
+### tech-team
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `1c532a3b-79f0-4a8c-af24-dbdba0319b1d` |
+| Contexto | Equipe técnica Leapy |
+| Permissões | Todas (`Object.values(PERMISSIONS)`) |
+| Pode impersonar | Sim |
+| Pode ser impersonado | **Não** (protegido) |
+
+---
+
+### rh-account-admin
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `de3307d1-e3b5-43b4-a764-0fc8c9fb38a3` |
+| Contexto | Administrador de RH do cliente — acesso completo à sua conta |
+| Pode ser impersonado | Sim |
+
+**Permissões:**
+
+| Recurso | Nível |
+|---------|-------|
+| `views` | `access` (home) |
+| `jovens` | `manage` (criar, editar, excluir) |
+| `turmas` | `manage` |
+| `pulsos` | `manage` |
+| `hiring` | `manage` |
+| `dados_insights` | `manage` |
+| `configuracoes` | `manage` |
+| `usuarios` | `manage` |
+
+---
+
+### rh-account-manager
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `32aa4335-c3a5-4f0b-86b8-55ab2ba00e4e` |
+| Contexto | Gerente de RH do cliente — mesmo escopo do admin, sem `views:access` |
+| Pode ser impersonado | Sim |
+
+**Permissões:** idênticas a `rh-account-admin`, exceto `views:access` (não atribuído).
+
+| Recurso | Nível |
+|---------|-------|
+| `jovens` | `manage` |
+| `turmas` | `manage` |
+| `pulsos` | `manage` |
+| `hiring` | `manage` |
+| `dados_insights` | `manage` |
+| `configuracoes` | `manage` |
+| `usuarios` | `manage` |
+
+---
+
+### user-leadership
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `6cf36344-400a-49a9-a6a2-103a2ee4d897` |
+| Contexto | Líderes e gestores — acesso de leitura aos dados da equipe |
+| Pode ser impersonado | Sim |
+
+**Permissões:**
+
+| Recurso | Nível |
+|---------|-------|
+| `jovens` | `read` |
+| `pulsos` | `read` |
+| `dados_insights` | `read` |
+
+---
+
+### user-learning-leaper
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `eeee6c89-fd7e-4fcd-b81b-e20adbd5c935` |
+| Contexto | Jovem aprendiz — acesso aos próprios dados e resposta a pulsos |
+| Pode ser impersonado | Sim |
+
+**Permissões:**
+
+| Recurso | Nível |
+|---------|-------|
+| `jovens` | `read` |
+| `pulsos` | `read` |
+| `pulsos` | `create` (responder pulsos) |
+
+---
+
+### intern
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `1beb084f-4414-4cd5-bc75-2883b241b689` |
+| Contexto | Estagiário — permissões idênticas a `user-learning-leaper` |
+| Pode ser impersonado | Sim |
+
+**Permissões:** idênticas a `user-learning-leaper`.
+
+| Recurso | Nível |
+|---------|-------|
+| `jovens` | `read` |
+| `pulsos` | `read` |
+| `pulsos` | `create` |
 
 <Note>
-  Este papel é restrito à equipe Leapy e não está disponível para clientes.
+  `intern` e `user-learning-leaper` têm exatamente o mesmo conjunto de permissões. A distinção é semântica: `intern` é para estagiários criados pelo módulo de estágio; `user-learning-leaper` é para jovens aprendizes do fluxo padrão.
 </Note>
 
-### Admin
+---
 
-Administrador do tenant com acesso completo às funcionalidades da organização.
+### operations-owner
 
-- Gestão de usuários e permissões
-- Configurações do tenant
-- Acesso a todos os módulos
-- Visualização de logs de auditoria
+| Campo | Valor |
+|-------|-------|
+| UUID | `7e47a776-7c10-41cd-9b8e-3d30acca70f0` |
+| Contexto | Funcionário Leapy com acesso administrativo ao app e ao backoffice Directus |
+| Pode impersonar | Sim |
+| Pode ser impersonado | Sim (mas não é target padrão do botão) |
 
-### RH
+**Permissões:**
 
-Usuário de Recursos Humanos com acesso às funcionalidades de gestão de pessoas.
+| Recurso | Nível |
+|---------|-------|
+| `jovens` | `manage` |
+| `turmas` | `manage` |
+| `pulsos` | `manage` |
+| `hiring` | `manage` |
+| `dados_insights` | `manage` |
+| `configuracoes` | `read` |
+| `usuarios` | `read` |
+| `backoffice` | `access` (acesso ao painel) |
+| `backoffice` | `manage` (permissão de impersonação) |
 
-- Gestão de talentos
-- Criação e gestão de pulsos
-- Acesso aos dashboards
-- Gestão de oportunidades
+---
 
-### Liderança
+### operations-team
 
-Gestores e líderes com acesso às informações de suas equipes.
+| Campo | Valor |
+|-------|-------|
+| UUID | `4d42f32c-6309-41eb-b52b-ec9e02afb048` |
+| Contexto | Funcionário Leapy com acesso de leitura a todas as áreas |
+| Pode impersonar | Não |
 
-- Visualização de talentos da equipe
-- Acompanhamento de pulsos
-- Dashboards da equipe
-- Aprovação de solicitações
+**Permissões:**
 
-### Talento
+| Recurso | Nível |
+|---------|-------|
+| `jovens` | `read` |
+| `turmas` | `read` |
+| `pulsos` | `read` |
+| `hiring` | `read` |
+| `dados_insights` | `read` |
+| `configuracoes` | `read` |
+| `usuarios` | `read` |
 
-Colaborador com acesso às funcionalidades de autoatendimento.
+<Note>
+  `operations-team` não tem `backoffice:access` — acessa o app RH mas não o painel Directus.
+</Note>
 
-- Perfil pessoal
-- Resposta a pulsos
-- Busca de oportunidades
-- Acompanhamento de desenvolvimento
+---
+
+### entidade-account-admin
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `db79b55e-f89d-40cb-a6d9-56c35de48cfb` |
+| Contexto | Administrador de entidade parceira (ex.: escola, empresa contratante) |
+| Pode ser impersonado | Não (não está na lista target) |
+
+**Permissões:**
+
+| Recurso | Nível |
+|---------|-------|
+| `jovens` | `read` |
+| `turmas` | `read` |
+| `pulsos` | `read` |
+
+---
+
+### user-candidate
+
+| Campo | Valor |
+|-------|-------|
+| UUID | `28c15af3-ea50-4bd7-802c-5d8137ebc9e8` |
+| Contexto | Candidato com acesso exclusivo ao Hub do Candidato |
+| Pode ser impersonado | Não |
+
+**Permissões:**
+
+| Recurso | Nível |
+|---------|-------|
+| `views` | `access` (home / Hub) |
+
+---
 
 ## Matriz de Permissões
 
-| Funcionalidade | Super Admin | Admin | RH | Liderança | Talento |
-|----------------|:-----------:|:-----:|:--:|:---------:|:-------:|
-| Gestão de Tenants | ✅ | ❌ | ❌ | ❌ | ❌ |
-| Gestão de Usuários | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Criar Pulsos | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Responder Pulsos | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Dashboards Globais | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Dashboards de Equipe | ✅ | ✅ | ✅ | ✅ | ❌ |
-| Gestão de Talentos | ✅ | ✅ | ✅ | ❌ | ❌ |
-| Perfil Pessoal | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Recurso | sys-admin | tech-team | rh-adm | rh-mgr | leadership | leaper | intern | ops-owner | ops-team | entidade | candidate |
+|---------|:---------:|:---------:|:------:|:------:|:----------:|:------:|:------:|:---------:|:--------:|:--------:|:---------:|
+| jovens | manage | manage | manage | manage | read | read | read | manage | read | read | — |
+| turmas | manage | manage | manage | manage | — | — | — | manage | read | read | — |
+| pulsos | manage | manage | manage | manage | read | read+create | read+create | manage | read | read | — |
+| hiring | manage | manage | manage | manage | — | — | — | manage | read | — | — |
+| dados_insights | manage | manage | manage | manage | read | — | — | manage | read | — | — |
+| configuracoes | manage | manage | manage | manage | — | — | — | read | read | — | — |
+| usuarios | manage | manage | manage | manage | — | — | — | read | read | — | — |
+| views:access | ✅ | ✅ | ✅ | — | — | — | — | — | — | — | ✅ |
+| backoffice:access | ✅ | ✅ | — | — | — | — | — | ✅ | — | — | — |
+| backoffice:manage | ✅ | ✅ | — | — | — | — | — | ✅ | — | — | — |
 
-## Escopos de Dados
+---
 
-Além dos papéis, a plataforma controla o escopo de visibilidade dos dados:
+## Impersonação
 
-- **Global**: Acesso a dados de toda a organização
-- **Área**: Acesso a dados de uma área/departamento específico
-- **Equipe**: Acesso a dados da equipe direta
-- **Individual**: Acesso apenas aos próprios dados
+A impersonação permite que a equipe Leapy assuma a sessão de um usuário cliente para suporte e diagnóstico. Implementada em `src/lib/auth/permissions/impersonation.ts`.
+
+### Regras
+
+| Regra | Roles |
+|-------|-------|
+| **Pode iniciar impersonação** | `system-admin`, `tech-team`, `operations-owner` |
+| **Protegido — não pode ser impersonado** | `system-admin`, `tech-team` |
+| **Targets do botão de impersonação** | `rh-account-admin`, `rh-account-manager`, `user-leadership`, `user-learning-leaper`, `intern` |
+| **Timeout de sessão impersonada** | 4 horas (`IMPERSONATION_TIMEOUT_MS = 4 * 60 * 60 * 1000`) |
+
+<Warning>
+  `entidade-account-admin`, `operations-team`, `operations-owner` e `user-candidate` **não aparecem no botão de impersonação** — não estão em `IMPERSONATION_TARGET_ROLE_IDS`. Impersonar esses roles requer intervenção direta de `system-admin` ou `tech-team`.
+</Warning>
+
+### Fluxo
+
+```
+1. Usuário autenticado com role em IMPERSONATION_ALLOWED_ROLE_IDS
+2. Clica em "Impersonar" no perfil do usuário target
+3. BFF valida: canImpersonate(session.role_id) && canBeImpersonated(target.role_id)
+4. Sessão impersonada criada com timestamp (impersonatedAt)
+5. Após 4h: isImpersonationExpired(impersonatedAt) = true → sessão encerra
+```
+
+---
+
+## Permissões — constantes
+
+O sistema usa o formato `recurso:ação` definido em `permissions.ts`:
+
+```ts
+// Exemplos de permissões geradas
+"jovens:manage"         // JOVENS_MANAGE
+"pulsos:read"           // PULSOS_READ
+"pulsos:create"         // PULSOS_CREATE
+"dados_insights:read"   // DADOS_INSIGHTS_READ
+"backoffice:access"     // BACKOFFICE_ACCESS
+"backoffice:manage"     // BACKOFFICE_IMPERSONATE
+```
+
+A verificação no BFF usa `session.user.permissions.includes(PERMISSIONS.JOVENS_MANAGE)` ou equivalente para cada rota protegida.
+
+<Note>
+  O recurso `documentos` (`DOCUMENTOS_READ`, `DOCUMENTOS_MANAGE`) existe nas constantes mas está comentado em todos os roles — funcionalidade não ativada.
+</Note>
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/lib/auth/permissions/roles.ts` | `leapy-rh` |
+| `src/lib/auth/permissions/permissions.ts` | `leapy-rh` |
+| `src/lib/auth/permissions/impersonation.ts` | `leapy-rh` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Impersonação — API" icon="user-secret" href="/api-reference/backoffice/impersonation">
+    Endpoints para iniciar e encerrar sessões de impersonação
+  </Card>
+  <Card title="Admin — Ciclo de Vida de Usuário" icon="users" href="/documentation/domains/admin/user-lifecycle">
+    Como usuários são criados, atribuídos a roles e desativados
+  </Card>
+  <Card title="Admin — Roles e Permissões" icon="shield" href="/documentation/domains/admin/roles-permissions">
+    Perspectiva de produto: quem vê o quê no app RH
+  </Card>
+  <Card title="Segurança e Dados" icon="lock" href="/documentation/platform/security-data">
+    Políticas de segurança da plataforma
+  </Card>
+</CardGroup>
