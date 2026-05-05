@@ -1,0 +1,223 @@
+---
+title: "Presenças — Fluxo de Justificativas"
+description: "Como o sistema processa justificativas de ausência: notificação de recebimento, análise pelo RH e atualização automática do registro de presença."
+---
+
+## Contexto de Produto
+
+Quando um jovem aprendiz falta a uma aula e envia uma justificativa, o sistema precisa:
+1. Confirmar ao jovem que a justificativa foi recebida
+2. Aguardar a análise do RH (aprovação ou reprovação)
+3. Notificar o jovem com o resultado
+4. Se aprovada, atualizar o registro de presença para `abono`
+
+Esse fluxo automatiza as comunicações e a atualização de dados, eliminando atualizações manuais na coleção `report_presenca_zoom`.
+
+## Fluxo Técnico
+
+```mermaid
+flowchart TB
+    subgraph Recebimento
+        JOVEM[Jovem preenche\ncampo justificativa]
+        UPDATE1[Directus items.update\nreport_presenca_zoom\njustificativa preenchida]
+        HOOK_REC[hook-justificativa-recebida]
+        WF1[GET /workflows/presencas\n/justificativa-recebida\n?send_event=true&presenca_id=]
+        JOB_REC[Job justificativa-recebida\nInngest]
+        EMAIL1[Email ao Jovem\njustificativa-recebida]
+    end
+
+    subgraph Análise e Resultado
+        RH[RH atualiza\nstatus_justificativa\naprovada|reprovada]
+        UPDATE2[Directus items.update\nreport_presenca_zoom\nstatus_justificativa = aprovada|reprovada]
+        HOOK_ANA[hook-justificativa-analisada]
+        WF2[GET /workflows/presencas\n/justificativa-analisada\n?send_event=true&presenca_id=]
+        JOB_ANA[Job justificativa-analisada\nInngest]
+        EMAIL2{aprovada?}
+        EMAIL_AP[Email justificativa-aprovada\n+ atualiza presença → abono]
+        EMAIL_REP[Email justificativa-reprovada]
+    end
+
+    JOVEM --> UPDATE1 --> HOOK_REC --> WF1 --> JOB_REC --> EMAIL1
+    RH --> UPDATE2 --> HOOK_ANA --> WF2 --> JOB_ANA --> EMAIL2
+    EMAIL2 -- sim --> EMAIL_AP
+    EMAIL2 -- não --> EMAIL_REP
+```
+
+## Hook — `hook-justificativa-recebida`
+
+**Tipo:** action hook (`items.update`)  
+**Coleção:** `report_presenca_zoom`  
+**Feature flag:** `HOOK_JUSTIFICATIVA_RECEBIDA`  
+**Condição de disparo:** `item.payload.justificativa` preenchido (campo não nulo)
+
+Quando o campo `justificativa` é preenchido na presença, o hook chama o workflow endpoint:
+
+```
+GET ${DIRECTUS_LOCAL_URL}/workflows/presencas/justificativa-recebida
+  ?send_event=true
+  &presenca_id={item.keys[0]}
+Authorization: Bearer ${DIRECTUS_LOCAL_TOKEN}
+```
+
+O endpoint de workflow recebe a requisição e emite o evento Inngest:
+
+```json
+{
+  "name": "backoffice/justificativa-recebida.send",
+  "data": { "presenca_id": 789 }
+}
+```
+
+## Job Inngest — `justificativa-recebida`
+
+**ID:** `justificativa-recebida`  
+**Evento:** `backoffice/justificativa-recebida.send`  
+**Arquivo:** `src/inngest/functions/presencas/justificativa-recebida.ts`
+
+**Passos:**
+
+1. Busca dados da presença em `report_presenca_zoom` (campo `jovem`)
+2. Busca dados do jovem em `Jovens` (campos `Name`, `E-mail corporativo`, `email_pessoal`)
+3. Envia email de confirmação ao jovem
+
+**Email enviado:**
+
+| Campo | Valor |
+|-------|-------|
+| Template | `justificativa-recebida` |
+| Assunto | `[LEAPY] - Justificativa recebida – estamos analisando sua solicitação` |
+| Destinatário | `E-mail corporativo` ou `email_pessoal` do jovem |
+
+**Early returns:**
+- `presenca_id` sem jovem vinculado → `{ success: false }`
+- Jovem sem email (corporativo ou pessoal) → `{ success: false }`
+
+---
+
+## Hook — `hook-justificativa-analisada`
+
+**Tipo:** action hook (`items.update`)  
+**Coleção:** `report_presenca_zoom`  
+**Feature flag:** `HOOK_JUSTIFICATIVA_ANALISADA`  
+**Condição de disparo:** `item.payload.status_justificativa === "aprovada"` ou `=== "reprovada"`
+
+Quando o RH registra o resultado da análise, o hook dispara:
+
+```
+GET ${DIRECTUS_LOCAL_URL}/workflows/presencas/justificativa-analisada
+  ?send_event=true
+  &presenca_id={item.keys[0]}
+```
+
+Evento emitido:
+
+```json
+{
+  "name": "backoffice/justificativa-analisada.send",
+  "data": { "presenca_id": 789 }
+}
+```
+
+## Job Inngest — `justificativa-analisada`
+
+**ID:** `justificativa-analisada`  
+**Evento:** `backoffice/justificativa-analisada.send`  
+**Arquivo:** `src/inngest/functions/presencas/justificativa-analisada.ts`
+
+**Passos:**
+
+1. Busca `presenca` (valor atual), `status_justificativa` e `jovem` na `report_presenca_zoom`
+2. Busca email do jovem em `Jovens`
+3. Envia email com resultado da análise
+4. **Se aprovada:** atualiza `presenca = "abono"` na `report_presenca_zoom`
+
+**Emails por resultado:**
+
+| `status_justificativa` | Template | Assunto |
+|------------------------|----------|---------|
+| `aprovada` | `justificativa-aprovada` | `[LEAPY] - Conclusão da análise - Justificativa abonada` |
+| `reprovada` | `justificativa-reprovada` | `[LEAPY] - Conclusão da análise - Justificativa não abonável` |
+
+**Atualização de presença (apenas quando aprovada):**
+
+```ts
+// report_presenca_zoom[presenca_id]
+presenca = status_justificativa === "aprovada"
+    ? "abono"
+    : presencaData.presenca  // mantém o valor original
+```
+
+## Coleções Envolvidas
+
+| Coleção | Papel |
+|---------|-------|
+| `report_presenca_zoom` | Registro de presença; campo `justificativa` e `status_justificativa` controlam o fluxo |
+| `Jovens` | Fonte do email do jovem (`E-mail corporativo` ou `email_pessoal`) |
+
+## Operação
+
+**Verificar se o email de recebimento foi enviado:**
+
+1. Acessar Inngest Dashboard → buscar evento `backoffice/justificativa-recebida.send`
+2. Filtrar por `presenca_id` → confirmar execução do job
+
+**Reprocessar email de resultado:**
+
+Se o RH atualizou `status_justificativa` mas o email não foi enviado:
+
+```bash
+# Disparar evento manualmente no Inngest Dashboard
+{
+  "name": "backoffice/justificativa-analisada.send",
+  "data": { "presenca_id": <id> }
+}
+```
+
+**Verificar feature flags:**
+
+```bash
+grep "HOOK_JUSTIFICATIVA" extensions/constants.js
+```
+
+**Consultar presença com justificativa pendente:**
+
+```sql
+SELECT id, jovem, presenca, justificativa, status_justificativa
+FROM report_presenca_zoom
+WHERE justificativa IS NOT NULL
+  AND status_justificativa IS NULL
+ORDER BY date_created DESC;
+```
+
+## Riscos e Limites
+
+| Risco | Impacto | Mitigação |
+|-------|---------|-----------|
+| Jovem sem email cadastrado | Job encerra sem enviar email | Verificar `E-mail corporativo` e `email_pessoal` no cadastro do jovem |
+| Hook dispara para múltiplas keys em um único update | Múltiplos eventos — só `keys[0]` é usado | Comportamento por design: hook processa apenas a primeira key |
+| `status_justificativa` alterado mais de uma vez | Job re-executa e pode re-enviar email | Idempotência não garantida; evitar alterações duplicadas de status |
+| Feature flag desabilitada | Nenhum email enviado automaticamente | Verificar `HOOK_JUSTIFICATIVA_RECEBIDA` e `HOOK_JUSTIFICATIVA_ANALISADA` |
+
+## Referências de Código
+
+| Arquivo | Repositório |
+|---------|-------------|
+| `extensions/hooks/src/hook-justificativa-recebida/index.js` | `directus-backoffice-with-extensions` |
+| `extensions/hooks/src/hook-justificativa-analisada/index.js` | `directus-backoffice-with-extensions` |
+| `src/inngest/functions/presencas/justificativa-recebida.ts` | `backoffice-inngest-functions` |
+| `src/inngest/functions/presencas/justificativa-analisada.ts` | `backoffice-inngest-functions` |
+| `extensions/constants.js` (feature flags) | `directus-backoffice-with-extensions` |
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Presenças — Regras de Negócio" icon="scale-balanced" href="/documentation/domains/presences/business-rules">
+    Regras de prazo (48h) e critérios de aprovação de justificativas
+  </Card>
+  <Card title="Presenças — Modelo de Dados" icon="database" href="/documentation/domains/presences/data-model">
+    Estrutura da coleção report_presenca_zoom e campos de controle
+  </Card>
+  <Card title="Presenças — Jornadas" icon="route" href="/documentation/domains/presences/journeys">
+    Fluxos completos de registro de presença e justificativa pelo jovem
+  </Card>
+</CardGroup>

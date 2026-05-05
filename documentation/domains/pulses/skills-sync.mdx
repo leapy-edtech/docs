@@ -1,0 +1,163 @@
+---
+title: "Pulsos — Sincronização de Competências"
+description: "Como respostas de pulso atualizam automaticamente o mapa de competências do talento via integração com a extensão taxonomic do Directus."
+---
+
+## Contexto de Produto
+
+Quando um jovem ou liderança responde um pulso, as respostas carregam avaliações de competências comportamentais e técnicas. O pipeline de sincronização captura esse dado e o consolida no sistema `taxonomic` — o repositório central de skills da plataforma — sem intervenção manual.
+
+Esse fluxo é o elo entre o módulo de Pulsos e o mapa de competências visível para RH e para o próprio talento.
+
+## Fluxo Técnico
+
+```mermaid
+flowchart TB
+    RH[RH responde pulso\nou Jovem/Liderança responde]
+    UPDATE[Directus: items.update\ncoleção Pulsos\nstatus = respondido]
+    HOOK[hook-pulso-skills-sync\nverifica status e dispara]
+    EVENT[Evento Inngest\nbackoffice/pulso.skills-sync\n{ pulso_id }]
+    JOB[Job sync-pulso-skills\nPOST /taxonomic/internal/pulso-sync]
+    DIRECTUS[Directus Extension\ntaxonomic\natualiza skills do talento]
+
+    RH --> UPDATE
+    UPDATE --> HOOK
+    HOOK --> EVENT
+    EVENT --> JOB
+    JOB --> DIRECTUS
+```
+
+## Hook — `hook-pulso-skills-sync`
+
+**Tipo:** action hook (`items.update`)  
+**Coleção monitorada:** `Pulsos`  
+**Feature flag:** `HOOK_PULSO_SKILLS_SYNC`
+
+Disparado sempre que um item da coleção `Pulsos` é atualizado. A lógica de filtro:
+
+1. Verifica se a coleção é `Pulsos` (ignora outras coleções)
+2. Verifica se `payload.status === "respondido"`
+3. Para cada `key` no payload (`item.keys`), emite um evento Inngest individual
+
+```js
+// extensions/hooks/src/hook-pulso-skills-sync/index.js
+action("items.update", async (item) => {
+    if (item.collection !== "Pulsos") return;
+    if (item.payload?.status !== "respondido") return;
+
+    for (const pulsoId of item.keys) {
+        await sendEvent({
+            name: "backoffice/pulso.skills-sync",
+            data: { pulso_id: Number(pulsoId) },
+        });
+    }
+});
+```
+
+**Nota:** O evento é disparado por `pulso_id` individual — não em batch — para permitir rastreabilidade e retry independente por pulso.
+
+## Job Inngest — `sync-pulso-skills`
+
+**ID:** `sync-pulso-skills`  
+**Evento:** `backoffice/pulso.skills-sync`  
+**Arquivo:** `src/inngest/functions/pulsos/sync-pulso-skills.ts`
+
+Recebe `pulso_id` e chama o endpoint interno da extensão `taxonomic`:
+
+```ts
+POST /taxonomic/internal/pulso-sync
+Body: { pulso_id: number }
+Authorization: Bearer <accessToken>
+```
+
+O endpoint `/taxonomic/internal/pulso-sync` tem acesso direto à instância Knex do Directus e é responsável por:
+- Ler as respostas do pulso e identificar as competências avaliadas
+- Calcular ou atualizar os scores de skill do talento na coleção taxonomic
+- Garantir idempotência (re-execução segura para o mesmo `pulso_id`)
+
+**Retorno do job:**
+
+```json
+{ "success": true, "pulso_id": 123, "result": { ... } }
+```
+
+## Contrato de Evento
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `pulso_id` | `number` | ID do pulso que foi respondido |
+
+Exemplo de payload:
+
+```json
+{
+  "name": "backoffice/pulso.skills-sync",
+  "data": { "pulso_id": 456 }
+}
+```
+
+## Dependências
+
+| Componente | Papel |
+|------------|-------|
+| `Pulsos` (coleção Directus) | Fonte: status `respondido` dispara o hook |
+| Extensão `taxonomic` | Destino: endpoint `/taxonomic/internal/pulso-sync` |
+| `HOOK_PULSO_SKILLS_SYNC` | Feature flag para habilitar/desabilitar o hook |
+| `DIRECTUS_URL` / `ACCESS_TOKEN` | Credenciais usadas pelo job Inngest para chamar o Directus |
+
+## Operação
+
+**Verificar se sync foi disparado para um pulso:**
+
+```bash
+# Checar no Inngest Dashboard se o job foi executado
+# Filtrar por evento "backoffice/pulso.skills-sync"
+# Buscar pelo pulso_id desejado
+```
+
+**Reprocessar manualmente:**
+
+Se um pulso foi respondido mas o sync falhou (ex: extensão taxonomic fora do ar):
+
+1. Identificar o `pulso_id` no Directus (coleção `Pulsos`)
+2. Disparar evento manualmente via Inngest Dashboard com `{ pulso_id: <id> }`
+3. Verificar resposta do job no histórico
+
+**Verificar feature flag:**
+
+```bash
+# No Directus
+grep "HOOK_PULSO_SKILLS_SYNC" extensions/constants.js
+```
+
+## Riscos e Limites
+
+| Risco | Impacto | Mitigação |
+|-------|---------|-----------|
+| Extensão `taxonomic` indisponível | Job falha, skills não atualizadas | Inngest retenta automaticamente; monitorar com Sentry |
+| Hook desabilitado (`HOOK_PULSO_SKILLS_SYNC = false`) | Nenhum sync após respostas de pulso | Verificar flag antes de investigar discrepâncias no mapa de skills |
+| Pulso respondido antes da feature existir | Histórico sem sincronização | Reprocessar via evento manual para pulsos históricos se necessário |
+| Múltiplos `keys` no update | N eventos disparados em paralelo | Comportamento esperado; Inngest gerencia concorrência |
+
+## Referências de Código
+
+| Arquivo | Repositório |
+|---------|-------------|
+| `extensions/hooks/src/hook-pulso-skills-sync/index.js` | `directus-backoffice-with-extensions` |
+| `src/inngest/functions/pulsos/sync-pulso-skills.ts` | `backoffice-inngest-functions` |
+| `extensions/endpoints/src/taxonomic/index.js` | `directus-backoffice-with-extensions` |
+| `extensions/constants.js` (`HOOK_PULSO_SKILLS_SYNC`) | `directus-backoffice-with-extensions` |
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Pulsos — Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+    Todos os jobs do módulo de Pulsos: criação, status, lembretes e notificações
+  </Card>
+  <Card title="Pulsos — Modelo de Dados" icon="database" href="/documentation/domains/pulses/data-model">
+    Estrutura das coleções Pulsos, pulsos_jovens e avaliação Leapy
+  </Card>
+  <Card title="Competências — API" icon="plug" href="/api-reference/backoffice/competencias">
+    Endpoints de listagem de competências e talentos por skill
+  </Card>
+</CardGroup>

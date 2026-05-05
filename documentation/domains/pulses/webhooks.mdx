@@ -50,10 +50,8 @@ sequenceDiagram
 | `hook-cron-send-liberacao-pulsos-rh-to-jovens`   | 8:05    | Hook → Endpoint → Evento | `/pulsos/send-liberacao-pulsos-rh-to-jovens` → `liberacao-to-jovens.send` | Libera pulsos RH para jovens          |
 | `hook-cron-send-lembrete-pulsos-rh-to-rh`        | 8:00    | Hook → Endpoint → Evento | `/pulsos/send-lembrete-pulsos-rh-to-rh` → `lembrete-to-rh.send`           | Envia lembretes para RH               |
 | `hook-cron-send-lembrete`                        | 5:00    | Hook → Endpoint → Evento | `/pulsos/send-lembrete` → `send-lembrete-pulsos.send`                     | Lembretes gerais                      |
-| `hook-cron-update-pulsos-liderancas-to-pendente` | Diário  | Hook → Evento Direto     | `pulsos.change_status`                                                    | Atualiza status para pendente         |
-| `hook-cron-update-pulsos-jovens-to-pendente`     | Diário  | Hook → Evento Direto     | `pulsos-jovens.update-to-pendente`                                        | Atualiza pulsos jovens para pendente  |
-| `hook-cron-update-pulsos-jovens-to-vencidos`     | Diário  | Hook → Evento Direto     | `pulsos-jovens.update-to-vencidos`                                        | Marca pulsos jovens como vencidos     |
-| `hook-cron-update-pulsos-liderancas-to-vencidos` | Diário  | Hook → Evento Direto     | `pulsos.vencidos_lideranca`                                               | Marca pulsos lideranças como vencidos |
+| `hook-cron-change-status-pulso-jovens`           | 5:00    | Hook → Evento Direto     | `pulsos-jovens.update-to-pendente` + `pulsos-jovens.update-to-vencidos`   | Agendado→pendente e pendente→vencido para jovens (com filtro pulsosSettings) |
+| `hook-cron-change-status-pulso-lideranca`        | 5:00    | Hook → Evento Direto     | `pulsos.change_status` + `pulsos.vencidos_lideranca`                      | Agendado→pendente e pendente→vencido para lideranças (com filtro pulsosSettings) |
 
 ### Exemplos de Código
 
@@ -79,23 +77,56 @@ export default ({ schedule }, { env }) => {
 };
 ```
 
-**Fluxo 2: Hook disparando Evento Direto**
+**Fluxo 2: Hook disparando Evento Direto (jovens)**
 
 ```javascript
-// extensions/hooks/src/hook-cron-update-to-pendente/index.js
-export default ({ schedule }, { env }) => {
-  schedule("0 0 * * *", async () => {
-    await fetch(env.INNGEST_EVENT_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${env.INNGEST_EVENT_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "backoffice/pulsos.change_status",
-        data: { trigger: "cron", timestamp: Date.now() },
-      }),
+// extensions/hooks/src/hook-cron-change-status-pulso-jovens/index.js
+// Dois blocos schedule no mesmo hook: agendado→pendente e pendente→vencido
+// Nota: não usa pulsosSettingsService — filtra diretamente por campos da collection pulsos_jovens
+export default ({ schedule }, { services, getSchema }) => {
+  const scheduleStatusUpdate = ({ dateField, statusFilter, eventName, message, extraConditions = [] }) => {
+    schedule("0 5 * * *", async () => {
+      const today = new Date().toISOString();
+      const pulsosService = new ItemsService("pulsos_jovens", { schema: await getSchema() });
+      const pulsos_jovens = await pulsosService.readByQuery({
+        fields: ["id", "status", dateField, "jovem_id.id"],
+        filter: { _and: [{ [dateField]: { _lte: today } }, { status: statusFilter }, ...extraConditions] },
+      });
+      if (pulsos_jovens.length > 0)
+        await sendEvent({ name: eventName, data: { message, ids: pulsos_jovens.map(p => p.id) } });
     });
+  };
+
+  // Bloco 1: agendado → pendente (data_aplicacao <= hoje)
+  scheduleStatusUpdate({ dateField: "data_aplicacao", statusFilter: { _eq: "agendado" }, eventName: "backoffice/pulsos-jovens.update-to-pendente", message: "Atualizar pulsos agendados para pendente" });
+
+  // Bloco 2: pendente → vencido (data_vencimento <= hoje, sem data_resposta)
+  scheduleStatusUpdate({ dateField: "data_vencimento", statusFilter: { _nin: ["respondido", "vencido"] }, eventName: "backoffice/pulsos-jovens.update-to-vencidos", message: "Atualizar pulsos pendentes para vencido", extraConditions: [{ data_resposta: { _null: true } }] });
+};
+```
+
+**Fluxo 2: Hook disparando Evento Direto (lideranças)**
+
+```javascript
+// extensions/hooks/src/hook-cron-change-status-pulso-lideranca/index.js
+// Usa pulsosSettingsService para filtrar por perfil habilitado por account (aprendiz/estagiário/liderança)
+export default ({ schedule }, { services, getSchema, database }) => {
+  const pulsosSettingsService = createPulsosSettingsService({ database, logger: console });
+
+  // Bloco 1: agendado → pendente (data_aplicacao <= hoje)
+  schedule("0 5 * * *", async () => {
+    const pulsos = await pulsosService.readByQuery({ filter: { status: { _eq: "agendado" }, data_aplicacao: { _lte: today } } });
+    const normalized = pulsos.map(p => ({ ...p, lideranca_id: p.jovem_id?.lideranca_id }));
+    const pulsosToProcess = await pulsosSettingsService.filterPulsosLiderancasByAccess(normalized, "lideranca_id");
+    await sendEvent({ name: "backoffice/pulsos.change_status", data: { pulsos: pulsosToProcess } });
+  });
+
+  // Bloco 2: pendente → vencido (data_vencimento <= hoje, sem data_resposta)
+  schedule("0 5 * * *", async () => {
+    const pulsos = await pulsosService.readByQuery({ filter: { status: { _nin: ["respondido", "vencido"] }, data_vencimento: { _lte: today }, data_resposta: { _null: true } } });
+    const normalized = pulsos.map(p => ({ ...p, lideranca_id: p.jovem_id?.lideranca_id }));
+    const pulsosToProcess = await pulsosSettingsService.filterPulsosLiderancasByAccess(normalized, "lideranca_id");
+    await sendEvent({ name: "backoffice/pulsos.vencidos_lideranca", data: { pulsos: pulsosToProcess } });
   });
 };
 ```
@@ -291,7 +322,7 @@ Eventos que atualizam o status dos pulsos.
 
 Disparado quando o status de um pulso de liderança muda.
 
-**Trigger**: Hook CRON `hook-cron-update-pulsos-liderancas-to-pendente` (diário)
+**Trigger**: Hook CRON `hook-cron-change-status-pulso-lideranca` (diário)
 
 **Payload:**
 
@@ -314,7 +345,7 @@ Disparado quando o status de um pulso de liderança muda.
 
 Disparado para marcar pulsos de liderança como vencidos.
 
-**Trigger**: Hook CRON `hook-cron-update-pulsos-liderancas-to-vencidos` (diário)
+**Trigger**: Hook CRON `hook-cron-change-status-pulso-lideranca` (diário)
 
 **Payload:**
 
