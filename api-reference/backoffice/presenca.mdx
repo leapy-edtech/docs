@@ -1,0 +1,295 @@
+---
+title: "Presenças — Histórico e Relatórios"
+description: "Endpoints para consultar histórico de presenças de jovens por mês/ano, dados para gráfico diário e exportação de planilha por empresa"
+---
+
+## Visão Geral
+
+O endpoint `presenca` expõe três rotas de leitura sobre os dados de presença registrados na
+collection `report_presenca_zoom`. Todos os endpoints exigem autenticação Directus e retornam
+dados do ano corrente por padrão.
+
+Os dados de presença são populados pelo job
+[`alinhar-presencas`](/documentation/domains/presences/alinhamento) após cada reunião Zoom.
+
+---
+
+## `GET /presenca/presenca/:jovem_id`
+
+Retorna o resumo agregado de presenças de um jovem por mês, com totais absolutos e percentuais.
+
+### Autenticação
+
+Requer sessão Directus ativa (`403` sem autenticação).
+
+### Query Parameters
+
+| Parâmetro | Tipo | Default | Descrição |
+|---|---|---|---|
+| `year` | `number` | Ano corrente | Filtra registros por ano |
+| `percentual` | `boolean` | `true` | Calcula `percentage_value` para cada categoria |
+| `absoluto` | `boolean` | `true` | Calcula `absolute_value` para cada categoria |
+
+### Response `200 OK`
+
+```json
+{
+  "year": 2026,
+  "total_by_month": [
+    {
+      "month_name": "Jan",
+      "presencas": { "percentage_value": 80, "absolute_value": 8 },
+      "atrasos":   { "percentage_value": 10, "absolute_value": 1 },
+      "faltas":    { "percentage_value": 10, "absolute_value": 1 },
+      "ferias":    { "percentage_value": 0,  "absolute_value": 0 },
+      "abonos":    { "percentage_value": 0,  "absolute_value": 0 }
+    },
+    { "month_name": "Fev", "presencas": {...}, "atrasos": {...}, "faltas": {...}, "ferias": {...}, "abonos": {...} },
+    ...
+  ],
+  "total": {
+    "presencas": 42,
+    "faltas": 5,
+    "atrasos": 3,
+    "ferias": 2,
+    "abonos": 1,
+    "dias_de_aula": 53
+  },
+  "possible_years_to_filter": [2024, 2025, 2026]
+}
+```
+
+**`total_by_month`:** array com 12 objetos (Jan → Dez). Meses sem dados retornam zeros.
+
+**`total`:** somatório anual de todas as categorias.
+
+**`possible_years_to_filter`:** anos disponíveis para o jovem — permite ao cliente popular
+um seletor de ano.
+
+### Mapeamento de Status
+
+| Valor em `report_presenca_zoom` | Categoria |
+|---|---|
+| `presente` | `presencas` |
+| `presente_com_atraso` | `atrasos` |
+| `ausente` | `faltas` |
+| `abono` | `abonos` |
+| `ferias` | `ferias` |
+| outros | ignorados |
+
+### Status Codes
+
+| Status | Condição |
+|---|---|
+| `200` | Dados retornados (pode ter zeros se sem registros) |
+| `403` | Não autenticado |
+| `500` | Erro interno |
+
+---
+
+## `GET /presenca/grafico/:jovem_id`
+
+Retorna a lista de presenças diárias do jovem para renderização em gráfico/calendário, com
+status normalizado e razão de justificativa quando presente.
+
+### Autenticação
+
+Requer sessão Directus ativa.
+
+### Query Parameters
+
+| Parâmetro | Tipo | Default | Descrição |
+|---|---|---|---|
+| `year` | `number` | Ano corrente | Filtra por ano |
+
+### Response `200 OK`
+
+```json
+{
+  "year": 2026,
+  "status_by_day": [
+    {
+      "id": 101,
+      "date": "2026-04-10T09:00:00.000Z",
+      "status": "PRESENTE",
+      "reason": null
+    },
+    {
+      "id": 102,
+      "date": "2026-04-17T09:00:00.000Z",
+      "status": "AUSENTE",
+      "reason": "Consulta médica"
+    },
+    {
+      "id": 103,
+      "date": "2026-04-24T09:00:00.000Z",
+      "status": "ATRASO",
+      "reason": null
+    }
+  ],
+  "possible_years_to_filter": [2025, 2026]
+}
+```
+
+**`status_by_day`:** ordenado por `meeting_date` ASC. Inclui todos os registros do ano.
+
+**Mapeamento de status para o gráfico:**
+
+| `presenca` (DB) | `status` (resposta) |
+|---|---|
+| `presente` | `"PRESENTE"` |
+| `presente_com_atraso` | `"ATRASO"` |
+| `ausente` | `"AUSENTE"` |
+| `abono` | `"ABONO"` |
+| `ferias` | `"FERIAS"` |
+| outros | `null` |
+
+**`reason`:** campo `justificativa` do registro — `null` quando vazio.
+
+### Status Codes
+
+| Status | Condição |
+|---|---|
+| `200` | Dados retornados |
+| `403` | Não autenticado |
+| `500` | Erro interno |
+
+---
+
+## `GET /presenca/planilha/:empresa_id`
+
+Exporta os dados de presença do mês corrente para todos os jovens de uma empresa e persiste
+na tabela `planilha_presenca`.
+
+<Warning>
+  Este endpoint **persiste dados no banco** além de retorná-los. A tabela `planilha_presenca`
+  é criada automaticamente se não existir. Cada chamada insere novos registros — sem dedup.
+  Usar apenas quando necessário (ex: geração mensal de relatório).
+</Warning>
+
+### Autenticação
+
+Requer sessão Directus ativa.
+
+### Path Parameter
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `empresa_id` | `number` | ID da empresa em `Empresas` |
+
+### Comportamento
+
+- Filtra `report_presenca_zoom` pelo `empresa_id` e pelo **mês e ano correntes** (hardcoded — sem parâmetro de query)
+- Faz join com `Jovens` para obter nome, email e data de início de contrato
+- Insere os registros em `planilha_presenca`
+- Retorna os dados inseridos
+
+### Response `200 OK`
+
+```json
+{
+  "message": "Tabela preenchida com os dados de presença.",
+  "presencas": [
+    {
+      "empresa_id": 5,
+      "jovem": "Ana Lima",
+      "email": "ana@empresa.com",
+      "incio_do_contrato": "2025-01-01T00:00:00.000Z",
+      "dias_de_aula": "Segunda-feira",
+      "ocorrencia": "PRESENTE",
+      "justificativa": null,
+      "observacoes": null,
+      "data_ocorrencia": "2026-05-05T09:00:00.000Z",
+      "dia_ocorrencia": 5,
+      "mes_ocorrencia": 5,
+      "ano_ocorrencia": 2026
+    }
+  ]
+}
+```
+
+**Mapeamento de `ocorrencia` (CASE SQL):**
+
+| `presenca` (DB) | `ocorrencia` |
+|---|---|
+| `presente` | `"PRESENTE"` |
+| `presente_com_atraso` | `"ATRASO"` |
+| `ausente` | `"AUSENTE"` |
+| `abono` | `"AUSENTE"` |
+| `ferias` | `"FERIAS"` |
+| outros | `"DESCONHECIDO"` |
+
+<Note>
+  `abono` é mapeado para `"AUSENTE"` neste endpoint (diferente do `/presenca/:jovem_id`
+  que mantém `abono` separado). Isso reflete a semântica do relatório de empresa, onde
+  abonos aparecem como ausências justificadas.
+</Note>
+
+### Status Codes
+
+| Status | Condição |
+|---|---|
+| `200` | Dados inseridos e retornados (array pode ser vazio) |
+| `403` | Não autenticado |
+| `500` | Erro interno ou falha na criação da tabela |
+
+---
+
+## Collection: `report_presenca_zoom`
+
+Fonte de dados dos três endpoints.
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `id` | `number` | ID do registro |
+| `jovem` | `number` | FK para `Jovens` |
+| `empresa` | `number` | FK para `Empresas` |
+| `presenca` | `string` | `presente`, `presente_com_atraso`, `ausente`, `abono`, `ferias` |
+| `meeting_date` | `datetime` | Data/hora da reunião |
+| `meeting_date_year` | `number` | Ano extraído (coluna calculada) |
+| `meeting_date_month` | `string` | Mês abreviado em pt-BR (ex: `"Mai"`) |
+| `justificativa` | `string\|null` | Texto de justificativa da ausência |
+| `observacoes` | `string\|null` | Observações adicionais |
+
+## Observabilidade
+
+```sql
+-- Resumo de presenças de um jovem no ano corrente
+SELECT presenca, COUNT(*) as total
+FROM report_presenca_zoom
+WHERE jovem = {jovem_id}
+  AND meeting_date_year = EXTRACT(YEAR FROM NOW())
+GROUP BY presenca;
+
+-- Jovens com maior taxa de ausência em uma empresa (mês corrente)
+SELECT j."Name", COUNT(*) as ausencias
+FROM report_presenca_zoom r
+JOIN "Jovens" j ON r.jovem = j.id
+WHERE r.empresa = {empresa_id}
+  AND r.presenca IN ('ausente', 'abono')
+  AND EXTRACT(MONTH FROM r.meeting_date) = EXTRACT(MONTH FROM NOW())
+  AND EXTRACT(YEAR FROM r.meeting_date) = EXTRACT(YEAR FROM NOW())
+GROUP BY j."Name"
+ORDER BY ausencias DESC;
+```
+
+## Referências de Código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `extensions/endpoints/src/presenca/index.js` | `directus-backoffice-with-extensions` | Todos os endpoints de presença |
+
+<CardGroup cols={2}>
+  <Card title="Alinhamento de Presenças" icon="calendar-check" href="/documentation/domains/presences/alinhamento">
+    Job que processa presenças e envia emails após reuniões Zoom
+  </Card>
+  <Card title="Presenças — Visão Geral" icon="users" href="/documentation/domains/presences/index">
+    Domínio completo de presenças
+  </Card>
+  <Card title="Justificativas de Presença" icon="file-pen" href="/documentation/domains/presences/justificativas">
+    Fluxo de justificativa de faltas
+  </Card>
+  <Card title="Zoom e Agenda" icon="video" href="/documentation/platform/zoom-agenda">
+    Integração Zoom para criação de links de reunião
+  </Card>
+</CardGroup>

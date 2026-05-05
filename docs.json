@@ -293,6 +293,18 @@
                 ]
               },
               {
+                "group": "LinkedIn Skills",
+                "pages": [
+                  "api-reference/backoffice/linkedin-skills"
+                ]
+              },
+              {
+                "group": "Presenças",
+                "pages": [
+                  "api-reference/backoffice/presenca"
+                ]
+              },
+              {
                 "group": "Dashboard & AI",
                 "pages": [
                   "api-reference/backoffice/vision-ai"

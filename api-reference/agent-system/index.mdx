@@ -1,246 +1,187 @@
 ---
-title: "API do Agent System"
-description: "Documentação da API do sistema de agentes de IA"
+title: "Agent System — Visão Geral"
+description: "Arquitetura e referência completa do Agent System da Leapy: Matchmaker de talentos com busca síncrona, streaming SSE e extração de competências"
 ---
 
-## Visão Geral
+## O que é o Agent System
 
-O Agent System expõe APIs para interação com assistentes de IA da plataforma Leapy.
+O Agent System é a camada de inteligência artificial da plataforma Leapy. O agente atual em
+produção é o **Matchmaker**, responsável por descobrir talentos com base em uma query de
+linguagem natural ou URL de vaga.
 
-## Base URL
+O sistema usa um pipeline de 5 etapas orquestrado por IA:
 
-| Ambiente | URL |
-|----------|-----|
-| Production | `https://api.leapy.com/agents` |
-| Staging | `https://staging.leapy.com/api/agents` |
-
-## Autenticação
-
-Todas as requisições requerem autenticação via token JWT.
-
-```bash
-Authorization: Bearer <access_token>
+```mermaid
+flowchart LR
+    Q["Query\n(texto ou URL)"]
+    Q --> E["1. Extract\nRole + Skills"]
+    E --> N["2. Normalize\nTaxonomia interna"]
+    N --> S["3. Search\nVetor + filtros"]
+    S --> R["4. Rank\nRelevância + score"]
+    R --> O["5. Output\nCandidatos ranqueados"]
 ```
+
+## Camadas de Acesso
+
+O Agent System é acessado em duas camadas, dependendo do contexto:
+
+| Camada | Endpoint | Quem usa | Auth |
+|---|---|---|---|
+| BFF (Next.js) | `POST /api/matchmaker/search` | App RH (frontend) | Sessão NextAuth |
+| Proxy Directus | `POST /matchmaker/search` | BFF → Directus | Bearer token Directus |
+| Agent System direto | `POST /matchmaker/search` | Directus → Agent System | API Key interna |
+
+Na prática, o fluxo completo é:
+
+```
+Frontend → Next.js BFF → Directus (proxy + auth) → Agent System
+```
+
+O `account_id` é injetado automaticamente pelo Directus a partir do token de autenticação,
+garantindo **isolamento multi-tenant**: cada busca retorna apenas talentos da conta do usuário.
 
 ## Endpoints
 
-### Chat Completion
+### Matchmaker
 
-Envia mensagem para um agente e recebe resposta.
+| Endpoint | Método | Descrição |
+|---|---|---|
+| [`/matchmaker/search`](/api-reference/agent-system/matchmaker-search) | `POST` | Busca síncrona — aguarda o pipeline completo |
+| [`/matchmaker/search/stream`](/api-reference/agent-system/matchmaker-stream) | `POST` | Busca com SSE — feedback em tempo real |
+| [`/matchmaker/extract`](/api-reference/agent-system/matchmaker-extract) | `POST` | Extrai role e skills de texto/URL (sem busca) |
+| [`/matchmaker/health`](/api-reference/agent-system/matchmaker-health) | `GET` | Health check do serviço |
+
+## Autenticação
+
+### Via BFF (recomendado para o frontend)
+
+O BFF em `leapy-rh` injeta o Bearer token da sessão NextAuth automaticamente.
+Não é necessário gerenciar tokens no cliente.
+
+```typescript
+// Chamada do frontend — sem token explícito
+const response = await fetch('/api/matchmaker/search', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ query: 'Desenvolvedor Python sênior', limit: 10 }),
+});
+```
+
+### Via Directus (para integrações diretas)
 
 ```bash
-POST /chat
+POST https://backoffice.leapy.com/matchmaker/search
+Authorization: Bearer <directus_access_token>
 Content-Type: application/json
 
 {
-  "agent": "hr_assistant",
-  "messages": [
-    {
-      "role": "user",
-      "content": "Quantos talentos temos na área de Tecnologia?"
+  "query": "Desenvolvedor Python sênior",
+  "limit": 10
+}
+```
+
+## Parâmetros Comuns
+
+Todos os endpoints de busca aceitam:
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `query` | `string` | Sim | Texto livre, URL de vaga LinkedIn, ou misto |
+| `limit` | `integer` | Não | Máximo de resultados (1–100, default: 10) |
+| `department` | `string` | Não | Filtro por departamento |
+| `account_id` | `string` (UUID) | Via Directus | Injetado automaticamente pelo proxy |
+
+## Tipos de Query
+
+O Matchmaker aceita três formatos:
+
+### 1. Texto livre
+```
+"Desenvolvedor Python sênior com experiência em FastAPI e AWS"
+```
+
+### 2. URL de vaga
+```
+"https://www.linkedin.com/jobs/view/123456"
+```
+
+### 3. Misto
+```
+"https://linkedin.com/jobs/view/123456 — preciso de alguém com mais foco em backend"
+```
+
+Quando uma URL é detectada, o pipeline extrai o conteúdo da página antes de processar.
+
+## Escolhendo entre Search e Stream
+
+| Critério | `/search` (síncrono) | `/search/stream` (SSE) |
+|---|---|---|
+| **UX recomendada** | Integrações, scripts, testes | Frontend e app RH |
+| **Tempo de resposta** | Até 120s (bloqueia) | Progressivo (eventos em tempo real) |
+| **Feedback durante processamento** | Nenhum | Sim — passo a passo visível |
+| **Implementação** | Simples (fetch normal) | Requer leitor de SSE |
+
+## Tratamento de Erros
+
+| Status | Significado |
+|---|---|
+| `400` | `query` ausente ou vazia |
+| `401` | Sessão expirada ou token inválido |
+| `408` / `504` | Timeout — pipeline demorou mais de 120 segundos |
+| `500` | Erro interno no Agent System |
+
+```json
+{
+  "error": "Timeout",
+  "message": "A busca demorou mais de 120 segundos. Tente uma query mais específica.",
+  "status": 408
+}
+```
+
+## Exemplo Rápido
+
+```typescript
+// Busca com streaming (recomendado)
+const response = await fetch('/api/matchmaker/search/stream', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: 'Analista de dados com Python e Power BI',
+    limit: 5,
+  }),
+});
+
+const reader = response.body!.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+
+  const lines = decoder.decode(value).split('\n');
+  for (const line of lines) {
+    if (!line.startsWith('data: ')) continue;
+    const event = JSON.parse(line.slice(6));
+
+    if (event.type === 'candidates') {
+      console.log('Candidatos:', event.data);
     }
-  ],
-  "context": {
-    "tenant_id": "uuid"
+    if (event.type === 'done') break;
   }
 }
 ```
 
-**Resposta:**
-
-```json
-{
-  "id": "msg_abc123",
-  "agent": "hr_assistant",
-  "message": {
-    "role": "assistant",
-    "content": "Na área de Tecnologia temos 45 talentos ativos...",
-    "tool_calls": [
-      {
-        "tool": "query_talents",
-        "input": { "area_id": "tech-uuid" },
-        "output": { "count": 45 }
-      }
-    ]
-  },
-  "usage": {
-    "prompt_tokens": 150,
-    "completion_tokens": 80,
-    "total_tokens": 230
-  }
-}
-```
-
-### Streaming
-
-Para respostas em streaming:
-
-```bash
-POST /chat/stream
-Content-Type: application/json
-
-{
-  "agent": "hr_assistant",
-  "messages": [...],
-  "stream": true
-}
-```
-
-**Resposta (Server-Sent Events):**
-
-```
-data: {"type": "start", "id": "msg_abc123"}
-
-data: {"type": "delta", "content": "Na área de "}
-
-data: {"type": "delta", "content": "Tecnologia "}
-
-data: {"type": "tool_call", "tool": "query_talents", "status": "started"}
-
-data: {"type": "tool_call", "tool": "query_talents", "status": "completed", "output": {...}}
-
-data: {"type": "delta", "content": "temos 45 talentos..."}
-
-data: {"type": "done", "usage": {...}}
-```
-
-### Listar Agentes
-
-```bash
-GET /agents
-```
-
-**Resposta:**
-
-```json
-{
-  "data": [
-    {
-      "id": "hr_assistant",
-      "name": "HR Assistant",
-      "description": "Assistente para equipes de RH",
-      "capabilities": ["query_data", "generate_reports"],
-      "available": true
-    },
-    {
-      "id": "support_agent",
-      "name": "Support Agent",
-      "description": "Agente de suporte",
-      "capabilities": ["diagnose", "suggest_fixes"],
-      "available": true
-    }
-  ]
-}
-```
-
-### Obter Histórico
-
-```bash
-GET /conversations/{conversation_id}
-```
-
-**Resposta:**
-
-```json
-{
-  "id": "conv_xyz",
-  "agent": "hr_assistant",
-  "messages": [
-    {
-      "id": "msg_1",
-      "role": "user",
-      "content": "Olá",
-      "timestamp": "2024-01-15T10:00:00Z"
-    },
-    {
-      "id": "msg_2",
-      "role": "assistant",
-      "content": "Olá! Como posso ajudar?",
-      "timestamp": "2024-01-15T10:00:02Z"
-    }
-  ],
-  "created_at": "2024-01-15T10:00:00Z",
-  "updated_at": "2024-01-15T10:00:02Z"
-}
-```
-
-## Agentes Disponíveis
-
-### hr_assistant
-
-Assistente para equipes de RH.
-
-**Capabilities:**
-- `query_talents`: Consultar dados de talentos
-- `query_pulses`: Consultar dados de pulsos
-- `generate_report`: Gerar relatórios
-- `suggest_actions`: Sugerir ações
-
-**Permissões requeridas:**
-- `agent:hr_assistant`
-- `talent:read`
-- `pulse:read`
-
-### support_agent
-
-Agente de suporte técnico.
-
-**Capabilities:**
-- `diagnose_issue`: Diagnosticar problemas
-- `suggest_fix`: Sugerir correções
-- `execute_action`: Executar ações (limitadas)
-
-**Permissões requeridas:**
-- `agent:support`
-
-### analytics_agent
-
-Agente de análise de dados.
-
-**Capabilities:**
-- `query_metrics`: Consultar métricas
-- `analyze_trends`: Analisar tendências
-- `generate_insights`: Gerar insights
-
-**Permissões requeridas:**
-- `agent:analytics`
-- `dashboard:read`
-
-## Limites
-
-| Limite | Valor |
-|--------|-------|
-| Mensagens por minuto | 10 |
-| Tokens por mensagem | 4000 |
-| Conversações ativas | 5 |
-| Histórico retido | 30 dias |
-
-## Erros
-
-| Código | Descrição |
-|--------|-----------|
-| 400 | Requisição inválida |
-| 401 | Não autenticado |
-| 403 | Sem permissão para o agente |
-| 429 | Rate limit excedido |
-| 500 | Erro interno |
-
-**Exemplo de erro:**
-
-```json
-{
-  "error": {
-    "code": "RATE_LIMITED",
-    "message": "Too many requests. Please wait before trying again.",
-    "retry_after": 60
-  }
-}
-```
-
-## Boas Práticas
-
-1. **Use streaming** para melhor UX
-2. **Mantenha contexto** enviando histórico relevante
-3. **Trate erros** graciosamente
-4. **Respeite rate limits** implementando backoff
-5. **Log interações** para debugging
+<CardGroup cols={2}>
+  <Card title="Busca Síncrona" icon="magnifying-glass" href="/api-reference/agent-system/matchmaker-search">
+    POST /matchmaker/search — pipeline completo, resposta única
+  </Card>
+  <Card title="Busca com Streaming" icon="bolt" href="/api-reference/agent-system/matchmaker-stream">
+    POST /matchmaker/search/stream — feedback em tempo real via SSE
+  </Card>
+  <Card title="Extração de Skills" icon="brain" href="/api-reference/agent-system/matchmaker-extract">
+    POST /matchmaker/extract — extrai role e skills sem retornar candidatos
+  </Card>
+  <Card title="Exemplos Práticos" icon="code" href="/api-reference/agent-system/matchmaker-examples">
+    Cenários reais de uso com código TypeScript e cURL
+  </Card>
+</CardGroup>
