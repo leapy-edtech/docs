@@ -32,6 +32,7 @@
                   "documentation/domains/pulses/data-model",
                   "documentation/domains/pulses/webhooks",
                   "documentation/domains/pulses/jobs-inngest",
+                  "documentation/domains/pulses/skills-sync",
                   "documentation/domains/pulses/integrations",
                   "documentation/domains/pulses/metrics",
                   "documentation/domains/pulses/journeys",
@@ -77,6 +78,7 @@
                   "documentation/domains/insights/index",
                   "documentation/domains/insights/metric-catalog",
                   "documentation/domains/insights/data-pipeline",
+                  "documentation/domains/insights/materializacao",
                   "documentation/domains/insights/alertas-performance",
                   "documentation/domains/insights/operations"
                 ]
@@ -106,6 +108,7 @@
                 "group": "Presenças",
                 "pages": [
                   "documentation/domains/presences/index",
+                  "documentation/domains/presences/justificativas",
                   "documentation/domains/presences/journeys",
                   "documentation/domains/presences/business-rules",
                   "documentation/domains/presences/data-model",

@@ -264,6 +264,40 @@ HAVING MAX(sent_at) < NOW() - INTERVAL '14 days';
 | Usuário sem telefone | Validação no trigger antes de disparar evento |
 | FUP v2 falha ao atualizar agent context | Erro capturado e logado; não bloqueia o envio |
 
+## Triggers Automáticos — Régua de Comunicação
+
+Os três hooks cron a seguir disparam as réguas de comunicação por domínio. Cada hook executa diariamente e chama uma lista de endpoints de workflow no Directus (via HTTP GET com `?send_event=true`). Os endpoints, por sua vez, consultam quais jovens/lideranças/RH devem receber comunicação e emitem eventos Inngest individualmente.
+
+| Hook | Schedule | Domínio | Evento Inngest | Workflows ativos |
+|------|----------|---------|----------------|-----------------|
+| `hook-regua-comunicacao-jovens` | `1 6 * * *` (06:01) | Jovens | `backoffice/regua-comunicacao/jovens.send` | 17 jornadas (imersão, PDI, 90 dias, efetivação…) |
+| `hook-regua-comunicacao-lideranca` | `1 5 * * *` (05:01) | Lideranças | `backoffice/regua-comunicacao/lideranca.send` | 12 jornadas (recepção, 100 dias, efetivação…) |
+| `hook-regua-comunicacao-rh` | `1 4 * * *` (04:01) | RH | `backoffice/regua-comunicacao/rh.send` | 9 jornadas (explorar plataforma, contratos, vagas…) |
+
+Cada hook itera os paths ativos (alguns comentados no código para desativação temporária) e faz:
+
+```javascript
+// Exemplo: hook-regua-comunicacao-jovens/index.js
+schedule("1 6 * * *", async () => {
+    const paths = [
+        "workflows/regua-comunicacao/jovens/acabou-a-imersao-e-agora",
+        "workflows/regua-comunicacao/jovens/pense-no-seu-pdi",
+        // ... 15 outros paths
+    ];
+
+    paths.forEach(async path => {
+        await axios.get(`${DIRECTUS_LOCAL_URL}/${path}`, {
+            params: { send_event: "true" },
+            headers: { Authorization: `Bearer ${DIRECTUS_LOCAL_TOKEN}` },
+        });
+    });
+});
+```
+
+**Feature flags:** `HOOK_CRON_REGUA_COMUNICACAO_JOVENS`, `HOOK_CRON_REGUA_COMUNICACAO_LIDERANCA`, `HOOK_CRON_REGUA_COMUNICACAO_RH`
+
+Para desativar temporariamente um evento específico dentro de um hook (ex: email de lançamento de projeto ainda não pronto), comentar o path correspondente no array `paths` do hook.
+
 ## Referências de Código
 
 | Arquivo | Repo | Descrição |
@@ -272,7 +306,10 @@ HAVING MAX(sent_at) < NOW() - INTERVAL '14 days';
 | `src/inngest/functions/follow-up-v2/follow-up-v2-send.ts` | `backoffice-inngest-functions` | Job FUP v2 |
 | `src/inngest/functions/follow-up-v2/types.ts` | `backoffice-inngest-functions` | Tipos de FUP v2 |
 | `src/inngest/functions/regua-comunicacao/` | `backoffice-inngest-functions` | Jobs de régua |
-| `extensions/hooks/src/hook-cron-followup-triggers/` | `directus-backoffice-with-extensions` | Triggers automáticos |
+| `extensions/hooks/src/hook-cron-followup-triggers/` | `directus-backoffice-with-extensions` | Triggers automáticos FUP |
+| `extensions/hooks/src/hook-regua-comunicacao-jovens/` | `directus-backoffice-with-extensions` | Cron régua jovens |
+| `extensions/hooks/src/hook-regua-comunicacao-lideranca/` | `directus-backoffice-with-extensions` | Cron régua lideranças |
+| `extensions/hooks/src/hook-regua-comunicacao-rh/` | `directus-backoffice-with-extensions` | Cron régua RH |
 | `src/services/messaging.service.ts` | `backoffice-inngest-functions` | Canal WhatsApp/Email |
 | `src/services/followup-log.service.ts` | `backoffice-inngest-functions` | Log de follow-ups |
 
