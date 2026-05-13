@@ -463,6 +463,55 @@ Para testar ou reprocessar:
 
 ---
 
+## Jobs de Atualização de Status de Pulsos Jovens
+
+### 17. `updateStatusPulsosJovensParaPendentes`
+
+**ID:** `update-pulsos-pendentes`
+
+**Propósito:** Atualiza o status dos pulsos de jovens selecionados para `"pendente"`. Executa em lotes paralelos para evitar sobrecarga no banco.
+
+**Evento ouvido:** `backoffice/pulsos-jovens.update-to-pendente`
+
+**Payload:**
+
+```json
+{ "ids": [1, 2, 3, 45] }
+```
+
+**Lógica:**
+1. Divide o array de IDs em chunks
+2. Para cada chunk, executa `updateDirectusData("pulsos_jovens", chunk, { status: "pendente" })`
+3. Todos os chunks rodam em paralelo com `Promise.all`
+4. Retorna os registros atualizados com campos `id`, `data_aplicacao`, `status`
+
+**Arquivo:** `src/inngest/functions/update-pulsos-jovens-to-pendentes.ts`
+
+---
+
+### 18. `updateStatusPulsosJovensParaVencidos`
+
+**ID:** `update-pulsos-vencidos`
+
+**Propósito:** Atualiza o status dos pulsos de jovens selecionados para `"vencido"`. Mesma lógica de chunking do job anterior.
+
+**Evento ouvido:** `backoffice/pulsos-jovens.update-to-vencidos`
+
+**Payload:**
+
+```json
+{ "ids": [1, 2, 3] }
+```
+
+**Lógica:**
+1. Divide IDs em chunks
+2. Atualiza `status = "vencido"` em paralelo via `updateDirectusData`
+3. Retorna registros atualizados com `id`, `data_aplicacao`, `status`
+
+**Arquivo:** `src/inngest/functions/update-pulsos-jovens-to-vencidos.ts`
+
+---
+
 ## Próximos Passos
 
 <CardGroup cols={2}>

@@ -1,0 +1,330 @@
+---
+title: Pulsos — API de Agendamento Operacional
+description: Endpoints Directus para gerenciar agendamento de pulsos por conta e perfil, diagnóstico, preview de calendário e reagendamento em massa.
+---
+
+## Visão geral
+
+A extensão `pulsos-schedule/` do Directus expõe a API operacional de agendamento de pulsos. É diferente da coleção `pulsos_schedule_settings` (acesso CRUD direto via `/items`): esta API implementa lógica de negócio — validação, diagnóstico, preview de calendário futuro e reagendamento em massa.
+
+<CardGroup cols={2}>
+  <Card title="Settings por perfil" icon="sliders">
+    Configuração de cadência por conta e perfil (aprendiz, estagiário, liderança)
+  </Card>
+  <Card title="Diagnóstico" icon="stethoscope">
+    Contagem de jovens/lideranças sem contratos de pulso configurados
+  </Card>
+  <Card title="Preview" icon="calendar">
+    Simulação do calendário de pulsos antes de confirmar configuração
+  </Card>
+  <Card title="Reagendamento" icon="arrows-rotate">
+    Aplicar nova cadência retroativamente para toda a conta ou perfil específico
+  </Card>
+</CardGroup>
+
+### Autenticação
+
+Token Directus em `Authorization: Bearer <token>`. Todos os endpoints validam `req.accountability.user` e verificam autorização via `isUserAuthorized`.
+
+### Perfis válidos
+
+`aprendiz`, `estagiario`, `lideranca`
+
+---
+
+## GET /pulsos-schedule/settings e /settings/me
+
+Retorna as configurações de agendamento da conta do usuário autenticado. `/settings/me` é alias de `/settings`.
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "account_id": "uuid-da-conta",
+  "settings": [
+    {
+      "id": "uuid",
+      "profile": "aprendiz",
+      "cadence_interval": 1,
+      "cadence_unit": "month",
+      "next_pulso_date": "2026-06-01",
+      "prazo": 15,
+      "cadence_label": "Mensal"
+    }
+  ]
+}
+```
+
+---
+
+## GET /pulsos-schedule/settings/:account_id
+
+Retorna configurações de agendamento para uma conta específica. Requer autorização de RH ou admin sobre essa conta.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+
+### Resposta `200`
+
+Mesma estrutura de `/settings`, mas com dados da conta especificada.
+
+---
+
+## GET /pulsos-schedule/settings/:account_id/:profile
+
+Retorna a configuração de agendamento para um perfil específico de uma conta.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+| `profile` | `string` | `aprendiz`, `estagiario` ou `lideranca` |
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "settings": {
+    "profile": "aprendiz",
+    "cadence_interval": 2,
+    "cadence_unit": "month",
+    "next_pulso_date": "2026-07-01",
+    "prazo": 15
+  }
+}
+```
+
+---
+
+## PUT /pulsos-schedule/settings/:account_id/:profile
+
+Atualiza a configuração de agendamento de um perfil específico.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+| `profile` | `string` | Perfil a configurar |
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `cadence_interval` | `number` | sim | Intervalo de cadência (1–12) |
+| `cadence_unit` | `string` | não | `"month"` (default) ou `"week"` |
+| `start_date` | `string` | sim | Data do próximo pulso (ISO 8601, mínimo 5 dias a frente) |
+| `prazo` | `number` | não | Prazo em dias para resposta (default: 15) |
+| `change_reason` | `string` | não | Motivo da alteração para auditoria |
+
+### Resposta `200`
+
+```json
+{ "success": true, "settings": { ... } }
+```
+
+---
+
+## PUT /pulsos-schedule/settings/:account_id/para-todos
+
+Aplica a mesma configuração de cadência para **todos os perfis** da conta simultaneamente.
+
+### Corpo
+
+Mesmos campos de `PUT /settings/:account_id/:profile`.
+
+### Resposta `200`
+
+```json
+{ "success": true, "updated_profiles": ["aprendiz", "estagiario", "lideranca"] }
+```
+
+---
+
+## GET /pulsos-schedule/preview/:account_id/:profile
+
+Simula o calendário futuro de pulsos com base em uma configuração **sem salvar**. Útil para mostrar ao RH as datas antes de confirmar.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+| `profile` | `string` | Perfil a simular |
+
+### Query params
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `cadence_interval` | `number` | Intervalo de cadência a simular |
+| `cadence_unit` | `string` | `"month"` ou `"week"` |
+| `start_date` | `string` | Data de início da simulação |
+| `count` | `number` | Quantos pulsos futuros mostrar (default: 6) |
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "preview": [
+    { "date": "2026-06-01", "end_date": "2026-06-16", "label": "Pulso 1" },
+    { "date": "2026-07-01", "end_date": "2026-07-16", "label": "Pulso 2" }
+  ]
+}
+```
+
+---
+
+## GET /pulsos-schedule/missing-contracts/:account_id
+
+Lista usuários da conta que **não têm contrato de pulso** configurado para nenhum perfil.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "missing": [
+    { "user_id": "uuid", "email": "joao@empresa.com", "profile": "aprendiz" }
+  ],
+  "count": 3
+}
+```
+
+---
+
+## GET /pulsos-schedule/missing-contracts/:account_id/:profile
+
+Idem, mas filtrando para um perfil específico.
+
+---
+
+## GET /pulsos-schedule/diagnostico/:account_id
+
+Diagnóstico completo do estado de configuração de pulsos da conta: contagem de usuários por perfil com e sem configuração, status de ativação.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+
+### Resposta `200`
+
+```json
+{
+  "success": true,
+  "diagnostico": {
+    "aprendiz": {
+      "role_name": "user-learning-leaper",
+      "users_count": 12,
+      "configured": true
+    },
+    "estagiario": {
+      "role_name": "intern",
+      "users_count": 5,
+      "configured": false
+    },
+    "lideranca": {
+      "role_name": null,
+      "liderados_count": 8,
+      "configured": true
+    }
+  }
+}
+```
+
+---
+
+## POST /pulsos-schedule/reschedule/:account_id/all
+
+Reagenda **todos os perfis** da conta com nova cadência. Cancela pulsos futuros existentes e recria com a nova configuração.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+
+### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|---|---|---|---|
+| `cadence_interval` | `number` | sim | Intervalo 1–12 |
+| `cadence_unit` | `string` | não | `"month"` (default) |
+| `start_date` | `string` | sim | Data do próximo pulso (mínimo 5 dias a frente) |
+| `prazo` | `number` | não | Prazo em dias |
+| `change_reason` | `string` | não | Motivo para auditoria |
+
+### Resposta `200`
+
+```json
+{ "success": true, "rescheduled_profiles": ["aprendiz", "estagiario", "lideranca"] }
+```
+
+---
+
+## POST /pulsos-schedule/reschedule/:account_id/:profile
+
+Reagenda um perfil específico da conta.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `account_id` | `string` (uuid) | ID da conta |
+| `profile` | `string` | Perfil a reagendar |
+
+### Corpo e resposta
+
+Mesma estrutura de `/reschedule/:account_id/all`, mas afeta apenas o perfil especificado.
+
+---
+
+## Erros comuns
+
+| Status | Motivo |
+|---|---|
+| `400` | `account_id` inválido (não UUID), `cadence_interval` fora de 1–12, `start_date` menos de 5 dias a frente |
+| `401` | Usuário não autenticado |
+| `403` | Usuário sem autorização sobre a conta |
+| `500` | Erro interno |
+
+---
+
+## Referências de código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `extensions/endpoints/src/pulsos-schedule/index.js` | `directus-backoffice-with-extensions` | Todos os endpoints operacionais de agendamento |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Pulsos Configuração" icon="sliders" href="/api-reference/backoffice/pulsos-configuracao">
+    CRUD das coleções pulsos_settings e pulsos_schedule_settings
+  </Card>
+  <Card title="Pulsos — Crons, Lembretes e Liberações" icon="clock" href="/documentation/domains/pulses/crons-lembretes-liberacoes">
+    Como crons criam e ativam pulsos com base no agendamento
+  </Card>
+  <Card title="Pulsos — Regras de Negócio" icon="book" href="/documentation/domains/pulses/business-rules">
+    Invariantes e regras que governam o ciclo de vida dos pulsos
+  </Card>
+  <Card title="Pulsos — Domínio" icon="chart-line" href="/documentation/domains/pulses/index">
+    Visão geral do domínio de pulsos
+  </Card>
+</CardGroup>

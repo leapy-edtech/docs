@@ -113,6 +113,77 @@ Sessão NextAuth com `isImpersonating = true` e `originalUser` presentes.
 
 ---
 
+## Endpoints Directus (camada base)
+
+Os endpoints abaixo são expostos diretamente pelo Directus via extensão `impersonation/`. O BFF `/api/impersonate/start` usa `POST /impersonation/generate-token` internamente.
+
+---
+
+### POST /impersonation/generate-token
+
+Gera tokens JWT (access + refresh) para um usuário alvo. Chamado pelo BFF leapy-rh — raramente acessado diretamente.
+
+#### Autenticação
+
+Token Directus do **administrador** (`req.accountability.user`). Requer role em `ADMIN_ROLES`.
+
+#### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `targetUserId` | `string` | sim | UUID do usuário a ser impersonado |
+
+#### Comportamento
+
+1. Valida que o chamador é admin (`ADMIN_ROLES`)
+2. Busca usuário alvo em `directus_users` com join em `directus_roles` e `accounts`
+3. Rejeita se target estiver inativo ou for outro admin
+4. Gera access token e refresh token usando `SECRET` do ambiente
+5. Retorna tokens + dados do usuário
+
+#### Resposta `200`
+
+```json
+{
+  "success": true,
+  "accessToken": "<jwt>",
+  "refreshToken": "<jwt>",
+  "user": {
+    "id": "target-uuid",
+    "email": "maria@empresa.com",
+    "role": "intern",
+    "account_id": "acct-uuid",
+    "account_slug": "acme"
+  }
+}
+```
+
+#### Erros
+
+| Status | Motivo |
+|--------|--------|
+| `400` | `targetUserId` ausente ou usuário alvo inativo |
+| `401` | Chamador não autenticado |
+| `403` | Chamador sem role admin, ou target é admin |
+| `404` | Usuário alvo não encontrado |
+| `500` | `SECRET` não configurado |
+
+---
+
+### GET /impersonation/admin-roles
+
+Retorna a lista de roles com permissão de fazer impersonation. Endpoint público — útil para validação no frontend sem necessidade de autenticação.
+
+#### Resposta `200`
+
+```json
+{
+  "adminRoles": ["admin-role-uuid-1", "admin-role-uuid-2"]
+}
+```
+
+---
+
 ## Auditoria
 
 Cada sessão cria uma entrada em `impersonation_logs`:

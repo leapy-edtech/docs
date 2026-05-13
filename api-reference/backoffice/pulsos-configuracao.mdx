@@ -451,6 +451,101 @@ Sempre valide:
 - `enabled` deve ser boolean
 - `profile` deve ser válido
 
+## Endpoints de Acesso e Filtro (pulsos-access / pulsos-filtered / pulsos)
+
+Endpoints complementares usados pelo app RH e backend para verificar acesso, filtrar pulsos e consultar competências.
+
+---
+
+### GET /pulsos-access/:user_id
+
+Verifica se um usuário tem acesso a pulsos (configuração habilitada na conta).
+
+**Autorização:** o próprio usuário ou admin pode consultar.
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `user_id` | `string` (uuid) | ID do usuário em `directus_users` |
+
+**Resposta `200`:**
+
+```json
+{ "has_access": true }
+```
+
+---
+
+### GET /pulsos-access/questions/me
+
+Retorna quais perguntas de pulso estão habilitadas para a conta do usuário autenticado.
+
+**Resposta `200`:**
+
+```json
+{
+  "account_id": "uuid-da-conta",
+  "questions_enabled": {
+    "protagonismo": true,
+    "autoconhecimento": true,
+    "comunicação": false
+  }
+}
+```
+
+---
+
+### GET /pulsos-filtered/jovens/simple
+
+Lista simplificada de pulsos de jovens com dados de jovem, liderança e conta. Respeita regras de acesso por conta.
+
+**Resposta `200`:**
+
+```json
+[
+  {
+    "id": 1,
+    "pulso": 3,
+    "nome": "Ana Silva",
+    "status": "pendente",
+    "account": { "id": "uuid", "name": "Empresa XYZ" }
+  }
+]
+```
+
+---
+
+### GET /pulsos-filtered/liderancas/simple
+
+Lista simplificada de pulsos de lideranças, análoga a `/jovens/simple` mas para o perfil de liderança.
+
+---
+
+### GET /pulsos/competencias/:jovem_id
+
+Retorna o radar de competências do jovem baseado nos últimos pulsos.
+
+| Query param | Tipo | Descrição |
+|---|---|---|
+| `percentual` | `boolean` | Incluir valores percentuais (default: `true`) |
+| `absoluto` | `boolean` | Incluir valores absolutos (default: `true`) |
+| `year` | `number` | Filtrar por ano (default: ano atual) |
+| `selected_pulsos` | `string[]` | IDs específicos de pulsos |
+
+**Competências:** `protagonismo`, `autoconhecimento`, `comunicação`, `organização_e_produtividade`, `ferramentas_básicas_de_trabalho`, `relacionamento_interpessoal`, `inteligência_emocional`, `resolução_de_problemas`, `comprometimento`.
+
+**Resposta `200`:**
+
+```json
+{
+  "year": 2026,
+  "pulsos": [{ "id": 1, "pulso": 1, "protagonismo": { "percentual": 80, "absoluto": 4 } }],
+  "possible_pulsos_to_filter": { "1": "Pulso 1", "2": "Pulso 2" },
+  "results": { "protagonismo": { "percentual": 80, "absoluto": 4 } }
+}
+```
+
+---
+
 ## Jobs Relacionados
 
 Jobs do Inngest que usam essas configurações:

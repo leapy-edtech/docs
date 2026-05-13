@@ -1,0 +1,242 @@
+---
+title: Progress — Progresso, Proficiência e Absorção
+description: Endpoints Directus para consultar progresso de cursos, proficiência por competência, absorção e taxa de conclusão por empresa.
+---
+
+## Visão geral
+
+A extensão `progress/` do Directus expõe dados agregados de desempenho dos jovens: progresso por status de matrícula, proficiência em competências, absorção do conteúdo ao longo do tempo e taxa de conclusão. Todos os dados são lidos das coleções `Matriculas`, `Jovens` e `Turmas`.
+
+<CardGroup cols={2}>
+  <Card title="Progresso individual" icon="user">
+    Distribuição de matrículas por status para um jovem específico
+  </Card>
+  <Card title="Progresso por empresa" icon="building">
+    Agregação de progresso para todos os jovens de uma empresa
+  </Card>
+  <Card title="Proficiência" icon="chart-bar">
+    Mediana ou média de proficiência em competências
+  </Card>
+  <Card title="Absorção" icon="book-open">
+    Curva de absorção de conteúdo por módulo e período
+  </Card>
+</CardGroup>
+
+### Autenticação
+
+Token Directus válido em `Authorization: Bearer <token>`. Retorna `403` quando não autenticado.
+
+---
+
+## GET /progress/progress/:jovem_id
+
+Retorna a distribuição de matrículas do jovem por status.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `jovem_id` | `string` | ID do jovem em `Jovens` |
+
+### Query params
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `percentage` | `boolean` | Se `"true"`, retorna valores como percentual do total |
+
+### Resposta `200`
+
+Status contabilizados: `atrasado`, `concluido`, `nao_iniciado`, `ativo`, `concluido_com_atraso`.
+
+```json
+{ "atrasado": 2, "concluido": 8, "nao_iniciado": 1, "ativo": 3 }
+```
+
+Com `percentage=true`:
+
+```json
+{ "atrasado": 14, "concluido": 57, "nao_iniciado": 7, "ativo": 21 }
+```
+
+---
+
+## GET /progress/proficiencia/:jovem_id
+
+Retorna mediana ou média de proficiência do jovem em competências avaliadas nos pulsos.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `jovem_id` | `string` | ID do jovem |
+
+### Query params
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `type` | `string` | `"median"` (default) ou `"average"` |
+
+### Resposta `200`
+
+```json
+{ "median": 3.5 }
+```
+
+---
+
+## GET /progress/proficiencia/empresa/:empresa_id
+
+Retorna proficiência agregada de todos os jovens de uma empresa.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `empresa_id` | `string` | ID da empresa |
+
+### Query params
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `type` | `string` | `"median"` (default) ou `"average"` |
+
+### Resposta `200`
+
+```json
+{ "median": 3.2 }
+```
+
+---
+
+## GET /progress/progress/empresa/:empresa_id
+
+Distribuição agregada de matrículas por status para todos os jovens de uma empresa.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `empresa_id` | `string` | ID da empresa |
+
+### Resposta `200`
+
+```json
+{
+  "data": [
+    { "status": "concluido", "count": "42" },
+    { "status": "ativo", "count": "18" },
+    { "status": "atrasado", "count": "7" }
+  ]
+}
+```
+
+---
+
+## GET /progress/absorcao/:empresa_id
+
+Curva de absorção de conteúdo por módulo ao longo do tempo. Mede o quanto do conteúdo de cada módulo foi efetivamente absorvido pelos jovens da empresa.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `empresa_id` | `string` | ID da empresa |
+
+### Query params
+
+Suportam arrays JSON serializados (ex.: `[1,2,3]`):
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `trilhas` | `JSON array of numbers` | IDs de trilhas para filtrar |
+| `month` | `JSON array of numbers` | Meses para filtrar (1–12) |
+| `year` | `JSON array of numbers` | Anos para filtrar |
+
+### Resposta `200`
+
+```json
+{
+  "data": {
+    "Módulo A": [
+      { "year": 2026, "entry_month": 3, "value": 72.5 },
+      { "year": 2026, "entry_month": 4, "value": 85.0 }
+    ]
+  },
+  "possible_months_to_filter": [3, 4, 5],
+  "possible_years_to_filter": [2025, 2026],
+  "possible_trilhas_to_filter": [{ "id": 1, "nome": "Trilha Básica" }]
+}
+```
+
+---
+
+## GET /progress/conclusao/empresa/:empresa_id
+
+Taxa percentual de conclusão de matrículas para a empresa (jovens ativos).
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `empresa_id` | `string` | ID da empresa |
+
+### Resposta `200`
+
+```json
+{ "percentage": "68" }
+```
+
+Retorna `{ "percentage": 0 }` se não houver jovens ativos.
+
+---
+
+## GET /progress/:matricula_id/moodle/integration-data
+
+Retorna dados de integração Moodle para uma matrícula: token de autenticação single-use e username Moodle do jovem.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `matricula_id` | `string` | ID da matrícula em `Matriculas` |
+
+### Resposta `200`
+
+```json
+{
+  "moodle_data": {
+    "token": "<md5-hash>",
+    "username": "joao.silva",
+    "redirect_to": "xpto"
+  }
+}
+```
+
+O token é um hash MD5 de `moodle_id:TOKEN:YYYYMMDD` — válido apenas para o dia atual.
+
+---
+
+## Referências de código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `extensions/endpoints/src/progress/index.js` | `directus-backoffice-with-extensions` | Todos os endpoints de progresso |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Matrículas — Ciclo de Vida" icon="graduation-cap" href="/documentation/domains/courses-content/matriculas-lifecycle-crons">
+    Status de matrícula e transições automáticas
+  </Card>
+  <Card title="Integração Moodle" icon="plug" href="/documentation/domains/courses-content/moodle-integration">
+    Como a integração Moodle usa os dados de matrícula
+  </Card>
+  <Card title="Pulsos — Domínio" icon="chart-line" href="/documentation/domains/pulses/index">
+    Proficiência vem das avaliações de pulso
+  </Card>
+  <Card title="Insights — Catálogo de Métricas" icon="chart-bar" href="/documentation/domains/insights/metric-catalog">
+    Métricas de absorção e conclusão usadas nos dashboards
+  </Card>
+</CardGroup>

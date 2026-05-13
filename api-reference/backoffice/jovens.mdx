@@ -1,0 +1,146 @@
+---
+title: Jovens — Endpoints Customizados
+description: Endpoints Directus para listar jovens agrupados por inicial e acionar a classificação automática de performance.
+---
+
+## Visão geral
+
+A extensão `jovens/` do Directus expõe dois endpoints customizados de alto uso: listagem agrupada por inicial (usada na busca de jovens no app RH) e atualização em massa da classificação automática (acionada por cron).
+
+### Autenticação
+
+Token Directus em `Authorization: Bearer <token>`. Retorna `403` quando não autenticado.
+
+---
+
+## GET /jovens/list
+
+Retorna jovens da conta do usuário autenticado, agrupados por letra inicial do nome. Usado no seletor de jovens do app RH.
+
+### Autorização implícita
+
+O endpoint filtra automaticamente pelos jovens vinculados à conta do usuário:
+- Lideranças: filtra pelo `lideranca_id` do usuário
+- RH / admin (`rh-account-admin`): filtra por `empresa_id` das empresas da conta
+
+### Query params
+
+| Parâmetro | Tipo | Descrição |
+|---|---|---|
+| `search` | `string` | Filtro por nome (case-insensitive, `ILIKE %valor%`) |
+| `status` | `string` | Filtro por `classificacao_automatica`: `"critico"`, `"atencao"`, `"ok"` |
+| `active_only` | `boolean` | Se `"true"`, retorna apenas jovens com `Status_formacao = "em_andamento"` |
+
+### Resposta `200`
+
+Objeto indexado pela letra inicial do nome, cada valor é uma lista de jovens:
+
+```json
+{
+  "A": [
+    {
+      "id": "jovem-uuid-1",
+      "nome": "Ana Silva",
+      "lideranca": "Carlos Matos",
+      "avatar_url": "https://...",
+      "classificacao": "ok"
+    }
+  ],
+  "B": [
+    {
+      "id": "jovem-uuid-2",
+      "nome": "Bruno Lima",
+      "lideranca": "Carlos Matos",
+      "avatar_url": null,
+      "classificacao": "atencao"
+    }
+  ]
+}
+```
+
+### Erros
+
+| Status | Motivo |
+|---|---|
+| `403` | Usuário não autenticado |
+| `500` | Erro de banco |
+
+---
+
+## GET /jovens/classificacao_automatica
+
+Recalcula e persiste a `classificacao_automatica` de todos os jovens no banco. Acionado pelo cron `hook-cron-jovens-classificacao-automatica`. Não retorna dados — é uma operação de escrita.
+
+### Lógica de classificação
+
+A classificação usa uma CASE expression SQL que avalia:
+
+| Classificação | Critérios |
+|---|---|
+| `critico` | Termômetro `< 4` **ou** 5 ou mais matrículas `atrasado/ativo` |
+| `atencao` | Termômetro entre 3–6 **ou** pulso mais recente `ABAIXO_DAS_EXPECTATIVAS` **ou** 3+ matrículas atrasadas **ou** 5+ presenças ausentes |
+| `ok` | Nenhum dos critérios acima |
+
+Fontes de dados: `Jovens.Termômetro`, `Matriculas.status`, `Pulsos.desempenho`, `report_presenca_zoom.presenca`.
+
+### Resposta `200`
+
+```json
+{ "message": "Classificação automática atualizada com sucesso" }
+```
+
+### Uso
+
+Este endpoint é de operação interna — chamado pelo cron de classificação automática. Não deve ser exposto ao usuário final.
+
+---
+
+## Jobs Inngest relacionados
+
+Os dois jobs abaixo são disparados pelos crons de status de pulsos e atualizam `pulsos_jovens` em lote no Directus.
+
+### `update-pulsos-pendentes`
+
+- **Evento ouvido:** `backoffice/pulsos-jovens.update-to-pendente`
+- **Payload:** `{ ids: number[] }` — lista de IDs de `pulsos_jovens` a atualizar
+- **Ação:** atualiza `status = "pendente"` em chunks paralelos
+- **Arquivo:** `src/inngest/functions/update-pulsos-jovens-to-pendentes.ts`
+
+### `update-pulsos-vencidos`
+
+- **Evento ouvido:** `backoffice/pulsos-jovens.update-to-vencidos`
+- **Payload:** `{ ids: number[] }` — lista de IDs de `pulsos_jovens` a atualizar
+- **Ação:** atualiza `status = "vencido"` em chunks paralelos
+- **Arquivo:** `src/inngest/functions/update-pulsos-jovens-to-vencidos.ts`
+
+Ambos usam `divideEmChunks` para processar em paralelo sem sobrecarregar o banco, retornando os registros atualizados com `fields: ["id", "data_aplicacao", "status"]`.
+
+---
+
+## Referências de código
+
+| Arquivo | Repo | Descrição |
+|---|---|---|
+| `extensions/endpoints/src/jovens/index.js` | `directus-backoffice-with-extensions` | Endpoints `/jovens/list` e `/jovens/classificacao_automatica` |
+| `extensions/hooks/src/hook-cron-jovens-classificacao-automatica/` | `directus-backoffice-with-extensions` | Cron que aciona `classificacao_automatica` |
+| `src/inngest/functions/update-pulsos-jovens-to-pendentes.ts` | `backoffice-inngest-functions` | Job `update-pulsos-pendentes` |
+| `src/inngest/functions/update-pulsos-jovens-to-vencidos.ts` | `backoffice-inngest-functions` | Job `update-pulsos-vencidos` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Jovens — Domínio" icon="users" href="/documentation/domains/jovens/index">
+    Ciclo de vida completo do jovem na plataforma
+  </Card>
+  <Card title="Insights — Alertas de Performance" icon="triangle-exclamation" href="/documentation/domains/insights/alertas-performance">
+    Alertas de desempenho que usam classificação automática
+  </Card>
+  <Card title="Pulsos — Jobs Inngest" icon="gear" href="/documentation/domains/pulses/jobs-inngest">
+    Todos os jobs de processamento de pulsos
+  </Card>
+  <Card title="Pulsos — Crons" icon="clock" href="/documentation/domains/pulses/crons-lembretes-liberacoes">
+    Crons que disparam os eventos de atualização de status
+  </Card>
+</CardGroup>

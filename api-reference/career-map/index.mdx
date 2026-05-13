@@ -437,6 +437,162 @@ Eventos de analytics rastreados via `sendServerEvent` (fire-and-forget):
 
 Todos os erros são logados via `console.error` com `details: error.message`.
 
+---
+
+## Endpoints Directus Taxonomic (camada base)
+
+O serviço **Taxonomic** é a extensão Directus que mantém o catálogo canônico de cargos, skills, metas e perfil de carreira. Os endpoints BFF `/api/career-map/*` fazem proxy para estes endpoints. Em integrações server-to-server (ex.: Inngest, scripts de backoffice), use-os diretamente com token Directus.
+
+### Autenticação
+
+Token Directus válido no header `Authorization: Bearer <token>`. Usuário autenticado é extraído de `req.accountability`.
+
+---
+
+### Skills — Busca e Catálogo
+
+#### `GET /taxonomic/search/skills`
+
+Busca skills no catálogo por texto.
+
+| Query param | Tipo | Descrição |
+|---|---|---|
+| `q` | `string` | Termo de busca |
+| `limit` | `number` | Máximo de resultados |
+
+#### `GET /taxonomic/skills/categories`
+
+Retorna todas as categorias de skills disponíveis.
+
+#### `GET /taxonomic/skills/:id`
+
+Retorna os dados completos de uma skill pelo ID.
+
+---
+
+### Skills — Conta
+
+#### `GET /taxonomic/accounts/:id/skills/summary`
+
+Resumo agregado das skills dos usuários de uma conta: distribuição por categoria, top skills, gaps mais frequentes.
+
+#### `GET /taxonomic/accounts/:accountId/skills/:skillId/users`
+
+Lista usuários de uma conta que possuem ou estão desenvolvendo a skill especificada.
+
+---
+
+### Cargos (Roles)
+
+#### `GET /taxonomic/search/roles`
+
+Busca cargos com filtros opcionais de senioridade e band.
+
+| Query param | Tipo | Descrição |
+|---|---|---|
+| `q` | `string` | Termo de busca |
+| `seniority` | `string` | `intern`, `junior`, `midlevel`, `senior` |
+
+#### `GET /taxonomic/roles/:id`
+
+Dados completos de um cargo: título, senioridade, band, skills requeridas.
+
+#### `GET /taxonomic/roles/:id/skills`
+
+Lista as skills requeridas para um cargo específico com peso e criticidade.
+
+#### `GET /taxonomic/users/:id/recommendations/roles`
+
+Sugere cargos com base no perfil atual de skills do usuário. Retorna lista ordenada por compatibilidade.
+
+#### `POST /taxonomic/users/:id/roles/match`
+
+Executa match batch de múltiplos cargos contra o perfil do usuário. Retorna score de compatibilidade por cargo.
+
+**Corpo:** `{ "roleIds": [1, 2, 3] }`
+
+---
+
+### Cargo Alvo (User Career)
+
+#### `POST /taxonomic/user-careers/:id/target-role`
+
+Define o cargo alvo do usuário. Cria ou atualiza o registro de `user_career` com o `role_id` selecionado.
+
+**Corpo:** `{ "roleId": 42 }`
+
+---
+
+### Skills do Usuário
+
+#### `GET /taxonomic/users/:id/skills`
+
+Retorna o perfil completo de skills do usuário: skills que possui, está desenvolvendo e precisa adquirir para o cargo alvo.
+
+#### `POST /taxonomic/users/:id/skills`
+
+Adiciona uma skill ao perfil do usuário com status inicial `"possui"`.
+
+**Corpo:** `{ "skillId": 7, "status": "possui" }`
+
+#### `DELETE /taxonomic/users/:id/skills/:skillId`
+
+Remove uma skill do perfil do usuário.
+
+#### `GET /taxonomic/users/:id/skills/in-development`
+
+Lista as skills atualmente em desenvolvimento (status `"desenvolvendo"`).
+
+#### `GET /taxonomic/users/:id/skills/gap`
+
+Retorna o gap de skills em relação ao cargo alvo: skills que o cargo requer mas o usuário não possui nem está desenvolvendo.
+
+#### `POST /taxonomic/users/:id/skills/development`
+
+Move uma skill para o status `"desenvolvendo"`.
+
+**Corpo:** `{ "skillId": 7 }`
+
+#### `DELETE /taxonomic/users/:id/skills/development/:skillId`
+
+Remove uma skill da lista de desenvolvimento (volta ao status anterior ou remove do perfil).
+
+#### `POST /taxonomic/users/:id/skills/development/:skillId/complete`
+
+Marca uma skill em desenvolvimento como concluída (`"possui"`).
+
+#### `POST /taxonomic/users/:id/skills/transition`
+
+Transição explícita de status de uma skill entre `precisa → desenvolvendo → possui`.
+
+**Corpo:** `{ "skillId": 7, "from": "desenvolvendo", "to": "possui" }`
+
+---
+
+### Metas de Skills (Skill Goals)
+
+Goals são a "wishlist" de skills que o usuário quer aprender, independente do cargo alvo.
+
+#### `GET /taxonomic/users/:id/skill-goals`
+
+Lista todas as metas de skill do usuário.
+
+#### `POST /taxonomic/users/:id/skill-goals`
+
+Cria uma nova meta de skill.
+
+**Corpo:** `{ "skillId": 7, "notes": "Quero aprender para o projeto X" }`
+
+#### `PATCH /taxonomic/users/:id/skill-goals/:goalId`
+
+Atualiza uma meta existente (ex.: notas, prioridade).
+
+#### `DELETE /taxonomic/users/:id/skill-goals/:goalId`
+
+Remove uma meta de skill.
+
+---
+
 ## Referências de Código
 
 | Arquivo | Repo | Descrição |
