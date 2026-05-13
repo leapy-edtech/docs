@@ -293,6 +293,7 @@
                   "api-reference/backoffice/talent-followup",
                   "api-reference/backoffice/competencias",
                   "api-reference/backoffice/cohorts-import",
+                  "api-reference/backoffice/cohorts-management",
                   "api-reference/backoffice/estagiarios-planilha"
                 ]
               },
@@ -312,6 +313,7 @@
                 "group": "Dashboard & AI",
                 "pages": [
                   "api-reference/backoffice/vision-ai",
+                  "api-reference/backoffice/dashboard-v2-interactions",
                   "api-reference/backoffice/logs-gamificacao"
                 ]
               },
@@ -319,6 +321,12 @@
                 "group": "Segurança",
                 "pages": [
                   "api-reference/backoffice/impersonation"
+                ]
+              },
+              {
+                "group": "Operações",
+                "pages": [
+                  "api-reference/backoffice/automations"
                 ]
               }
             ]
