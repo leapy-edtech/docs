@@ -64,7 +64,7 @@ flowchart TB
 **Hook:** `hook-cron-jovens-desligados`
 **Schedule:** `0 7 * * *` — todos os dias às 07:00
 
-O workflow `workflows/jovens/desligados` identifica jovens com contrato encerrado (data fim `<=` hoje) e ainda com `Status_formacao != "desligado"`. Para cada jovem:
+O workflow `workflows/jovens/desligados` identifica jovens com contrato encerrado (data fim <= hoje) e ainda com `Status_formacao != "desligado"`. Para cada jovem:
 1. Atualiza `Status_formacao` para `desligado`.
 2. Marca `ativo = false`.
 3. Pode disparar comunicações de encerramento para o RH.
