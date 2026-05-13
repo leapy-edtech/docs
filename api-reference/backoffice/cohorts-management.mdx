@@ -1,0 +1,327 @@
+---
+title: "Cohorts — Gestão e Turmas"
+description: "Endpoints CRUD de cohorts de entrada e turmas, wizard state, monitoring e resolvers de autocomplete."
+---
+
+## Visão Geral
+
+O módulo de **Cohorts** gerencia os grupos de entrada de aprendizes. Um cohort de entrada é o contêiner de mais alto nível — dentro dele existem turmas, e dentro das turmas existem aprendizes.
+
+Estes endpoints alimentam o **Cohort Wizard** do backoffice: o fluxo multi-step que guia o operador pela criação de cohort → turmas → importação de aprendizes. O estado de progresso do wizard é persistido na tabela `cohort_wizard_state`.
+
+<Note>
+  Para o fluxo de **importação** de aprendizes via CSV, consulte [Cohorts — Importação](/api-reference/backoffice/cohorts-import). Esta página cobre a gestão (CRUD) e os resolvers de autocomplete.
+</Note>
+
+## Autenticação e Autorização
+
+Todos os endpoints requerem sessão NextAuth ativa com `accessToken` válido. Retornam `401` quando não autenticado.
+
+---
+
+## Cohorts de Entrada
+
+### `GET /api/backoffice/cohorts`
+
+Lista todos os cohorts de entrada com contagem de turmas e aprendizes.
+
+A contagem de turmas usa como fonte de verdade o `cohort_wizard_state.turma_ids[]` + turmas distintas de `Jovens.turma_id`, cobrindo cohorts criados fora do wizard e aprendizes importados diretamente via `/talent`.
+
+**Query params**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| `search`  | string | não | Filtro por nome do cohort (`_icontains`) |
+
+**Resposta `200`**
+
+```json
+{
+  "cohorts": [
+    {
+      "id": 1,
+      "nome": "BM Jan/2026",
+      "data_de_inicio": "2026-01-20",
+      "data_de_encerramento": "2026-07-20",
+      "turmasCount": 3,
+      "aprendizesCount": 42
+    }
+  ]
+}
+```
+
+---
+
+### `POST /api/backoffice/cohorts`
+
+Cria um novo cohort de entrada.
+
+**Corpo**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `nome` | string | sim | Nome do cohort |
+| `data_de_inicio` | string (ISO date) | sim | Data de início |
+| `data_de_encerramento` | string (ISO date) | sim | Data de encerramento |
+
+**Resposta `200`**
+
+```json
+{
+  "success": true,
+  "cohort": { "id": 5, "nome": "BM Jul/2026", ... },
+  "message": "Cohort criado com sucesso"
+}
+```
+
+**Erros de validação `400`**
+
+- `Nome é obrigatório`
+- `Data de início é obrigatória`
+- `Data de encerramento é obrigatória`
+
+---
+
+## Turmas
+
+### `GET /api/backoffice/turmas`
+
+Lista turmas com contagem de cronogramas importados e nome do program lead.
+
+**Query params**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| `cohort_id` | number | não | Filtra turmas vinculadas ao cohort via `cohort_wizard_state.turma_ids[]` |
+| `search` | string | não | Filtro por nome (`_icontains`) |
+| `unassigned` | boolean | não | Quando `true`, retorna apenas turmas sem cohort vinculado |
+
+<Warning>
+  `Turmas.cohort_id` (texto) é o slug do curso Moodle, **não** uma FK para `cohorts_entrada`. A vinculação ao cohort do wizard vive em `cohort_wizard_state.turma_ids[]`. Use o parâmetro `cohort_id` para filtrar pela relação correta.
+</Warning>
+
+**Resposta `200`**
+
+```json
+{
+  "turmas": [
+    {
+      "id": 12,
+      "Name": "Turma BM1",
+      "data_de_inicio": "2026-01-20",
+      "data_de_termino": "2026-07-20",
+      "program_lead": "uuid-do-operador",
+      "cronogramaCount": 42,
+      "cronogramaImported": true,
+      "programLeadName": "Ana"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /api/backoffice/turmas`
+
+Cria uma nova turma e, opcionalmente, registra a vinculação ao `cohort_wizard_state` do cohort informado.
+
+**Corpo**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `Name` | string | sim | Nome da turma (ex.: `"Turma BM2"`) |
+| `data_de_inicio` | string | não | Data de início |
+| `data_de_termino` | string | não | Data de término |
+| `program_lead` | string (UUID) | não | ID do usuário responsável |
+| `dia_de_curso` | string | não | Dia da semana do curso |
+| `cohort_id` | string | não | Slug do curso Moodle |
+| `cohort_entrada_id` | number | não | ID do cohort de entrada para vinculação no wizard state |
+
+A vinculação ao wizard state é "best-effort" — uma falha nessa etapa não cancela a criação da turma. O operador pode re-vincular via wizard se necessário.
+
+---
+
+### `GET /api/backoffice/turmas/next-name?prefix={codigo}`
+
+Calcula o próximo nome disponível para uma turma dado um prefixo de código. O retorno sempre inclui o prefixo `"Turma "`.
+
+**Exemplo:** se existem `Turma BM1`, `Turma BM2`, `Turma BM5` → retorna `"Turma BM6"` (maior existente + 1).
+
+Tolerante a turmas legadas sem o prefixo `"Turma "` para evitar colisões durante rollouts.
+
+**Query params**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| `prefix` | string | sim | Código do cohort (ex.: `BM`, `LA`) |
+
+**Resposta `200`**
+
+```json
+{ "nextName": "Turma BM6" }
+```
+
+---
+
+## Wizard State
+
+### `GET /api/backoffice/cohorts/[id]/wizard-state`
+
+Retorna o estado salvo do wizard para o cohort. Cria um registro vazio se não existir (race-safe via `ensureWizardStateForCohort`).
+
+**Resposta `200`**
+
+```json
+{
+  "wizard_state": {
+    "cohort_id": 1,
+    "last_visited_step": 3,
+    "completed_steps": [1, 2],
+    "skipped_steps": [],
+    "turma_ids": [12, 13],
+    "entidades_created_ids": [5],
+    "empresas_created_ids": [8, 9],
+    "accounts_created_ids": [101, 102, 103]
+  }
+}
+```
+
+---
+
+### `PATCH /api/backoffice/cohorts/[id]/wizard-state`
+
+Atualiza campos parciais do wizard state. Para campos array (`turma_ids`, `completed_steps`, `skipped_steps`, `entidades_created_ids`, `empresas_created_ids`, `accounts_created_ids`), faz **UNION com dedup** em vez de substituir — preserva o histórico em imports parciais.
+
+Validação extra: um ID em `turma_ids` não pode estar vinculado a outro wizard state (uma turma pertence a no máximo um cohort).
+
+---
+
+## Monitoring
+
+### `GET /api/backoffice/cohorts/monitoring/[cohortId]`
+
+Retorna o status do pipeline para cada aprendiz do cohort: se o usuário Moodle foi criado (`moodle_exist`), quantas matrículas e pulsos_jovens existem.
+
+**Resposta `200`**
+
+```json
+{
+  "aprendizes": [
+    {
+      "id": 101,
+      "Name": "João Silva",
+      "moodle_exist": true,
+      "turma_id": 12,
+      "ativo": true,
+      "matriculasCount": 3,
+      "pulsosCount": 5,
+      "pipelineStatus": "completo"
+    }
+  ],
+  "summary": {
+    "totalAprendizes": 42,
+    "comMoodle": 40,
+    "comMatriculas": 38,
+    "comPulsos": 35
+  }
+}
+```
+
+---
+
+## Resolvers de Autocomplete
+
+Endpoints usados pelo wizard para autocomplete de FKs no CSV. Todos aceitam `?q=` para busca e retornam `{ matches: [] }` quando `q` está vazio (exceto `program-leads`, que retorna o roster completo).
+
+### `GET /api/backoffice/cohorts/resolve/entidades?q={busca}`
+
+Busca entidades (associações/fundações empregadoras) por CNPJ ou nome.
+
+### `GET /api/backoffice/cohorts/resolve/empresas?q={busca}`
+
+Busca empresas parceiras por CNPJ ou razão social.
+
+### `GET /api/backoffice/cohorts/resolve/turmas?q={busca}`
+
+Busca turmas por nome (`_icontains`).
+
+### `GET /api/backoffice/cohorts/resolve/liderancas?q={busca}`
+
+Busca usuários com role `user-leadership` por nome ou email. Requer `q` não vazio.
+
+### `GET /api/backoffice/cohorts/resolve/program-leads?q={busca}`
+
+Busca usuários das roles `Operations Team` e `Operations Owner`. Sem `q` retorna o roster completo ordenado por nome — útil para popular o Combobox no load inicial.
+
+### `POST /api/backoffice/cohorts/resolve/batch`
+
+Resolve múltiplas FKs em uma única chamada. Usado pela etapa de validação do wizard para alertar o operador sobre FKs desconhecidas **antes** de iniciar o loop de importação linha-a-linha.
+
+**Corpo**
+
+```json
+{
+  "empresas_cnpjs":    ["12.345.678/0001-99"],
+  "entidades_cnpjs":   ["98.765.432/0001-11"],
+  "liderancas_emails": ["lider@empresa.com"],
+  "turmas_nomes":      ["Turma BM1"]
+}
+```
+
+**Resposta `200`**
+
+```json
+{
+  "empresas":   { "12345678000199": 8 },
+  "entidades":  { "98765432000111": 5 },
+  "liderancas": { "lider@empresa.com": "uuid-do-usuario" },
+  "turmas":     { "turma bm1": 12 }
+}
+```
+
+CNPJs são normalizados (apenas dígitos). Emails e nomes de turma são lowercased. Valores `null` indicam FK não resolvida — o wizard pode exibir aviso mas não bloqueia a importação para empresas/entidades/liderancas. Turmas nunca são criadas automaticamente.
+
+---
+
+## Status Codes
+
+| Código | Descrição |
+|--------|-----------|
+| `200` | Sucesso |
+| `400` | Erro de validação (campo obrigatório faltando, ID inválido) |
+| `401` | Não autenticado |
+| `500` | Erro interno |
+
+---
+
+## Referências de Código
+
+| Arquivo | Repositório | Descrição |
+|---------|-------------|-----------|
+| `src/app/api/backoffice/cohorts/route.ts` | `leapy-rh` | CRUD cohorts |
+| `src/app/api/backoffice/cohorts/[id]/wizard-state/route.ts` | `leapy-rh` | Wizard state GET/PATCH |
+| `src/app/api/backoffice/cohorts/monitoring/[cohortId]/route.ts` | `leapy-rh` | Monitoring de pipeline |
+| `src/app/api/backoffice/cohorts/resolve/*.ts` | `leapy-rh` | Resolvers de autocomplete |
+| `src/app/api/backoffice/turmas/route.ts` | `leapy-rh` | CRUD turmas |
+| `src/app/api/backoffice/turmas/next-name/route.ts` | `leapy-rh` | Gerador de nome incremental |
+| `src/services/cohort-wizard-state.ts` | `leapy-rh` | `ensureWizardStateForCohort`, union de arrays |
+| `src/types/cohorts.ts` | `leapy-rh` | Types `CohortEntrada`, `CreateCohortInput`, `CreateTurmaInput` |
+
+---
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Cohorts — Importação" icon="file-import" href="/api-reference/backoffice/cohorts-import">
+    Fluxo multi-step de importação de aprendizes via CSV: batches, empresas, entidades e cronograma
+  </Card>
+  <Card title="Jovens" icon="users" href="/api-reference/backoffice/jovens">
+    Endpoints BFF de jovens aprendizes, perfil, presença e pulsos
+  </Card>
+  <Card title="Backoffice — Índice" icon="grid" href="/api-reference/backoffice/index">
+    Visão geral de todos os endpoints do backoffice
+  </Card>
+  <Card title="Domínio Jovens" icon="user" href="/documentation/domains/jovens/index">
+    Ciclo de vida do jovem aprendiz e eventos de onboarding
+  </Card>
+</CardGroup>

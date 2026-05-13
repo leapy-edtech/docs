@@ -1,0 +1,189 @@
+---
+title: "Dashboard v2 — Interações"
+description: "Endpoints de reactions (like/dislike em gráficos), filtros contextuais e membros do time no Dashboard v2."
+---
+
+## Visão Geral
+
+O Dashboard v2 expõe três endpoints de interação que complementam os endpoints de análise de IA descritos em [Vision AI](/api-reference/backoffice/vision-ai):
+
+| Endpoint | Função |
+|----------|--------|
+| `GET/POST /dashboard/v2/reactions` | Like/dislike em gráficos específicos por mês |
+| `GET /dashboard/v2/filters` | Opções de filtro com escopo por role |
+| `GET /dashboard/v2/team-members` | Membros do time da liderança autenticada |
+
+Todos requerem sessão NextAuth ativa. Retornam `401` sem autenticação.
+
+---
+
+## Reactions
+
+Permite que o usuário registre feedback (like/dislike) sobre um gráfico específico do dashboard para um determinado mês. Um usuário tem no máximo uma reaction por `(chartId, month)` — a segunda chamada faz toggle.
+
+O mapeamento entre a interface e o banco de dados é:
+
+| Frontend (`reactionType`) | Banco (`reaction`) |
+|---------------------------|--------------------|
+| `"like"` | `"positive"` |
+| `"dislike"` | `"negative"` |
+
+### `GET /api/backoffice/dashboard/v2/reactions`
+
+Retorna a reaction do usuário autenticado para um gráfico e mês específicos.
+
+**Query params**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| `chartId` | string | sim | Identificador do gráfico |
+| `month` | string | sim | Mês de referência (ex.: `"2026-04"`) |
+
+**Resposta `200`**
+
+```json
+{ "reaction": "like" }
+```
+
+`reaction` é `"like"`, `"dislike"` ou `null` quando o usuário ainda não reagiu.
+
+**Erros**
+
+```json
+{ "error": "Missing chartId or month" }   // 400
+{ "error": "Unauthorized" }               // 401
+```
+
+---
+
+### `POST /api/backoffice/dashboard/v2/reactions`
+
+Registra ou alterna a reaction do usuário para um gráfico e mês.
+
+**Corpo**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `chartId` | string | sim | Identificador do gráfico |
+| `month` | string | sim | Mês de referência |
+| `reactionType` | `"like"` \| `"dislike"` | sim | Tipo de feedback |
+
+**Resposta `200`**
+
+```json
+{ "reaction": "dislike" }
+```
+
+Retorna o estado final após o toggle. Se a reaction já era `"like"` e o usuário enviou `"like"` novamente, a reaction é removida e `reaction` retorna `null`.
+
+**Erros**
+
+```json
+{ "error": "Missing fields" }                                     // 400
+{ "error": "Invalid reactionType. Must be 'like' or 'dislike'" } // 400
+{ "error": "Unauthorized" }                                       // 401
+```
+
+---
+
+## Filters
+
+### `GET /api/backoffice/dashboard/v2/filters`
+
+Retorna as opções de filtro disponíveis para o usuário autenticado. O escopo dos dados depende do role:
+
+- **Lideranças** (`user-leadership-*`): recebem apenas os jovens do seu time via `leadership_relationships`. Os filtros são pré-resolvidos com os IDs desses jovens.
+- **Outros roles** (RH, admin): recebem opções sem pré-filtro de jovens.
+
+**Resposta `200`**
+
+```json
+{
+  "quarters": ["Q1 2026", "Q2 2026"],
+  "turmas": [{ "id": 12, "name": "Turma BM1" }],
+  "entidades": [{ "id": 5, "name": "CIEE" }],
+  "empresas": [{ "id": 8, "name": "Empresa Parceira SA" }]
+}
+```
+
+**Erros**
+
+```json
+{ "error": "Unauthorized" }  // 401
+```
+
+---
+
+## Team Members
+
+### `GET /api/backoffice/dashboard/v2/team-members`
+
+Retorna os membros do time associados à liderança autenticada, via `leadership_relationships`.
+
+Usado pelo dashboard para exibir a lista de jovens sob responsabilidade da liderança logada.
+
+**Resposta `200`**
+
+```json
+{
+  "teamMembers": [
+    {
+      "id": "uuid-do-jovem",
+      "first_name": "Maria",
+      "last_name": "Silva",
+      "email": "maria@empresa.com"
+    }
+  ]
+}
+```
+
+Retorna array vazio para usuários que não possuem relacionamentos de liderança.
+
+**Erros**
+
+```json
+{ "error": "Unauthorized" }  // 401
+```
+
+---
+
+## Status Codes
+
+| Código | Descrição |
+|--------|-----------|
+| `200` | Sucesso |
+| `400` | Parâmetros obrigatórios faltando ou `reactionType` inválido |
+| `401` | Não autenticado (sem sessão NextAuth) |
+| `500` | Erro interno |
+
+---
+
+## Referências de Código
+
+| Arquivo | Repositório | Descrição |
+|---------|-------------|-----------|
+| `src/app/api/backoffice/dashboard/v2/reactions/route.ts` | `leapy-rh` | GET/POST reactions com toggle |
+| `src/app/api/backoffice/dashboard/v2/filters/route.ts` | `leapy-rh` | Filtros com escopo por role |
+| `src/app/api/backoffice/dashboard/v2/team-members/route.ts` | `leapy-rh` | Membros via leadership_relationships |
+| `src/services/dashboard/v2/chart-reactions.ts` | `leapy-rh` | `getReaction`, `toggleReaction` |
+| `src/services/dashboard/v2/filters.ts` | `leapy-rh` | `fetchFilterOptions` com pré-resolução de jovem IDs |
+| `src/services/dashboard/v2/shared.ts` | `leapy-rh` | `getPreResolvedJovemIds` (escopo liderança) |
+
+---
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Vision AI" icon="sparkles" href="/api-reference/backoffice/vision-ai">
+    Endpoints de análise e chat com IA: analyze, chat/stream, insights
+  </Card>
+  <Card title="Domínio Insights" icon="chart-bar" href="/documentation/domains/insights/index">
+    Pipeline de dados, métricas e materializações do dashboard
+  </Card>
+  <Card title="Domínio Pulsos" icon="heart-pulse" href="/documentation/domains/pulses/index">
+    Dados de engajamento que alimentam os gráficos do dashboard
+  </Card>
+  <Card title="Backoffice — Índice" icon="grid" href="/api-reference/backoffice/index">
+    Visão geral de todos os endpoints do backoffice
+  </Card>
+</CardGroup>

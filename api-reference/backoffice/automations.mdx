@@ -1,0 +1,154 @@
+---
+title: "Automations — Catálogo de Automações"
+description: "Endpoint meta que lista Directus Flows, Hooks e Make Scenarios em uma única chamada, com filtros por tipo e status."
+---
+
+## Visão Geral
+
+O endpoint `/api/backoffice/automations` agrega em uma única resposta todas as automações ativas na plataforma Leapy:
+
+| Tipo (`type`) | Fonte | Descrição |
+|---------------|-------|-----------|
+| `directus-flow` | Directus Flows API | Flows criados no Directus com triggers de schedule, webhook, operação ou manual |
+| `directus-hook` | Extensões `extensions/hooks/` | Hooks de código registrados no Directus (eventos e crons) |
+| `make` | Make (Integromat) | Cenários de automação external que integram Leapy com sistemas de terceiros |
+
+Útil para auditoria operacional: o time de backoffice pode ver, em um único lugar, o que está automatizado e qual o status de cada automação.
+
+## Autenticação e Autorização
+
+Requer sessão NextAuth ativa **com permissão de impersonation** (`canImpersonate`). Retorna `403` para usuários autenticados sem a permissão adequada.
+
+Os roles com permissão de impersonation são os mesmos que podem acessar o backoffice (ex.: `Directus Administrator`, `Operations Owner`, `Operations Team`).
+
+---
+
+## `GET /api/backoffice/automations`
+
+**Query params**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| `search` | string | não | Busca por nome, descrição ou trigger |
+| `type` | string | não | Filtra por tipo: `directus-flow`, `directus-hook` ou `make` |
+| `status` | string | não | Filtra por status: `active`, `inactive` ou `error` |
+
+**Resposta `200`**
+
+```json
+{
+  "automations": [
+    {
+      "id": "uuid-do-flow",
+      "name": "Envio de Lembrete de Pulso",
+      "description": "Dispara notificação para jovens com pulso pendente",
+      "type": "directus-flow",
+      "status": "active",
+      "trigger": "Cron (0 8 * * *)",
+      "integrations": [],
+      "lastRun": null,
+      "runCount": 0,
+      "errorCount": 0,
+      "createdAt": "2025-10-01T12:00:00.000Z",
+      "updatedAt": "2025-10-01T12:00:00.000Z",
+      "icon": "notifications"
+    },
+    {
+      "id": "hook-cron-send-lembrete-pulsos-jovens",
+      "name": "hook-cron-send-lembrete-pulsos-jovens",
+      "description": "Cron que dispara evento Inngest de lembrete de pulsos para jovens",
+      "type": "directus-hook",
+      "status": "active",
+      "trigger": "Cron (0 8 * * *)",
+      "integrations": ["inngest"],
+      "lastRun": null,
+      "runCount": 0,
+      "errorCount": 0,
+      "createdAt": "2025-01-01T00:00:00.000Z",
+      "updatedAt": "2025-01-01T00:00:00.000Z"
+    }
+  ],
+  "total": 65
+}
+```
+
+---
+
+## Campos do Objeto Automation
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | string | UUID (flows) ou nome do hook/cenário |
+| `name` | string | Nome da automação |
+| `description` | string | Descrição. `"Sem descrição"` quando ausente |
+| `type` | string | `directus-flow`, `directus-hook` ou `make` |
+| `status` | string | `active`, `inactive` ou `error` |
+| `trigger` | string | Tipo de gatilho: `"Cron (expr)"`, `"Webhook"`, `"Operação"`, `"Manual"`, `"Evento Inngest"` |
+| `integrations` | string[] | Sistemas integrados (ex.: `["inngest"]`, `["resend"]`, `["zoom"]`) |
+| `lastRun` | string \| null | Timestamp da última execução (`null` — não rastreado por padrão) |
+| `runCount` | number | Contagem de execuções (`0` — requereria logs customizados) |
+| `errorCount` | number | Contagem de erros (`0` — requereria logs customizados) |
+| `createdAt` | string | ISO timestamp de criação |
+| `icon` | string \| undefined | Ícone do Directus (apenas para `directus-flow`) |
+
+<Note>
+  `lastRun`, `runCount` e `errorCount` são estruturalmente presentes na resposta mas retornam valores nulos/zero — o Directus não persiste histórico de execução por padrão. Para observabilidade de execuções, consulte os logs do Inngest Dashboard ou os logs de execução do Directus.
+</Note>
+
+---
+
+## Mapeamento de Triggers (Directus Flows)
+
+| `flow.trigger` (Directus) | `trigger` na resposta |
+|---------------------------|----------------------|
+| `schedule` | `"Cron (expr cron)"` |
+| `operation` | `"Operação"` |
+| `webhook` | `"Webhook"` |
+| `manual` | `"Manual"` |
+
+---
+
+## Relação com Hooks de Código
+
+Os hooks em `directus-backoffice-with-extensions/extensions/hooks/src/` (47 hooks) são extensões de **código** — não aparecem na API `readFlows()` do Directus. O serviço `getAllAutomations` os cataloga separadamente como tipo `directus-hook`. Para ver o comportamento de cada hook, consulte o [Backoffice Directus](/documentation/platform/backoffice-directus).
+
+---
+
+## Status Codes
+
+| Código | Descrição |
+|--------|-----------|
+| `200` | Sucesso |
+| `401` | Não autenticado |
+| `403` | Autenticado, mas sem permissão de impersonation |
+| `500` | Erro interno |
+
+---
+
+## Referências de Código
+
+| Arquivo | Repositório | Descrição |
+|---------|-------------|-----------|
+| `src/app/api/backoffice/automations/route.ts` | `leapy-rh` | Endpoint com authn/authz e query params |
+| `src/services/automations.js` | `leapy-rh` | `getAllFlows()` — lê Directus Flows com `readFlows()` |
+| `src/lib/auth/permissions/impersonation.ts` | `leapy-rh` | `canImpersonate(role_id)` — guard de acesso |
+| `directus-backoffice-with-extensions/extensions/hooks/src/` | `directus-backoffice-with-extensions` | Hooks de código (fonte dos `directus-hook`) |
+
+---
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Backoffice Directus" icon="database" href="/documentation/platform/backoffice-directus">
+    Hooks de código, extensões e arquitetura do Directus
+  </Card>
+  <Card title="Impersonation" icon="user-secret" href="/api-reference/backoffice/impersonation">
+    Endpoints de impersonation que compartilham a mesma guarda de permissão
+  </Card>
+  <Card title="Plataforma — Events & Jobs Inngest" icon="gear" href="/documentation/platform/events-jobs-inngest">
+    Arquitetura de eventos que os hooks disparam
+  </Card>
+  <Card title="Automações Make" icon="puzzle-piece" href="/documentation/platform/automations-make">
+    Cenários Make que integram Leapy com sistemas externos
+  </Card>
+</CardGroup>
