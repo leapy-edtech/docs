@@ -1479,7 +1479,2229 @@
         "summary": "Health Check",
         "tags": [
           "Infra"
-        ]
+        ],
+        "parameters": []
+      }
+    },
+    "/taxonomic/users/:id/skill-goals/:goalId": {
+      "delete": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — DELETE /taxonomic/users/{id}/skill-goals/{goalId}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "goalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — PATCH /taxonomic/users/{id}/skill-goals/{goalId}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "goalId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills/development/:skillId": {
+      "delete": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — DELETE /taxonomic/users/{id}/skills/development/{skillId}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skillId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills/:skillId": {
+      "delete": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — DELETE /taxonomic/users/{id}/skills/{skillId}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skillId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/impersonation/admin-roles": {
+      "get": {
+        "tags": [
+          "Impersonation"
+        ],
+        "summary": "Impersonation — GET /impersonation/admin-roles",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/jovens/classificacao_automatica": {
+      "get": {
+        "tags": [
+          "Jovens"
+        ],
+        "summary": "Jovens — GET /jovens/classificacao_automatica",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/jovens/list": {
+      "get": {
+        "tags": [
+          "Jovens"
+        ],
+        "summary": "Jovens — GET /jovens/list",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/linkedin-skills/user/:userId/active-job": {
+      "get": {
+        "tags": [
+          "LinkedIn Skills"
+        ],
+        "summary": "LinkedIn Skills — GET /linkedin-skills/user/{userId}/active-job",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/plans/subscription/:account/:feature": {
+      "get": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "Plans — GET /plans/subscription/{account}/{feature}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "feature",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/presenca/grafico/:jovem_id": {
+      "get": {
+        "tags": [
+          "Presenças"
+        ],
+        "summary": "Presenças — GET /presenca/grafico/{jovem_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "jovem_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/presenca/planilha/:empresa_id": {
+      "get": {
+        "tags": [
+          "Presenças"
+        ],
+        "summary": "Presenças — GET /presenca/planilha/{empresa_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "empresa_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/presenca/presenca/:jovem_id": {
+      "get": {
+        "tags": [
+          "Presenças"
+        ],
+        "summary": "Presenças — GET /presenca/presenca/{jovem_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "jovem_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/progress/absorcao/:empresa_id": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Progress — GET /progress/absorcao/{empresa_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "empresa_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/progress/conclusao/empresa/:empresa_id": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Progress — GET /progress/conclusao/empresa/{empresa_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "empresa_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/progress/:matricula_id/moodle/integration-data": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Progress — GET /progress/{matricula_id}/moodle/integration-data",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "matricula_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/progress/proficiencia/empresa/:empresa_id": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Progress — GET /progress/proficiencia/empresa/{empresa_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "empresa_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/progress/proficiencia/:jovem_id": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Progress — GET /progress/proficiencia/{jovem_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "jovem_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/progress/progress/empresa/:empresa_id": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Progress — GET /progress/progress/empresa/{empresa_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "empresa_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/progress/progress/:jovem_id": {
+      "get": {
+        "tags": [
+          "Progress"
+        ],
+        "summary": "Progress — GET /progress/progress/{jovem_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "jovem_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-access": {
+      "get": {
+        "tags": [
+          "Pulsos Access"
+        ],
+        "summary": "Pulsos Access — GET /pulsos-access",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-access/me": {
+      "get": {
+        "tags": [
+          "Pulsos Access"
+        ],
+        "summary": "Pulsos Access — GET /pulsos-access/me",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-access/questions/me": {
+      "get": {
+        "tags": [
+          "Pulsos Access"
+        ],
+        "summary": "Pulsos Access — GET /pulsos-access/questions/me",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-access/settings/:account_id": {
+      "get": {
+        "tags": [
+          "Pulsos Access"
+        ],
+        "summary": "Pulsos Access — GET /pulsos-access/settings/{account_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Pulsos Access"
+        ],
+        "summary": "Pulsos Access — PATCH /pulsos-access/settings/{account_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-access/:user_id": {
+      "get": {
+        "tags": [
+          "Pulsos Access"
+        ],
+        "summary": "Pulsos Access — GET /pulsos-access/{user_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos/competencias/:jovem_id": {
+      "get": {
+        "tags": [
+          "Pulsos"
+        ],
+        "summary": "Pulsos — GET /pulsos/competencias/{jovem_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "jovem_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos/efetivacao/:jovem_id": {
+      "get": {
+        "tags": [
+          "Pulsos"
+        ],
+        "summary": "Pulsos — GET /pulsos/efetivacao/{jovem_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "jovem_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-filtered/jovens": {
+      "get": {
+        "tags": [
+          "Pulsos Filtered"
+        ],
+        "summary": "Pulsos Filtered — GET /pulsos-filtered/jovens",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-filtered/jovens/simple": {
+      "get": {
+        "tags": [
+          "Pulsos Filtered"
+        ],
+        "summary": "Pulsos Filtered — GET /pulsos-filtered/jovens/simple",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-filtered/liderancas": {
+      "get": {
+        "tags": [
+          "Pulsos Filtered"
+        ],
+        "summary": "Pulsos Filtered — GET /pulsos-filtered/liderancas",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-filtered/liderancas/simple": {
+      "get": {
+        "tags": [
+          "Pulsos Filtered"
+        ],
+        "summary": "Pulsos Filtered — GET /pulsos-filtered/liderancas/simple",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos/performance/:jovem_id": {
+      "get": {
+        "tags": [
+          "Pulsos"
+        ],
+        "summary": "Pulsos — GET /pulsos/performance/{jovem_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "jovem_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/diagnostico/:account_id": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/diagnostico/{account_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/history/:account_id": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/history/{account_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/missing-contracts/:account_id": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/missing-contracts/{account_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/missing-contracts/:account_id/:profile": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/missing-contracts/{account_id}/{profile}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/preview/:account_id/:profile": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/preview/{account_id}/{profile}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/settings/:account_id": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/settings/{account_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/settings/:account_id/:profile": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/settings/{account_id}/{profile}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — PUT /pulsos-schedule/settings/{account_id}/{profile}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/settings": {
+      "get": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — GET /pulsos-schedule/settings",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/accounts/:accountId/skills/:skillId/users": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/accounts/{accountId}/skills/{skillId}/users",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skillId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/accounts/:id/skills/summary": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/accounts/{id}/skills/summary",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/roles/:id": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/roles/{id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/roles/:id/skills": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/roles/{id}/skills",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/search/roles": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/search/roles",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/search/skills": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/search/skills",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/skills/categories": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/skills/categories",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/skills/:id": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/skills/{id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/recommendations/roles": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/users/{id}/recommendations/roles",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skill-goals": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/users/{id}/skill-goals",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — POST /taxonomic/users/{id}/skill-goals",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/users/{id}/skills",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — POST /taxonomic/users/{id}/skills",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills/gap": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/users/{id}/skills/gap",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills/in-development": {
+      "get": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — GET /taxonomic/users/{id}/skills/in-development",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-access/questions/:account_id": {
+      "patch": {
+        "tags": [
+          "Pulsos Access"
+        ],
+        "summary": "Pulsos Access — PATCH /pulsos-access/questions/{account_id}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/hiring/indication/notify": {
+      "post": {
+        "tags": [
+          "Hiring"
+        ],
+        "summary": "Hiring — POST /hiring/indication/notify",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/hiring/match/run": {
+      "post": {
+        "tags": [
+          "Hiring"
+        ],
+        "summary": "Hiring — POST /hiring/match/run",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/hiring/process-invite/notify": {
+      "post": {
+        "tags": [
+          "Hiring"
+        ],
+        "summary": "Hiring — POST /hiring/process-invite/notify",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/hiring/profile/cv": {
+      "post": {
+        "tags": [
+          "Hiring"
+        ],
+        "summary": "Hiring — POST /hiring/profile/cv",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/impersonation/generate-token": {
+      "post": {
+        "tags": [
+          "Impersonation"
+        ],
+        "summary": "Impersonation — POST /impersonation/generate-token",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/linkedin-skills/infer": {
+      "post": {
+        "tags": [
+          "LinkedIn Skills"
+        ],
+        "summary": "LinkedIn Skills — POST /linkedin-skills/infer",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/matchmaker/search": {
+      "post": {
+        "tags": [
+          "Matchmaker"
+        ],
+        "summary": "Matchmaker — POST /matchmaker/search",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/matchmaker/search/stream": {
+      "post": {
+        "tags": [
+          "Matchmaker"
+        ],
+        "summary": "Matchmaker — POST /matchmaker/search/stream",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/plans/subscription/:account/:feature/use": {
+      "post": {
+        "tags": [
+          "Plans"
+        ],
+        "summary": "Plans — POST /plans/subscription/{account}/{feature}/use",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "feature",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos/rh": {
+      "post": {
+        "tags": [
+          "Pulsos"
+        ],
+        "summary": "Pulsos — POST /pulsos/rh",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/reschedule/:account_id/all": {
+      "post": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — POST /pulsos-schedule/reschedule/{account_id}/all",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/reschedule/:account_id/:profile": {
+      "post": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — POST /pulsos-schedule/reschedule/{account_id}/{profile}",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profile",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/talent": {
+      "post": {
+        "tags": [
+          "Talent"
+        ],
+        "summary": "Talent — POST /talent",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/talent-followup/summary": {
+      "post": {
+        "tags": [
+          "Talent"
+        ],
+        "summary": "Talent — POST /talent-followup/summary",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/user-careers/:id/target-role": {
+      "post": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — POST /taxonomic/user-careers/{id}/target-role",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/roles/match": {
+      "post": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — POST /taxonomic/users/{id}/roles/match",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills/development": {
+      "post": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — POST /taxonomic/users/{id}/skills/development",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills/development/:skillId/complete": {
+      "post": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — POST /taxonomic/users/{id}/skills/development/{skillId}/complete",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "skillId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/taxonomic/users/:id/skills/transition": {
+      "post": {
+        "tags": [
+          "Taxonomic"
+        ],
+        "summary": "Taxonomic — POST /taxonomic/users/{id}/skills/transition",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/vision/analyze": {
+      "post": {
+        "tags": [
+          "Vision"
+        ],
+        "summary": "Vision — POST /vision/analyze",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/vision/chat/stream": {
+      "post": {
+        "tags": [
+          "Vision"
+        ],
+        "summary": "Vision — POST /vision/chat/stream",
+        "x-source": "directus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/pulsos-schedule/settings/:account_id/para-todos": {
+      "put": {
+        "tags": [
+          "Pulsos Schedule"
+        ],
+        "summary": "Pulsos Schedule — PUT /pulsos-schedule/settings/{account_id}/para-todos",
+        "x-source": "directus",
+        "parameters": [
+          {
+            "name": "account_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
       }
     }
   },

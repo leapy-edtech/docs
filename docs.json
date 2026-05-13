@@ -270,6 +270,7 @@
                   "api-reference/backoffice/pulsos-liderancas",
                   "api-reference/backoffice/pulsos-rh",
                   "api-reference/backoffice/pulsos-configuracao",
+                  "api-reference/backoffice/pulsos-schedule",
                   "api-reference/backoffice/pulsos-endpoints-custom",
                   "api-reference/backoffice/pulsos-examples"
                 ]
@@ -284,6 +285,8 @@
               {
                 "group": "Gestão de Pessoas",
                 "pages": [
+                  "api-reference/backoffice/jovens",
+                  "api-reference/backoffice/progress",
                   "api-reference/backoffice/accounts",
                   "api-reference/backoffice/leadership",
                   "api-reference/backoffice/talent-plans",

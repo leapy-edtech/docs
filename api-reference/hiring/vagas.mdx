@@ -152,6 +152,77 @@ O Directus executa o match assincronamente — a resposta confirma o disparo, n�
 
 ---
 
+## Endpoints Directus de notificação
+
+Endpoints da extensão `hiring/` no Directus, chamados diretamente pelo BFF ou por processos internos de retry de e-mail.
+
+---
+
+### POST /hiring/indication/notify
+
+Envia e-mail de indicação ao candidato. Usado para retry manual quando o disparo automático do match falha.
+
+#### Autenticação
+
+`requireHiringAuth` — token Directus com permissão de hiring.
+
+#### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `candidate_id` | `string` | sim | UUID do candidato em `directus_users` |
+| `vaga_id` | `number` | sim | ID da vaga em `vagas` |
+
+#### Comportamento
+
+1. Valida `candidate_id` (uuid string) e `vaga_id` (inteiro positivo)
+2. Busca título da vaga em `vagas`
+3. Enfileira e-mail de indicação via Inngest (`emails/resend.send`)
+
+#### Resposta `200`
+
+```json
+{ "message": "E-mail de indicação enfileirado (Inngest)." }
+```
+
+#### Erros
+
+| Status | Motivo |
+|--------|--------|
+| `400` | Campos ausentes/inválidos, ou falha ao enviar |
+| `401` / `403` | Sem autenticação hiring |
+| `404` | Vaga não encontrada |
+| `500` | Erro de banco |
+
+---
+
+### POST /hiring/process-invite/notify
+
+Envia e-mail de convite ao processo ao candidato. Disparado pelo BFF `PATCH /api/hiring/vagas/{id}/job-applications/{applicationId}` quando `current_step` avança para `"invited_to_process"`.
+
+#### Autenticação
+
+`requireHiringAuth` — token Directus com permissão de hiring.
+
+#### Corpo
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `candidate_id` | `string` | sim | UUID do candidato |
+| `vaga_id` | `number` | sim | ID da vaga |
+
+#### Comportamento
+
+Idêntico ao `/indication/notify`, mas enfileira e-mail de convite ao processo via Inngest.
+
+#### Resposta `200`
+
+```json
+{ "message": "E-mail de convite ao processo enfileirado (Inngest)." }
+```
+
+---
+
 ## Coleções Directus relevantes
 
 | Coleção | Papel |
