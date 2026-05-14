@@ -231,7 +231,7 @@ GET /items/Pulsos?aggregate[count]=id&groupBy[]=prob_efetivacao&filter[status][_
 
 - `backoffice/jovem.created` - Cria 5 pulsos de liderança
 - `backoffice/pulsos.change_status` - Mudança de status
-- `backoffice/pulsos.vencidos_lideranca` - Pulsos vencidos
+- `backoffice/pulsos.vencidos_lideranca` - Pulsos vencidos → job `update-status-pulsos-liderancas-to-vencidos` atualiza status para `"vencido"` em lote e dispara `pulsos-liderancas-avaliacao-leapy.update-to-vencido` para sub-fluxo
 - `backoffice/pulsos_liderancas/lembrete-to-liderancas.send` - Lembrete
 - `backoffice-inngest-functions/pulsos-liderancas-leapy.create` - Criação pulso Leapy
 

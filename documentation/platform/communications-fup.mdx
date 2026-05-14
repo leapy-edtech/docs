@@ -398,6 +398,7 @@ Para desativar temporariamente um evento específico dentro de um hook (ex: emai
 | `extensions/hooks/src/hook-regua-comunicacao-jovens/` | `directus-backoffice-with-extensions` | Cron régua jovens |
 | `extensions/hooks/src/hook-regua-comunicacao-lideranca/` | `directus-backoffice-with-extensions` | Cron régua lideranças |
 | `extensions/hooks/src/hook-regua-comunicacao-rh/` | `directus-backoffice-with-extensions` | Cron régua RH |
+| `src/inngest/functions/resend-email/email-send-resend.ts` | `backoffice-inngest-functions` | Job `emails-resend-send` — envia emails via Resend, throttle 1/s, concorrência 2; evento ouvido: `emails/resend.send` |
 | `src/services/messaging.service.ts` | `backoffice-inngest-functions` | Canal WhatsApp/Email |
 | `src/services/followup-log.service.ts` | `backoffice-inngest-functions` | Log de follow-ups |
 
