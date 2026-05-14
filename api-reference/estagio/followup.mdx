@@ -1,0 +1,193 @@
+---
+title: "Estágio — Follow-up de Líderes"
+description: "Endpoints para envio de follow-up de jornada PDI a líderes de estágio via WhatsApp e e-mail"
+---
+
+## Visão geral
+
+O endpoint `/internship-leader` expõe duas rotas de follow-up que disparam comunicações sobre o progresso do PDI (Plano de Desenvolvimento Individual) dos estagiários para seus líderes diretos. Os envios são assíncronos: o endpoint enfileira eventos Inngest (`followup/send`) e retorna imediatamente — a entrega ocorre fora do ciclo de requisição.
+
+| Rota | Método | Canal | Template |
+|------|--------|-------|---------|
+| `/internship-leader/interns/fup` | POST | WhatsApp | `update_de_jornada` |
+| `/internship-leader/interns/fup-email` | POST | E-mail | HTML estruturado (`buildLeaderFollowupEmail`) |
+
+---
+
+## Autenticação e autorização
+
+Ambas as rotas exigem sessão Directus ativa (`req.accountability?.user`). Sem sessão → `403 Access Denied`.
+
+Não há verificação de role — qualquer usuário autenticado com `account` associada pode disparar follow-ups da própria conta.
+
+---
+
+## POST /internship-leader/interns/fup
+
+Envia atualização de jornada PDI por **WhatsApp** para todos os líderes ativos de uma conta, usando o template `update_de_jornada` (fixo — qualquer override é ignorado, idioma sempre `pt_BR`).
+
+### Parâmetros do body
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `account_id` | `string` (UUID) | sim | Conta para a qual buscar líderes ativos |
+| `user_ids` | `string[]` | não | Filtra os estagiários incluídos no follow-up. Se omitido, inclui todos os estagiários dos líderes da conta |
+
+### Fluxo interno
+
+<Steps>
+  <Step title="Busca líderes ativos">
+    Consulta `internship_leaders` JOIN `directus_users` WHERE `du.account = account_id` AND `il.status = 'active'`. Sem líderes → retorna `queued: 0`.
+  </Step>
+  <Step title="Busca estagiários dos líderes">
+    Consulta `talents` JOIN `directus_users` WHERE `leader_id IN (leader_ids)` AND `date_deleted IS NULL`. Filtra por `user_ids` se fornecido. Sem talentos → retorna `queued: 0`.
+  </Step>
+  <Step title="Busca PDI mais recente por estagiário">
+    Consulta `pdi_plans` para os `talent_id` encontrados, ordenado por `date_updated DESC`. Guarda apenas o mais recente por estagiário.
+  </Step>
+  <Step title="Busca dados agregados de pdi_dashboard">
+    Consulta `pdi_dashboard` WHERE `pdi_id IN (pdi_ids)`. Extrai `pdi_status`, `cargo_alvo` e `completed_actions` por PDI.
+  </Step>
+  <Step title="Monta e dispara eventos Inngest">
+    Para cada par líder–estagiário, constrói parâmetros do template:
+    - `header_parameters`: `[nome_estagiario]`
+    - `parameters`: `[etapa, cargo, skills_criticas, acoes_concluidas]`
+
+    Dispara evento `followup/send` com `method: "whatsapp"` e `template: { name: "update_de_jornada", ... }`.
+  </Step>
+</Steps>
+
+### Request
+
+```json
+{
+  "account_id": "550e8400-e29b-41d4-a716-446655440001",
+  "user_ids": ["550e8400-e29b-41d4-a716-446655440002"]
+}
+```
+
+### Response 200
+
+```json
+{
+  "success": true,
+  "leaders": 3,
+  "queued": 7,
+  "details": [
+    {
+      "leader_id": 42,
+      "leader_phone": "+5511999999999",
+      "talent_id": 15,
+      "template": "update_de_jornada"
+    }
+  ]
+}
+```
+
+`queued` pode ser `0` se nenhum líder tiver telefone cadastrado ou nenhum estagiário ativo existir.
+
+### Erros
+
+| HTTP | Quando |
+|------|--------|
+| `400` | `account_id` ausente no body |
+| `403` | Sessão Directus ausente |
+| `500` | Erro de banco ou falha ao enfileirar eventos Inngest |
+
+---
+
+## POST /internship-leader/interns/fup-email
+
+Envia follow-up de jornada PDI por **e-mail** para líderes com `email` cadastrado. O e-mail é construído com `buildLeaderFollowupEmail` e inclui competências estruturadas com ações por status.
+
+### Parâmetros do body
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|:-----------:|-----------|
+| `account_id` | `string` (UUID) | sim | Conta para a qual buscar líderes com e-mail |
+
+### Diferenças em relação ao endpoint WhatsApp
+
+- Inclui `pdi_competencias` e `pdi_actions` (estrutura completa de competências e ações por status)
+- Constrói o e-mail com `buildLeaderFollowupEmail({ talentName, targetRole, skills, competencies })`
+- Enfileira `followup/send` com `method: "email"` + `message_html` + `email_subject`
+- Líderes sem e-mail cadastrado são silenciosamente ignorados
+
+### Request
+
+```json
+{
+  "account_id": "550e8400-e29b-41d4-a716-446655440001"
+}
+```
+
+### Response 200
+
+```json
+{
+  "success": true,
+  "leaders": 3,
+  "queued": 5,
+  "details": [
+    {
+      "leader_id": 42,
+      "talent_id": 15,
+      "subject": "Atualização de jornada — Ana Souza"
+    }
+  ]
+}
+```
+
+### Erros
+
+| HTTP | Quando |
+|------|--------|
+| `400` | `account_id` ausente |
+| `403` | Sessão ausente |
+| `500` | Erro de banco ou falha ao enfileirar eventos |
+
+---
+
+## Observabilidade
+
+- Erros de banco e falhas ao disparar eventos são logados via `console.error` — buscar por `"Error sending WhatsApp journey updates"` e `"Error sending email journey updates"` nos logs do Directus.
+- `queued: 0` com `success: true` indica ausência de líderes ativos ou estagiários válidos — não é erro, é estado legítimo.
+- Os eventos `followup/send` enfileirados são processados pelo job Inngest `followup-send-generic` (ou equivalente) — consultar o dashboard Inngest para status de entrega.
+
+---
+
+## Integrações relacionadas
+
+- **`pdi_dashboard`** (view materializada): alimenta `etapa`, `cargo_alvo` e `completed_actions` usados nos parâmetros do template WhatsApp e no corpo do e-mail.
+- **`pdi_plans`, `pdi_competencias`, `pdi_actions`**: estrutura completa do PDI usada no e-mail.
+- **Agent System** (`agent-system-production.up.railway.app`): receptor dos templates WhatsApp via `POST /whatsapp/templates` — usado indiretamente via evento Inngest.
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `extensions/endpoints/src/internship-leader/index.js` | `directus-backoffice-with-extensions` |
+| `extensions/endpoints/src/utils/build-leader-followup-email.js` | `directus-backoffice-with-extensions` |
+| `extensions/endpoints/src/utils/email-resend.js` | `directus-backoffice-with-extensions` |
+| `inngest/send-event.js` | `directus-backoffice-with-extensions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Estágio — PDI Dashboard" icon="chart-bar" href="/api-reference/estagio/pdi-dashboard">
+    Endpoints de leitura da view pdi_dashboard que alimenta os dados deste follow-up
+  </Card>
+  <Card title="Talentos de Estágio" icon="user-graduate" href="/documentation/domains/talents/index">
+    Modelo de dados de talents, líderes e o ciclo de vida do estagiário
+  </Card>
+  <Card title="Talent Follow-up" icon="comments" href="/api-reference/backoffice/talent-followup">
+    Endpoints de follow-up para o módulo de talentos (jovens aprendizes)
+  </Card>
+  <Card title="Estágio — Onboarding" icon="door-open" href="/api-reference/estagio/onboarding">
+    Criação de líderes de estágio e convite inicial
+  </Card>
+</CardGroup>

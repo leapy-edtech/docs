@@ -1,0 +1,287 @@
+---
+title: "Estágio — PDI Dashboard"
+description: "Endpoints de leitura da view materializada pdi_dashboard e jobs Inngest de notificação para criação de PDI"
+---
+
+## Visão geral
+
+O endpoint `/mvp-estagio` expõe quatro rotas de leitura sobre a view materializada `pdi_dashboard`. Essa view agrega dados de `pdi_plans`, `pdi_competencias` e `pdi_actions` em uma estrutura desnormalizada que permite consultas rápidas sem joins.
+
+Além dos endpoints HTTP, dois jobs Inngest notificam líderes por WhatsApp quando PDIs são criados ou quando há pendências de criação.
+
+| Rota | Método | Descrição |
+|------|--------|-----------|
+| `/mvp-estagio/pdi-dashboard` | GET | Lista paginada com filtros |
+| `/mvp-estagio/pdi-dashboard/:id` | GET | PDI específico por `pdi_id` |
+| `/mvp-estagio/pdi-dashboard/user/:user_id` | GET | PDIs de um usuário com stats |
+| `/mvp-estagio/pdi-dashboard-stats` | GET | Estatísticas globais agregadas |
+
+---
+
+## Autenticação e autorização
+
+Todas as rotas exigem sessão Directus ativa (`req.accountability?.user`). Sem sessão → `403 Access Denied`.
+
+---
+
+## GET /mvp-estagio/pdi-dashboard
+
+Lista PDIs com paginação e filtros opcionais.
+
+### Parâmetros de query
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `user_id` | `string` | — | Filtra por `user_id` na view |
+| `pdi_status` | `string` | — | Ex: `"ativo"`, `"concluido"`, `"cancelado"` |
+| `timeline_status` | `string` | — | Status da timeline do PDI |
+| `limit` | `number` | `50` | Itens por página |
+| `offset` | `number` | `0` | Posição inicial |
+| `sort` | `string` | `"created_at"` | Campo de ordenação |
+| `order` | `"ASC"` \| `"DESC"` | `"DESC"` | Direção da ordenação |
+
+### Response 200
+
+```json
+{
+  "data": [
+    {
+      "pdi_id": "uuid-do-pdi",
+      "user_id": "uuid-do-usuario",
+      "cargo_alvo": "Analista de Dados",
+      "pdi_status": "ativo",
+      "timeline_status": "no_prazo",
+      "progress_percentage": 45.5,
+      "total_actions": 12,
+      "completed_actions": 5,
+      "pratica_actions": 3,
+      "troca_actions": 1,
+      "estudo_actions": 1
+    }
+  ],
+  "meta": {
+    "total": 84,
+    "limit": 50,
+    "offset": 0,
+    "current_page": 1,
+    "total_pages": 2,
+    "has_next": true,
+    "has_previous": false
+  }
+}
+```
+
+### Erros
+
+| HTTP | Quando |
+|------|--------|
+| `403` | Sessão ausente |
+| `500` | Erro de banco |
+
+---
+
+## GET /mvp-estagio/pdi-dashboard/:id
+
+Retorna um PDI específico pelo `pdi_id` da view.
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `id` | `string` | `pdi_id` na view `pdi_dashboard` |
+
+### Response 200
+
+```json
+{
+  "data": {
+    "pdi_id": "uuid-do-pdi",
+    "user_id": "uuid-do-usuario",
+    "cargo_alvo": "Analista de Dados",
+    "pdi_status": "ativo",
+    "progress_percentage": 45.5,
+    "completed_actions": 5,
+    "total_actions": 12
+  }
+}
+```
+
+### Erros
+
+| HTTP | Quando |
+|------|--------|
+| `403` | Sessão ausente |
+| `404` | `pdi_id` não encontrado na view |
+| `500` | Erro de banco |
+
+---
+
+## GET /mvp-estagio/pdi-dashboard/user/:user_id
+
+Retorna todos os PDIs de um usuário com estatísticas agregadas calculadas no servidor.
+
+<Callout type="warning">
+  Atenção à ordem das rotas no router Express: `/pdi-dashboard/user/:user_id` deve vir **antes** de `/pdi-dashboard/:id` para evitar que `"user"` seja interpretado como um `id`. O código do endpoint já segue essa ordem.
+</Callout>
+
+### Parâmetros de path
+
+| Parâmetro | Tipo | Descrição |
+|-----------|------|-----------|
+| `user_id` | `string` | UUID do usuário (`directus_users.id`) |
+
+### Parâmetros de query
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `pdi_status` | `string` | — | Filtro por status do PDI |
+| `timeline_status` | `string` | — | Filtro por status da timeline |
+| `sort` | `string` | `"created_at"` | Campo de ordenação |
+| `order` | `"ASC"` \| `"DESC"` | `"DESC"` | Direção |
+
+### Response 200
+
+```json
+{
+  "data": [
+    {
+      "pdi_id": "uuid-do-pdi",
+      "cargo_alvo": "Analista de Dados",
+      "pdi_status": "ativo",
+      "progress_percentage": 45.5
+    }
+  ],
+  "stats": {
+    "total_pdis": 2,
+    "active_pdis": 1,
+    "completed_pdis": 1,
+    "average_progress": 58,
+    "total_actions": 24,
+    "completed_actions": 14
+  }
+}
+```
+
+---
+
+## GET /mvp-estagio/pdi-dashboard-stats
+
+Retorna estatísticas globais agregadas de todos os PDIs no sistema: totais, médias, distribuição por status e por timeline.
+
+### Response 200
+
+```json
+{
+  "data": {
+    "overview": {
+      "total_pdis": 312,
+      "total_users": 289,
+      "average_progress": "34.72",
+      "total_actions": 4120,
+      "completed_actions": 1480,
+      "actions_by_type": {
+        "pratica": 720,
+        "troca": 380,
+        "estudo": 380
+      }
+    },
+    "status_distribution": [
+      { "pdi_status": "ativo", "count": "201" },
+      { "pdi_status": "concluido", "count": "87" },
+      { "pdi_status": "cancelado", "count": "24" }
+    ],
+    "timeline_distribution": [
+      { "timeline_status": "no_prazo", "count": "185" },
+      { "timeline_status": "atrasado", "count": "16" }
+    ]
+  }
+}
+```
+
+---
+
+## Jobs Inngest de notificação PDI
+
+Dois jobs complementam estes endpoints notificando líderes por WhatsApp quando eventos de PDI ocorrem.
+
+### `pdi-created` — Notificação de PDI criado
+
+**Evento ouvido:** `backoffice/talent.pdi-created`
+
+Dispara quando um PDI é criado. Envia WhatsApp para o **líder** com informações do estagiário e suas competências iniciais.
+
+**Payload do evento:**
+```typescript
+{
+  talent: { phone_number: string; user?: { full_name: string } };
+  target_role: { name: string } | null;
+  leader: { phone_number: string; user?: { full_name: string } };
+  pdi: { skills: string[] | string | null };
+}
+```
+
+**Template WhatsApp:** `pdi_criado` — parâmetros: `[nome_liderança, nome_talento, cargo_alvo, competências]`
+
+**Número de origem:** `551152951564` (Feleapy Liderança)
+
+**Entrega via Agent System:** `POST {AGENT_SYSTEM_URL}/whatsapp/templates`
+
+**Condição de erro não retriável:** `talent.phone_number` ausente ou `leader` ausente — job interrompe sem retry.
+
+---
+
+### `pending-pdi-creation` — Notificação de PDIs pendentes
+
+**Evento ouvido:** `backoffice/talent.pending-pdi-creation`
+
+Notifica o líder quando há estagiários que ainda não têm PDI criado. Envia em **lotes de 5 talentos** (máximo por mensagem do template `notificacao_status`).
+
+**Payload do evento:**
+```typescript
+{
+  leader_phone_number: string;
+  talents: Array<{ talent_name: string; talent_status: string }>;
+}
+```
+
+**Template WhatsApp:** `notificacao_status` — 5 parâmetros por mensagem com `nome, status` de cada talento. Lotes menores preenchidos com `" "` (espaço) para completar os 5 slots.
+
+**Condição de erro não retriável:** `leader_phone_number` ausente.
+
+---
+
+## Observabilidade
+
+- Erros de banco logados via `console.error` com prefixos `"Error fetching PDI dashboard data"`, `"Error fetching PDI by ID"`, `"Error fetching user PDIs"`, `"Error fetching PDI statistics"`.
+- Stacks de erro expostos na response em `NODE_ENV === "development"` — em produção, apenas `message`.
+- Jobs Inngest: monitorar dashboard Inngest por falhas em `pdi-created` e `pending-pdi-creation`. Falhas de `NonRetriableError` não geram retries — verificar dados de origem.
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `extensions/endpoints/src/mvp-estagio/index.js` | `directus-backoffice-with-extensions` |
+| `inngest/functions/mvp-estagio/talents/pdi-created.ts` | `backoffice-inngest-functions` |
+| `inngest/functions/mvp-estagio/talents/pending-pdi-creation.ts` | `backoffice-inngest-functions` |
+| `inngest/functions/mvp-estagio/talents/constants.ts` | `backoffice-inngest-functions` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Follow-up de Líderes" icon="comments" href="/api-reference/estagio/followup">
+    Endpoints que consomem pdi_dashboard para enviar follow-ups WhatsApp e e-mail a líderes
+  </Card>
+  <Card title="Talentos de Estágio" icon="user-graduate" href="/documentation/domains/talents/index">
+    Modelo de dados de talents e o ciclo de vida do estagiário
+  </Card>
+  <Card title="Talent Follow-up" icon="bell" href="/api-reference/backoffice/talent-followup">
+    Endpoints de follow-up para jovens aprendizes (modelo análogo para estagiários)
+  </Card>
+  <Card title="Estágio — Onboarding" icon="door-open" href="/api-reference/estagio/onboarding">
+    Criação de líderes de estágio e cadastro inicial de estagiários
+  </Card>
+</CardGroup>
