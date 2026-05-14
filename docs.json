@@ -314,7 +314,8 @@
                 "pages": [
                   "api-reference/backoffice/vision-ai",
                   "api-reference/backoffice/dashboard-v2-interactions",
-                  "api-reference/backoffice/logs-gamificacao"
+                  "api-reference/backoffice/logs-gamificacao",
+                  "api-reference/backoffice/dashboard-efetivacao"
                 ]
               },
               {
@@ -351,7 +352,9 @@
           {
             "dropdown": "Estágio",
             "pages": [
-              "api-reference/estagio/onboarding"
+              "api-reference/estagio/onboarding",
+              "api-reference/estagio/followup",
+              "api-reference/estagio/pdi-dashboard"
             ]
           },
           {

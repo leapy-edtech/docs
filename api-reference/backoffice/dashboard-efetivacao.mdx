@@ -1,0 +1,233 @@
+---
+title: "Dashboard — Métricas de Efetivação"
+description: "Endpoints de análise de efetivação de jovens aprendizes com comparação de período, histórico e recomendações"
+---
+
+## Visão geral
+
+Três endpoints compõem o módulo de análise de efetivação do backoffice: métricas do período atual com comparação, série histórica e recomendações individuais baseadas nos pulsos respondidos por lideranças.
+
+| Rota | Método | Descrição |
+|------|--------|-----------|
+| `/api/backoffice/dashboard/efetivacao` | GET | Métricas do período com comparação ao período anterior |
+| `/api/backoffice/dashboard/efetivacao/historico` | GET | Série histórica (mensal, trimestral ou anual) |
+| `/api/efetivacao-recomendacoes` | GET | Recomendações individuais com cargo alvo |
+
+---
+
+## Autenticação e autorização
+
+Todos os endpoints exigem sessão Next.js Auth (`getServerSession(authOptions)`). Sem sessão → `401 Não autorizado`.
+
+---
+
+## GET /api/backoffice/dashboard/efetivacao
+
+Retorna as métricas de efetivação do período selecionado com comparação automática ao período anterior equivalente.
+
+### Parâmetros de query
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `timeRange` | `"month"` \| `"quarter"` \| `"year"` | `"month"` | Define o período de análise |
+| `startDate` | ISO date string | — | Data de início customizada (sobrescreve `timeRange`) |
+| `endDate` | ISO date string | — | Data de fim customizada (sobrescreve `timeRange`) |
+| `meta` | `number` | `70` | Meta de taxa de efetivação em % para comparação |
+
+**Lógica de períodos quando `startDate`/`endDate` não são fornecidos:**
+
+| `timeRange` | Período calculado |
+|-------------|------------------|
+| `month` | Primeiro ao último dia do mês corrente |
+| `quarter` | Primeiro ao último dia do quarter corrente |
+| `year` | 1º de janeiro ao 31 de dezembro do ano corrente |
+
+O período anterior é calculado automaticamente por `calcularPeriodoAnterior(startDate, endDate, timeRange)` e tem a mesma duração que o período atual.
+
+### Response 200
+
+```json
+{
+  "success": true,
+  "timeRange": "month",
+  "periodo": {
+    "start": "2026-05-01T00:00:00.000Z",
+    "end": "2026-05-31T23:59:59.999Z"
+  },
+  "periodoAnterior": {
+    "start": "2026-04-01T00:00:00.000Z",
+    "end": "2026-04-30T23:59:59.999Z"
+  },
+  "metrics": {
+    "totalEfetivacoes": 12,
+    "taxaEfetivacao": 75.0,
+    "totalFinalizados": 16
+  },
+  "comparison": {
+    "previousTotal": 10,
+    "previousTaxa": 66.7,
+    "previousFinalizados": 15,
+    "variacaoAbsoluta": 2,
+    "variacaoPercentual": 20.0,
+    "variacaoTaxa": 8.3
+  }
+}
+```
+
+### Erros
+
+| HTTP | Quando |
+|------|--------|
+| `401` | Sem sessão |
+| `500` | Erro de banco ou falha no serviço de efetivação |
+
+---
+
+## GET /api/backoffice/dashboard/efetivacao/historico
+
+Retorna série histórica de efetivações com estatísticas agregadas, adequada para gráficos de linha ou barras no dashboard.
+
+### Parâmetros de query
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `type` | `"monthly"` \| `"quarterly"` \| `"yearly"` | `"monthly"` | Granularidade da série |
+| `limit` | `number` | `12` (mensal), `8` (trimestral), `5` (anual) | Número de períodos a retornar |
+
+### Response 200
+
+```json
+{
+  "success": true,
+  "type": "monthly",
+  "limit": 12,
+  "data": [
+    {
+      "periodo": "2026-05",
+      "efetivados": 12,
+      "finalizados": 16,
+      "taxa": 75.0
+    },
+    {
+      "periodo": "2026-04",
+      "efetivados": 10,
+      "finalizados": 15,
+      "taxa": 66.7
+    }
+  ],
+  "statistics": {
+    "totalEfetivados": 142,
+    "totalFinalizados": 198,
+    "taxaMedia": 71.72
+  }
+}
+```
+
+### Erros
+
+| HTTP | Quando |
+|------|--------|
+| `401` | Sem sessão |
+| `500` | Erro de banco |
+
+<Callout type="info">
+  Este endpoint tem logging detalhado em produção — cada fase da requisição emite `console.log` com prefixo `[API HISTORICO]` e tempo de execução em ms. Útil para diagnosticar lentidão.
+</Callout>
+
+---
+
+## GET /api/efetivacao-recomendacoes
+
+Retorna lista de jovens aprendizes com expectativa de efetivação, baseada no pulso mais recente respondido pela liderança, ordenada por prioridade de efetivação.
+
+### Fonte dos dados
+
+- **Coleção:** `Pulsos` (pulsos de liderança com campo `efetivação` preenchido)
+- **Filtros aplicados:** `status = "respondido"`, `efetivação IS NOT NULL`, `jovem_id.ativo = true`, `jovem_id.Status_formacao = "em_andamento"`
+- **Seleção:** apenas o pulso mais recente por jovem (campo `data_resposta`)
+- **Enriquecimento:** `user_careers` → `target_role_id.name` (cargo alvo)
+
+### Ordenação de resultados
+
+| Valor de `efetivação` | Prioridade |
+|----------------------|-----------|
+| `MUITO_PROVAVEL` / `"Muito provável, lutarei para isso"` | 3 (mais alto) |
+| `PROVAVEL` / `"Provável"` | 2 |
+| `IMPROVAVEL` / `"Improvável, não tenho essa expectativa"` | 1 |
+
+### Response 200
+
+Array ordenado do mais prioritário ao menos prioritário:
+
+```json
+[
+  {
+    "id": "uuid-do-pulso",
+    "jovemId": "uuid-do-jovem",
+    "apprenticeId": "uuid-do-jovem",
+    "nome": "Ana Souza",
+    "area": "Tecnologia",
+    "efetivacao": "MUITO_PROVAVEL",
+    "created": "2026-05-10T14:23:00.000Z",
+    "data_resposta": "2026-05-10T14:30:00.000Z",
+    "cargoAlvo": "Analista de Dados Jr.",
+    "user_id": "uuid-do-usuario"
+  }
+]
+```
+
+`cargoAlvo` é `null` quando o jovem não possui `user_careers` com `target_role_id` definido.
+
+### Erros
+
+| HTTP | Quando |
+|------|--------|
+| `401` | Sessão ausente ou expirada |
+| `500` | Erro de banco ou falha ao buscar dados do Directus |
+
+---
+
+## Observabilidade
+
+- Endpoint `/dashboard/efetivacao`: erros logados via `console.error("Erro ao buscar métricas de efetivação")`.
+- Endpoint `/historico`: logging granular por fase — buscar `[API HISTORICO]` nos logs do servidor Next.js.
+- Endpoint `/efetivacao-recomendacoes`: erros logados via `console.error("Erro ao buscar recomendações de efetivação")`.
+- `details` com stack de erro é exposto na response `500` apenas em desenvolvimento.
+
+---
+
+## Integrações relacionadas
+
+- **`Pulsos`** (coleção Directus): fonte dos dados de expectativa de efetivação da liderança.
+- **`user_careers`**: enriquece as recomendações com o cargo alvo definido pelo jovem.
+- **Serviço `@/services/dashboard/efetivacao`**: encapsula `calcularEfetivacaoPorPeriodo`, `compararPeriodos`, `calcularPeriodoAnterior`, `calcularEfetivacaoMensal/Trimestral/Anual` — não expostos diretamente.
+
+---
+
+## Referências de código
+
+| Arquivo | Repo |
+|---------|------|
+| `src/app/api/backoffice/dashboard/efetivacao/route.ts` | `leapy-rh` |
+| `src/app/api/backoffice/dashboard/efetivacao/historico/route.ts` | `leapy-rh` |
+| `src/app/api/efetivacao-recomendacoes/route.js` | `leapy-rh` |
+| `src/services/dashboard/efetivacao/index.ts` | `leapy-rh` |
+
+---
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Dashboard v2 — Interações" icon="chart-line" href="/api-reference/backoffice/dashboard-v2-interactions">
+    Outros endpoints do dashboard de backoffice (KPIs e interações)
+  </Card>
+  <Card title="Pulsos — Configuração" icon="sliders" href="/api-reference/backoffice/pulsos-configuracao">
+    Configuração e ciclo de vida dos pulsos de liderança que alimentam as recomendações
+  </Card>
+  <Card title="Domínio de Pulsos" icon="heart-pulse" href="/documentation/domains/pulses/index">
+    Arquitetura completa do sistema de pulsos e avaliações
+  </Card>
+  <Card title="Talentos" icon="star" href="/documentation/domains/talents/index">
+    Modelo de dados de jovens aprendizes e estagiários
+  </Card>
+</CardGroup>
