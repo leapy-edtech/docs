@@ -152,6 +152,7 @@
               "documentation/platform/observability",
               "documentation/platform/environments",
               "documentation/platform/security-data",
+              "documentation/platform/rbac-monorepo",
               "documentation/platform/impersonation",
               "documentation/platform/zoom-agenda",
               "documentation/platform/moodle-sso",

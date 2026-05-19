@@ -1,0 +1,787 @@
+---
+title: "RBAC do Monorepo"
+description: "Sistema de autorização code-based do monorepo Leapy: modelo, toolkit do dev, cookbook e FAQ (PR #31)"
+---
+
+> Documento de referência sobre o sistema de autorização do monorepo Leapy (`./leapy/`), entregue no PR #31.
+> Cobre o modelo, o toolkit do dev, receitas de manutenção e perguntas frequentes.
+> Audiência: time de devs. Linguagem clara, sem jargão desnecessário — mas com o "porquê" sempre presente.
+
+---
+
+## Parte 1 — Conceitual
+
+### Sobre o que estamos falando
+
+**Autorização** responde à pergunta: "o que esse usuário pode fazer?". É diferente de **autenticação**, que responde "quem é esse usuário?". Autenticação no nosso ambiente é resolvida pelo cookie compartilhado do `leapy-rh` (JWT do NextAuth) e fica fora do escopo deste documento. Aqui falamos só do que vem depois: já sabendo quem é o usuário e qual a role dele, **quais ações ele pode disparar e quais dados ele pode ler ou modificar**.
+
+Pra um produto B2B multi-tenant como o Leapy, autorização é uma camada especialmente sensível:
+
+- Cada conta enxerga só os próprios dados (uma RH não pode ver jovens de outra RH).
+- Cada role tem um conjunto distinto de poderes (um `rh-account-manager` faz menos coisas que um `rh-account-admin`).
+- Algumas roles podem agir como outros usuários (impersonation, usada por Suporte e Customer Success).
+
+Errar autorização não é "bug de UX" — é vazamento de dados entre clientes ou escalada de privilégio. É a categoria de bug que aparece na imprensa.
+
+### Três propriedades que guiam o design
+
+Estas três propriedades são o norte do sistema todo. Tudo o que vem depois é meio pra realizá-las:
+
+1. **Toda rota e toda página têm decisão explícita de autorização.** Ninguém esquece de proteger uma rota nova. Se o dev tentar, o TypeScript reclama na hora de compilar — não é convenção opcional, é regra do tipo.
+
+2. **Multi-tenant é automático, não responsabilidade do dev.** O filtro "essa conta vê só seus próprios registros" não é escrito à mão em cada rota. Ele vem embutido no repositório, derivado da sessão atual. Esquecer de filtrar deixou de ser uma possibilidade.
+
+3. **O dev escreve só a lógica de feature.** Autenticar o usuário, decidir se ele tem permissão, abrir transação no banco, filtrar pela conta, transformar erro em status HTTP — tudo isso vem de funções utilitárias. A rota fica com cinco linhas, não com trinta.
+
+### A decisão central: autorização vive em código
+
+**Onde mora a definição "essa role pode fazer X"?** No nosso sistema, em quatro constantes TypeScript dentro do pacote `@leapy/core`. O banco de dados não armazena nada de autorização. Não existe tabela de permissões, não existe tabela de "role → permissões".
+
+Na prática:
+
+- A matriz "role → lista de permissões" é uma constante tipada.
+- O scope (horizonte de dados) de cada role é outra constante.
+- Mudar uma permissão é editar essas constantes, abrir um pull request e fazer deploy. Como qualquer outra mudança de código.
+
+#### Por que decidimos assim
+
+**Permissões mudam raramente, e sempre por dev.** Em quatro anos de `leapy-rh`, as permissões evoluíram por commits, nunca por edição em runtime. Ninguém pediu um painel de admin pra editar regras. Não é o problema que estamos resolvendo.
+
+**Type-safety é o maior ganho prático aqui.** Quando a matriz vive em código TypeScript, o compilador valida tudo: erro de digitação em permissão, role nova sem scope declarado, recurso novo sem mapeamento — todos viram erro em tempo de compilação. Você não consegue mais introduzir inconsistência em produção; o build falha antes. Esse tipo de garantia é impossível quando o "estado real" vive em linhas do banco.
+
+**Sem custo em runtime.** Cada request precisa checar permissão. Se a matriz fosse no banco, seria mais uma query por request (ou um cache local com lógica de invalidação). Em código TypeScript, é um lookup em objeto — síncrono, instantâneo, sem dependência externa.
+
+**Sem acoplamento extra com o banco.** O banco fica livre do compromisso de modelar autorização. Sem schema novo, sem seed sincronizando código com banco, sem cache pra invalidar quando role muda. Menos lugares onde algo pode dessincronizar.
+
+#### O que abrimos mão (consciente)
+
+A edição em runtime. Se um dia surgir essa necessidade (ex: cliente enterprise pedindo customização de policy por tenant), a solução não é refatorar o sistema. A interface `PermissionsService` é a costura: troca-se a *implementação* atual (que lê das constantes) por uma DB-backed (que lê de tabela). O código de feature **não muda uma linha** — ele consome o serviço, não as constantes diretamente.
+
+#### E a identidade?
+
+Identidade — qual usuário tem qual role — continua vindo do Directus via JWT. Isso é diferente de autorização: muda raramente, tem registro canônico no `directus_roles`, e é o que o login real produz.
+
+### As 4 constantes que governam tudo
+
+Em `packages/core/src/services/permissions/constants.ts`:
+
+| Constante | Tipo | Papel |
+|---|---|---|
+| `PERM` | nested const `as const satisfies ...` | Vocabulário. Lista o que existe: `PERM.JOVENS.UPDATE`, `PERM.BACKOFFICE.IMPERSONATE`, etc. |
+| `ROLE` | flat const | Slugs canônicos das 14 roles. `ROLE.RH_ACCOUNT_ADMIN`. |
+| `ROLE_PERMISSIONS` | `Record<Role, readonly Permission[]>` | A matriz. Para cada role, a lista de permissões que ela tem. Portada verbatim do `leapy-rh`. |
+| `ROLE_SCOPE` | `Record<Role, "global" \| "account" \| "self">` | O horizonte de dados. Diz se a role vê tudo, só a própria conta, ou só os próprios dados. |
+
+Hoje são **10 recursos** em `PERM`: `JOVENS`, `PULSOS`, `TURMAS`, `HIRING`, `USUARIOS`, `DOCUMENTOS`, `CONFIGURACOES`, `DADOS_INSIGHTS`, `VIEWS`, `BACKOFFICE`. Cada um com suas actions.
+
+**A propriedade-chave: type-safety exaustiva.**
+
+- O tipo `Permission` é derivado dos valores **reais** de `PERM` (via `LeafValues<typeof PERM>`). Atribuir `"jovens:fly"` é erro de compilação — esse par não existe em `PERM`.
+- `ROLE_PERMISSIONS` e `ROLE_SCOPE` são `Record<Role, ...>` **exaustivos**: uma role nova sem entrada em qualquer um deles é erro de compilação. Você não consegue adicionar role e esquecer de declarar o scope dela.
+- `PERM` carrega `satisfies Record<string, Record<string, PermissionPattern>>`, travando formato bem-formado.
+
+Em outras palavras: o sistema te força a ser explícito. Typo, role esquecida, recurso novo sem mapeamento — tudo é compile error. Nada chega à runtime.
+
+### As 14 roles e o que cada uma vê
+
+| Role | Scope | O que vê |
+|---|---|---|
+| `system-admin` | global | Tudo (full access + ACCESS + IMPERSONATE) |
+| `tech-team` | global | Tudo |
+| `operations-admin` | global | Backoffice gerencial + IMPERSONATE |
+| `operations-readonly` | global | Backoffice em modo leitura |
+| `operations-owner` | global | Backoffice + IMPERSONATE (subset) |
+| `operations-team` | global | Backoffice gerencial |
+| `Administrator` | global | Full incl. IMPERSONATE |
+| `rh-account-admin` | account | Tudo da conta dele |
+| `rh-account-manager` | account | Subset operacional da conta |
+| `user-leadership` | account | Liderança RH/turmas da conta |
+| `entidade-account-admin` | account | Conta tipo entidade |
+| `user-learning-leaper` | self | Só dados próprios (jovem) |
+| `intern` | self | Só dados próprios (estagiário) |
+| `user-candidate` | self | Só candidatura própria |
+
+Distribuição: **7 global / 4 account / 3 self**.
+
+As 11 primeiras são portadas verbatim do `leapy-rh`. As 3 monorepo-only (`Administrator`, `operations-admin`, `operations-readonly`) foram adicionadas durante o brainstorm como camada operacional explícita.
+
+**Identidade continua sendo registro canônico do Directus.** A FK `directus_users.role` resolve qual role um usuário tem; o JWT carrega isso; `getSession()` decodifica. A camada de autorização nem sabe que existe Directus — só consome a role da sessão.
+
+### Três camadas de defesa
+
+**Defesa em profundidade** é uma ideia vinda da segurança: nunca confie em uma única barreira. Toda decisão sensível é tomada — e revalidada — em mais de um ponto. Se uma camada falhar (por bug, por configuração errada, por descuido), a próxima ainda protege.
+
+Toda request autorizada passa por três checagens:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  1.  ACTION CHECK no entry-point                         │
+│      createRoute({ permission })  ou                     │
+│      requirePageAccess(PERM.X.Y)                         │
+│      → permissions.can(session, resource, action)?       │
+│      → não: 403 + Sentry signal                          │
+└──────────────────────────────────────────────────────────┘
+                          ↓
+┌──────────────────────────────────────────────────────────┐
+│  2.  ROW SCOPE no repo                                   │
+│      createRepos(db, session, permissions)               │
+│      → repos.users.findAll() já vem com                  │
+│        WHERE account_id = session.accountId              │
+│        (ou sem WHERE, ou WHERE user_id = self,           │
+│         ou WHERE false — conforme scope da role)         │
+└──────────────────────────────────────────────────────────┘
+                          ↓
+┌──────────────────────────────────────────────────────────┐
+│  3.  DTO no return                                       │
+│      Server Component computa booleans                   │
+│      (canEdit, canDelete, canImpersonate)                │
+│      e passa por props. Cliente recebe booleans          │
+│      prontos, nunca o mapa de permissões.                │
+└──────────────────────────────────────────────────────────┘
+```
+
+Cada camada cobre um modo de falha diferente:
+
+- **Camada 1 é a primeira linha.** Mas se o dev esquecer de declarar a `permission:` correta, ela pode deixar passar. Por isso ela não é a única.
+- **Camada 2 é o seguro.** Mesmo que a camada 1 deixe passar (ou que a rota seja `allowAnyAuthenticated`), o repositório só retorna registros compatíveis com a sessão. Esquecer de filtrar tenant é impossível, porque ninguém escreve o filtro manualmente.
+- **Camada 3 é UX e prevenção de vazamento de informação.** O client nunca recebe um mapa de permissões — só os booleans específicos que o server decidiu enviar. Sem isso, o frontend acabaria replicando a lógica de autorização (e duplicação é o caminho mais curto pra dessincronia).
+
+**Por que middleware não conta como camada de segurança?** Em 2026 o CVE-2025-29927 mostrou que tratar middleware como ponto autoritativo é frágil — bugs no runtime do Next podem fazer middleware ser pulado em circunstâncias específicas. O ponto autoritativo é o que está mais perto do dado: o entry helper + o repositório escopado. Middleware fica como otimização (redirecionar cedo, evitar render desnecessário), nunca como muralha.
+
+### Impersonation: padrão "effective user"
+
+**O contexto.** Impersonation é quando um operador interno (Suporte, Customer Success) acessa o produto **como se fosse** um usuário cliente — pra investigar um bug, validar um fluxo, ou ajudar alguém em tempo real sem precisar pedir a senha. É um recurso comum em SaaS B2B; perigoso se mal implementado, porque envolve escalada deliberada de privilégio.
+
+A pergunta de design: quando um operador impersona um cliente, qual o "estado" da sessão dele? Existem duas escolas:
+
+- **"Troca de chapéu" (hat-switching).** A sessão continua sendo do operador, mas com um campo extra dizendo "estou impersonando o usuário X". Toda decisão de autorização precisa lembrar de olhar esse campo. Errar uma vez = escalada de privilégio.
+- **"Usuário efetivo" (effective user).** A sessão **reflete o usuário-alvo** — role, userId, accountId, tudo é do cliente impersonado. O operador real vai pra um campo opcional `impersonatedBy`, lido só por auditoria. Toda decisão de autorização usa o mesmo formato de sessão; o código de feature nem precisa saber que está em impersonation.
+
+**Escolhemos "usuário efetivo".** Por uma razão simples: é impossível esquecer de checar um campo que não existe no caminho crítico. O dev escreve `session.role` e ele já é a role correta — a do cliente que está sendo impersonado, não a do operador.
+
+Resultado prático:
+
+- `session.role` durante impersonation = role do **cliente**
+- `session.accountId` = conta do **cliente**
+- `session.impersonatedBy?.userId` = userId do **operador** (presente só durante impersonation, ignorado fora dela)
+
+Existe uma regra de domínio, `canImpersonateTarget(operatorRole, targetRole)`, que define quem pode impersonar quem (ex: `operations-owner` só pode impersonar roles de cliente, nunca outro operador). Auditoria captura as duas identidades: o "ator" (cliente efetivo, com cuja role a ação rodou) e o "operador" (quem disparou a impersonation).
+
+A **rota de impersonação em si** vive no `leapy-rh` — é cross-origin com cookie compartilhado `Domain=.leapy.com.br`. O monorepo só recebe o JWT já com a flag de impersonation e traduz pra `impersonatedBy` na sessão.
+
+---
+
+## Parte 2 — Toolkit do dev
+
+### Visão geral em uma tabela
+
+| Wrapper / hook | Onde usa | O que entrega |
+|---|---|---|
+| `createRoute(handler, options)` | API routes em `apps/web/src/app/api/` | Auth + permission gate + transação implícita + context (`session`, `repos`, `services`) + error mapping |
+| `requirePageAccess(PERM.X.Y)` | Server Component de page que exige permission | Auth + permission gate + context — tudo em 1 linha |
+| `requirePageAuth()` | Server Component auth-only (sem permission específica) | Só auth + context |
+| `requirePermission(ctx, PERM.X.Y)` | Dentro de page/handler já com ctx, para gate extra | Só checa permission; redireciona ou lança se falhar |
+| `computePagePermissions(ctx, [...] as const)` | Server Component → Client Component | `Record<P, boolean>` tipado, pra passar como props |
+| `createSystemRepos(db)` | Inngest / crons / scripts | Repos com scope `global` explícito (grep-ável em review) |
+| `useSession()` (client) | Client Component | `ClientSession` só com dados de display (firstName, accountSlug, kind, impersonation?) — **sem permissões** |
+
+**Regra que o ESLint impõe:** Client Components não podem importar nada de permissão. Há `'server-only'` em todos os módulos críticos do `lib/`, e uma regra `no-restricted-imports` no `eslint.config.mjs` impede que arquivos client (em `components/`, `hooks/` ou `*-client.tsx`) importem `@leapy/core/services/permissions`, `@/lib/permissions`, etc. Se alguém tentar, o build do `apps/web` quebra.
+
+### `createRoute` em profundidade
+
+```ts
+import { z } from "zod";
+import { createRoute } from "@/lib/create-route";
+import { PERM, updateJovemStatus } from "@leapy/core";
+
+const inputSchema = z.object({ status: z.enum(["ativo", "inativo"]) });
+
+export const PATCH = createRoute<{ id: string }>(
+  async (ctx) => {
+    const body = inputSchema.parse(await ctx.req.json());
+    return updateJovemStatus(ctx.repos, ctx.services, { id: ctx.params.id, ...body });
+  },
+  { permission: PERM.JOVENS.UPDATE },
+);
+```
+
+#### `RouteOptions` — variantes mutuamente exclusivas
+
+```ts
+type RouteOptions =
+  | { permission: Permission; allowAnyAuthenticated?: never; public?: never }
+  | { permission?: never; allowAnyAuthenticated: true; public?: never }
+  | { permission?: never; allowAnyAuthenticated?: never; public: true };
+```
+
+O TypeScript força você a escolher **exatamente uma** das três variantes — não dá pra esquecer ou misturar. Os nomes longos (`allowAnyAuthenticated`, `public`) são escolhidos de propósito: ficam fáceis de encontrar em busca textual durante revisão de PR, pra dar uma olhada extra nas rotas que abriram mão da permission específica.
+
+| Variante | Quando usar | Comportamento sem sessão |
+|---|---|---|
+| `{ permission: PERM.X.Y }` | Caso comum: rota privada com permission específica | 302 pro login |
+| `{ allowAnyAuthenticated: true }` | Qualquer sessão serve (ex: `/api/whoami`, profile próprio) | 302 pro login |
+| `{ public: true }` | Rota pública (ex: `/api/health`) | Roda — `ctx.session` é `null`, `ctx.repos` é `createSystemRepos(trx)` |
+
+#### O que `createRoute` faz por baixo
+
+Em ordem:
+
+1. **Lê o cookie do request**, decodifica JWT (`NEXTAUTH_SECRET`), valida com Zod, monta `LegacySession`. Cookie names: `__Secure-next-auth.session-token` em prod, `next-auth.session-token` em dev/test.
+2. **Auth gate** — sem sessão e não-`public`:
+   - Se `LEAPY_LEGACY_LOGIN_URL` está setado → 302 redirect.
+   - Se não (dev sem env) → 401.
+3. **Permission gate** — se a variante é `permission:`, chama `permissions.can(session, resource, action)`. Se falha:
+   - Emite `Sentry.captureMessage("authz.permission_denied", { level: "warning", tags: { route, permission, role } })` (via `reportPermissionDenied`)
+   - Retorna 403
+4. **Abre `db.transaction()`**, constrói `repos` com o `trx`:
+   - Se há sessão → `createRepos(trx, session, permissions)` (scope baseado em role)
+   - Se não há (rota pública) → `createSystemRepos(trx)` (scope global)
+5. **Roda o handler** com `ctx = { session, repos, services, req, params }`.
+6. **Mapeia o erro de retorno**:
+   - `DomainError` (incluindo subclasses) → `error.status` HTTP
+   - `ZodError` → 400 com lista de issues
+   - Qualquer outro → 500 + Sentry capture
+7. **Events** — quando o handler retorna `{ events: [...] }`, hoje só `console.warn`. Dispatch real via Inngest depois do commit (outbox) virá na Fase 2.5.
+
+#### O que o dev **não** escreve
+
+- `try / catch`
+- Checagem de auth
+- Filtro de tenant (`WHERE account_id = ...`)
+- `db.transaction(async (trx) => { ... })`
+- Construção de repos
+- Mapeamento `DomainError → status`
+- `NextResponse.json(...)`
+
+Tudo isso vem do wrapper.
+
+### `requirePageAccess` e variantes
+
+Server Components de page têm uma linha pra fazer auth + gate:
+
+```tsx
+// app/(authenticated)/(leapy)/backoffice/page.tsx
+import { requirePageAccess } from "@/lib/page-access";
+import { PERM, listUsers } from "@leapy/core";
+
+export default async function BackofficePage() {
+  const ctx = await requirePageAccess(PERM.BACKOFFICE.ACCESS);
+  const result = await listUsers(ctx.repos, ctx.services, { page: 1, limit: 50 });
+  return <BackofficeUsers users={result.data} />;
+}
+```
+
+`requirePageAccess`:
+
+- Pega sessão (`getServerContext()`, cacheado por render)
+- Se sem sessão → `redirect(LEAPY_LEGACY_LOGIN_URL)`
+- Se sessão mas falha permission → `redirect("/unauthorized")` + Sentry signal
+- Retorna `AppContext = { session, repos, services }`
+
+**Variantes:**
+
+- `requirePageAuth()` — só auth, sem permission específica. Útil pra páginas de perfil próprio.
+- `requirePermission(ctx, PERM.X.Y)` — usa quando já tem `ctx` em mãos e precisa de gate adicional (ex: decidir se um botão renderiza baseado num atributo do recurso).
+
+**Server Components fazem reads, não writes.** Writes vão por API route via `createRoute` ou Server Action. `getServerContext()` usa `db` root (sem transação aberta). Não é enforced pelo tipo — é convenção.
+
+### `computePagePermissions`
+
+Server Components computam booleans específicos e passam como props pra Client Components — em vez de enviar o mapa de permissões.
+
+```tsx
+// page Server Component
+import { requirePageAccess, computePagePermissions } from "@/lib/page-access";
+import { PERM } from "@leapy/core";
+
+export default async function JovensPage() {
+  const ctx = await requirePageAccess(PERM.JOVENS.READ);
+  const can = computePagePermissions(ctx, [
+    PERM.JOVENS.UPDATE,
+    PERM.JOVENS.DELETE,
+  ] as const);
+  // can: { "jovens:update": boolean, "jovens:delete": boolean }
+  return <JovensList canEdit={can[PERM.JOVENS.UPDATE]} canDelete={can[PERM.JOVENS.DELETE]} />;
+}
+```
+
+```tsx
+// JovensList Client Component
+"use client";
+type Props = { canEdit: boolean; canDelete: boolean };
+export function JovensList({ canEdit, canDelete }: Props) {
+  return (
+    <div>
+      {canEdit && <button>Editar</button>}
+      {canDelete && <button>Excluir</button>}
+    </div>
+  );
+}
+```
+
+**Por que não mandar o mapa direto pro client?**
+
+1. **Vazamento de informação.** O client teria visibilidade de todas as permissões da role, inclusive coisas que ele nem renderiza. O DevTools do navegador acabaria expondo a estrutura de autorização inteira pra qualquer usuário curioso.
+2. **Acoplamento ao modelo de autorização.** O client teria que importar `PERM`, `Permission`, `Role` etc. — quebrando a regra de que client não conhece a camada de autorização.
+3. **Lógica duplicada.** O client teria que reimplementar regras sutis (ex: `MANAGE` libera CRUD, role inválida nega tudo). Duplicação é o caminho mais curto pra dessincronia entre client e server.
+
+Booleans prontos resolvem os três: o client não recebe nada que ele não precisa, não importa nada de autorização, e não toma nenhuma decisão. Ele só renderiza condicional com base no que o server já decidiu.
+
+> **Hoje não há consumidor real ainda** desta função em pages do `apps/web`. É o padrão recomendado pra quando aparecer a primeira UI que renderiza condicional por permission.
+
+### `createSystemRepos`
+
+Repos com scope `global` explícito, sem sessão. Usado:
+
+- **Hoje**: dentro do `createRoute` quando a rota é `public` ou `allowAnyAuthenticated` e a sessão é `null`, e dentro do `getServerContext()` em Server Components sem sessão.
+- **Futuro**: Inngest functions, crons, scripts de manutenção. Sem sessão, mas precisando de scope explícito.
+
+```ts
+import { createSystemRepos } from "@leapy/core";
+import { getDb } from "@/lib/db";
+
+// Em uma function Inngest (quando existir):
+async function backfillJovens() {
+  const repos = createSystemRepos(getDb());
+  const all = await repos.users.findAll();
+  // ...
+}
+```
+
+A diferença em relação a `createRepos(db, session, permissions)` com uma role global qualquer: aqui a intenção é explícita e fácil de encontrar em revisão. Quem está revisando o PR vê `createSystemRepos` e sabe imediatamente que aquele código opera em modo sistema — não é um acidente de propagação de sessão.
+
+### `useSession` no client
+
+```tsx
+"use client";
+import { useSession } from "@/components/session-provider";
+
+export function UserMenu() {
+  const session = useSession();
+  if (!session) return null;
+  return (
+    <div>
+      Olá, {session.firstName} — {session.accountSlug ?? "sem conta"}
+      {session.impersonation && (
+        <span>(impersonado por {session.impersonation.operatorFirstName})</span>
+      )}
+    </div>
+  );
+}
+```
+
+`ClientSession` shape:
+
+```ts
+type ClientSession = {
+  firstName: string;
+  accountSlug: string | null;
+  kind: ClientSessionKind;  // "user" | "operator" | etc.
+  impersonation?: { operatorFirstName: string; startedAt: number };
+};
+```
+
+**Não tem permissões.** Tem um comentário literal no código: "Deliberadamente NÃO está aqui: `useCan`, `RoleGuard`, ou qualquer mapa de permissão/role." Decisões de permissão são server-side; o client só recebe dados de display e booleans específicos via props (ver `computePagePermissions` acima).
+
+O `SessionProvider` é montado no layout autenticado e recebe `ClientSession | null` como valor. Internamente, uma função `toClientSession(legacySession)` projeta a sessão completa do server pra esse formato mínimo — qualquer dado sensível (roleId, accountId, claims do JWT) fica de fora **por construção**, não por convenção.
+
+---
+
+## Parte 3 — Cookbook
+
+Esta parte cobre os fluxos comuns que aparecem no dia a dia. Cada receita é direta — diz onde mexer, mostra o snippet, explica o porquê de cada passo. Se você já sabe o que quer fazer, pula direto pra receita certa.
+
+### Adicionar uma permissão nova
+
+Cenário: você quer um botão "Suspender" pra jovens, com gate de permission.
+
+**Arquivo:** `packages/core/src/services/permissions/constants.ts`
+
+```ts
+export const PERM = {
+  JOVENS: {
+    READ: "jovens:read",
+    CREATE: "jovens:create",
+    UPDATE: "jovens:update",
+    DELETE: "jovens:delete",
+    SUSPEND: "jovens:suspend",  // ← nova
+  },
+  // ...
+} as const;
+```
+
+E na matriz, adicione `PERM.JOVENS.SUSPEND` para as roles que devem ganhar:
+
+```ts
+export const ROLE_PERMISSIONS = {
+  "system-admin": [
+    // ...existentes
+    PERM.JOVENS.SUSPEND,
+  ],
+  "rh-account-admin": [
+    // ...existentes
+    PERM.JOVENS.SUSPEND,
+  ],
+  // outras roles não ganham — só não inclua
+} as const satisfies Record<Role, readonly Permission[]>;
+```
+
+Use imediatamente:
+
+```ts
+export const POST = createRoute(
+  async (ctx) => suspendJovem(ctx.repos, ctx.services, ctx.params),
+  { permission: PERM.JOVENS.SUSPEND },
+);
+```
+
+Typo em `PERM.JOVENS.SUSPENT` = erro de compilação. Esquecer de adicionar em pelo menos uma role = nenhuma role pode usar (intencional).
+
+### Adicionar uma role nova
+
+Cenário: nova role `auditor` que vê backoffice em modo leitura.
+
+**Arquivo:** mesmo `constants.ts`
+
+```ts
+// 1. Adiciona o slug em ROLE
+export const ROLE = {
+  // ...
+  AUDITOR: "auditor",
+} as const satisfies Record<string, Role>;
+
+// 2. Adiciona entrada em ROLE_PERMISSIONS (compile error se esquecer)
+export const ROLE_PERMISSIONS = {
+  // ...
+  "auditor": [
+    PERM.BACKOFFICE.ACCESS,
+    PERM.JOVENS.READ,
+    PERM.PULSOS.READ,
+    PERM.TURMAS.READ,
+    // ...só reads, sem manage, sem impersonate
+  ],
+} as const satisfies Record<Role, readonly Permission[]>;
+
+// 3. Adiciona entrada em ROLE_SCOPE (compile error se esquecer)
+export const ROLE_SCOPE = {
+  // ...
+  "auditor": "global",
+} as const satisfies Record<Role, ScopeKind>;
+```
+
+E **garante que o slug existe em `directus_roles`** — esse é o registro canônico de identidade. Em prod hoje, isso é feito pelo time de Ops no admin do Directus.
+
+> O plano menciona um teste de sanidade em CI que checaria se toda role registrada no Directus também existe em `ROLE` no código — esse teste ainda não foi escrito. Por enquanto, se uma role desconhecida chegar via JWT, `permissions.can()` retorna `false` (o sistema nega por default). Inconveniente, mas seguro.
+
+### Adicionar um recurso novo (tabela nova)
+
+Cenário: você criou uma tabela nova `documentos` em `packages/db/`.
+
+**1.** Adiciona o bloco em `PERM`:
+
+```ts
+export const PERM = {
+  // ...
+  DOCUMENTOS: {
+    READ: "documentos:read",
+    CREATE: "documentos:create",
+    UPDATE: "documentos:update",
+    DELETE: "documentos:delete",
+  },
+} as const;
+```
+
+**2.** Atualiza `ROLE_PERMISSIONS` (adiciona as actions novas pra cada role apropriada).
+
+**3.** Cria o repo factory em `packages/core/src/repositories/documentos.repo.ts` com switch exaustivo de `Scope`:
+
+```ts
+import { eq, type SQL, sql } from "drizzle-orm";
+import { documentos } from "@leapy/db";
+import type { DrizzleTx } from "../types.js";
+import type { DbOrTx, Scope } from "../types.js";
+import { assertNever } from "../utils/assert-never.js";
+
+export function createDocumentosRepo(db: DbOrTx, scope: Scope) {
+  function scopePredicate(): SQL | undefined {
+    switch (scope.kind) {
+      case "global":  return undefined;
+      case "account": return eq(documentos.accountId, scope.accountId);
+      case "self":    return eq(documentos.ownerId, scope.userId);
+      case "denied":  return sql`false`;
+      default:        return assertNever(scope);  // compile-time exhaustive
+    }
+  }
+
+  return {
+    findAll: async (trx?: DrizzleTx) => {
+      const filter = scopePredicate();
+      return (trx ?? db).select().from(documentos).where(filter ?? undefined);
+    },
+    findById: async (id: string, trx?: DrizzleTx) => {
+      const filter = scopePredicate();
+      const [row] = await (trx ?? db).select().from(documentos)
+        .where(filter ? and(eq(documentos.id, id), filter) : eq(documentos.id, id))
+        .limit(1);
+      return row ?? null;
+    },
+    // ...
+  };
+}
+```
+
+**4.** Registra em `createRepos` **e** em `createSystemRepos` (em `packages/core/src/repositories/index.ts`):
+
+```ts
+import { createDocumentosRepo } from "./documentos.repo.js";
+
+export function createRepos(db, session, permissions) {
+  return {
+    // ...
+    documentos: createDocumentosRepo(db, permissions.getScope(session)),
+  };
+}
+
+export function createSystemRepos(db) {
+  const global: Scope = { kind: "global" };
+  return {
+    // ...
+    documentos: createDocumentosRepo(db, global),
+  };
+}
+```
+
+**5.** Adiciona ao tipo `Repos`:
+
+```ts
+export type Repos = {
+  // ...
+  documentos: ReturnType<typeof createDocumentosRepo>;
+};
+```
+
+A partir daí, todo lugar que chama `ctx.repos.documentos.findAll()` já tem o filtro de scope embutido. O dev de feature nem precisa pensar nisso.
+
+### Gatear uma API route
+
+```ts
+// apps/web/src/app/api/jovens/[id]/route.ts
+import { z } from "zod";
+import { createRoute } from "@/lib/create-route";
+import { PERM, updateJovemStatus } from "@leapy/core";
+
+const inputSchema = z.object({ status: z.enum(["ativo", "inativo"]) });
+
+export const PATCH = createRoute<{ id: string }>(
+  async (ctx) => {
+    const body = inputSchema.parse(await ctx.req.json());
+    return updateJovemStatus(ctx.repos, ctx.services, {
+      id: ctx.params.id,
+      ...body,
+    });
+  },
+  { permission: PERM.JOVENS.UPDATE },
+);
+```
+
+Pronto. Sem checagem de autenticação manual, sem `try/catch`, sem abrir transação na mão, sem filtro por conta.
+
+### Gatear uma página
+
+```tsx
+// apps/web/src/app/(authenticated)/(leapy)/jovens/page.tsx
+import { requirePageAccess } from "@/lib/page-access";
+import { PERM, listJovens } from "@leapy/core";
+
+export default async function JovensPage() {
+  const ctx = await requirePageAccess(PERM.JOVENS.READ);
+  const result = await listJovens(ctx.repos, ctx.services);
+  return <JovensList items={result.data} />;
+}
+```
+
+A permissão exigida aparece no topo do arquivo — quem está revisando o PR busca por `requirePageAccess` e enxerga rapidamente o que cada página exige.
+
+### Passar permissões pro client sem vazar o mapa
+
+```tsx
+// Server Component
+import { requirePageAccess, computePagePermissions } from "@/lib/page-access";
+import { PERM } from "@leapy/core";
+
+export default async function Page() {
+  const ctx = await requirePageAccess(PERM.JOVENS.READ);
+  const can = computePagePermissions(ctx, [
+    PERM.JOVENS.UPDATE,
+    PERM.JOVENS.DELETE,
+  ] as const);
+  return <Toolbar canEdit={can[PERM.JOVENS.UPDATE]} canDelete={can[PERM.JOVENS.DELETE]} />;
+}
+```
+
+```tsx
+// Client Component
+"use client";
+type Props = { canEdit: boolean; canDelete: boolean };
+export function Toolbar({ canEdit, canDelete }: Props) {
+  return (
+    <>
+      {canEdit && <EditButton />}
+      {canDelete && <DeleteButton />}
+    </>
+  );
+}
+```
+
+O Client Component nem chega a importar `PERM`, `useCan` ou qualquer módulo de permissão — o ESLint impediria.
+
+### Escrever um job Inngest / cron com scope global explícito
+
+> Inngest functions ainda não existem no monorepo (Fase 2.5, paralela). Quando aparecerem, o padrão será:
+
+```ts
+import { createSystemRepos, createServices, getEnv } from "@leapy/core";
+import { getDb } from "@/lib/db";
+
+export const dailyJovensBackfill = inngest.createFunction(
+  { id: "daily-jovens-backfill" },
+  { cron: "0 3 * * *" },
+  async () => {
+    const db = getDb();
+    const repos = createSystemRepos(db);
+    const services = createServices(getEnv(), { permissions: getPermissionsService() }, null);
+    // job code aqui — repos têm scope global explícito
+  },
+);
+```
+
+A diferença mais visível em relação a uma rota normal: você chama `createSystemRepos` no início da função, não recebe os repos via injeção. Isso é deliberado — quem está revisando o PR vê `createSystemRepos` e entende imediatamente que o job opera em escopo global, sem sessão de usuário.
+
+### Testar uma rota autenticada
+
+O monorepo **não usa** `LEAPY_AUTH_STUB=1` em tests de integração. Em vez disso, usa o helper `mintSession` que gera um cookie real do mesmo formato que `leapy-rh` produz em prod:
+
+```ts
+// apps/web/tests/integration/api/jovens-update.test.ts
+import { describe, it, expect } from "vitest";
+import { mintSession } from "../../helpers/with-session";
+
+describe("PATCH /api/jovens/[id]", () => {
+  it("rejects user-candidate", async () => {
+    const cookie = await mintSession({ id: "user-1", role: "user-candidate" });
+    const res = await fetch("http://localhost:3000/api/jovens/abc", {
+      method: "PATCH",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "inativo" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it("allows rh-account-admin within own account", async () => {
+    const cookie = await mintSession({ id: "user-2", role: "rh-account-admin", accountId: "acc-x" });
+    // ...
+  });
+});
+```
+
+Esse helper usa o mesmo caminho de código do `getSession()` em produção (cookie → decode → validação Zod → sessão tipada). Bug que diverge entre stub e leitura real de cookie não escapa do CI.
+
+Para tests de write que mutam o DB, wrap em `withRollback`:
+
+```ts
+import { withRollback } from "../helpers/with-rollback";
+
+it("updates jovem status", async () => {
+  await withRollback(db, async (trx) => {
+    const tx: Transaction = (fn) => fn(trx);
+    const result = await updateJovemStatus(repos, services, tx, input);
+    expect(result.data.status).toBe("inativo");
+  });
+  // rollback automático, próximo teste começa limpo
+});
+```
+
+---
+
+## Parte 4 — FAQ e referências
+
+### FAQ
+
+**Qual a diferença entre autenticação e autorização?**
+Autenticação responde "quem é esse usuário?" — resolvida pelo login (cookie/JWT do `leapy-rh`). Autorização responde "o que esse usuário pode fazer?" — resolvida por este sistema, depois que o usuário já foi identificado. As duas camadas são separadas: o login pode mudar de provedor sem afetar a autorização, e vice-versa.
+
+**O que significa "nega por default" (ou "fail-closed")?**
+Quando o sistema não sabe responder com certeza, ele nega. Se a role do usuário não existe no nosso mapa, se a sessão está em formato inesperado, se a permissão pedida nunca foi declarada — em qualquer ambiguidade, a resposta é "não pode". É o oposto do fail-open (deixar passar quando não sabe), que é o caminho mais comum pra incidentes de segurança.
+
+**Como o sistema sabe a role do usuário?**
+Vem do JWT, que o `leapy-rh` emite e o cookie compartilhado (com domínio `.leapy.com.br`) propaga. A função `getSession()` decodifica o token com a chave `NEXTAUTH_SECRET`, valida o formato com Zod e retorna uma sessão tipada. Em desenvolvimento local, com `LEAPY_AUTH_STUB=1`, retorna uma sessão falsa controlável pela env `LEAPY_AUTH_STUB_ROLE` (pra testar como cada role vê o app sem precisar de cookie real).
+
+**O que acontece se eu esquecer de passar `permission:` no `createRoute`?**
+Erro de compilação. O tipo `RouteOptions` força você a escolher exatamente uma das três variantes (`permission`, `allowAnyAuthenticated`, `public`). Não existe rota "sem decisão de autorização" — o tipo não permite criar uma.
+
+**`MANAGE` implica CRUD?**
+Sim, **mas apenas CRUD**. Quem tem `jovens:manage` automaticamente pode `jovens:read/create/update/delete` — essa regra é resolvida dentro do próprio `permissions.can()`. Mas `:access` (entrar no backoffice) e `:impersonate` **não** são cobertas por `MANAGE`: a role precisa ter cada uma listada nominalmente em `ROLE_PERMISSIONS`. Tem um comentário no `constants.ts` reforçando isso.
+
+**Rota com `{ public: true }` tem acesso a dados do banco?**
+Sim. A sessão é `null`, mas `ctx.repos` é construído via `createSystemRepos(trx)` — escopo global, sem filtro de conta. É a forma correta de servir endpoints públicos que precisam ler dados (ex: `/api/health` checando o banco).
+
+**Por que o client não recebe o mapa de permissões direto?**
+Três razões: (1) vazamento de informação — o DevTools exporia toda a estrutura de autorização; (2) acoplamento — o client teria que importar `PERM`/`Role`/etc., quebrando a regra de que client não conhece a camada de autorização; (3) lógica duplicada — o client teria que reimplementar regras sutis (`MANAGE` libera CRUD, role inválida nega tudo). Booleans prontos via props resolvem os três.
+
+**E quando o autenticador real chegar (Better Auth ou NextAuth v5)?**
+Só `apps/web/src/lib/auth.ts` muda — a função `getSession()` passa a ler do novo sistema de login. Todo o resto (as constantes, o `PermissionsService`, os wrappers, os repositórios escopados) fica intacto, porque consomem o **tipo** `LegacySession`, não o cookie.
+
+**Posso usar `createSystemRepos` numa rota normal?**
+Tecnicamente sim, mas seria um sinal de alerta em revisão de PR. Use só em jobs, crons e scripts onde o escopo global é uma escolha deliberada. Em rotas, deixe o `createRoute` resolver — ele já chama `createSystemRepos` automaticamente quando a rota é `public`.
+
+**O que `ctx.services` tem dentro?**
+Hoje, apenas o `AuditService` (que faz `console.log` por enquanto). Conforme a Fase 2 progride, mais services entram no agregado (notificação, email, etc.).
+
+**E se a role do JWT for desconhecida (não existe em `ROLE`)?**
+`permissions.can()` retorna `false`. `permissions.getScope()` retorna `{ kind: "denied" }`, o que faz os repositórios retornarem zero linhas. Em todos os pontos críticos, o sistema nega por default. Um teste de sanidade em CI checando se toda role do Directus existe em `ROLE` ainda está pendente, mas o comportamento em runtime é seguro mesmo sem ele.
+
+**O que aparece no Sentry quando uma rota é negada?**
+`Sentry.captureMessage("authz.permission_denied", { level: "warning", tags: { route, permission, role }, user: { id } })`. Não é uma exception — é um warning. Serve pra detectar tentativas legítimas (UX ruim — usuário foi mandado pra rota que ele não tem acesso) sem disparar alarme de incidente.
+
+**A transação no banco é mesmo implícita? Como funciona com Server Actions?**
+Sim. `createRoute` abre `db.transaction()` automaticamente em toda rota mutante. Server Actions seguem o mesmo padrão (também via wrapper que abre transação). Leitura em Server Component usa o `db` direto, sem transação — `getServerContext()` não abre transação porque leitura não precisa de atomicidade.
+
+**O que é o "padrão outbox" mencionado pra eventos?**
+Quando uma use case retorna `{ events: [...] }`, hoje esses eventos só viram `console.warn`. Quando o Inngest for ligado (Fase 2.5), eles vão ser emitidos **depois** que a transação dá commit no banco. Esse atraso intencional é o "outbox": se a transação falhar e fizer rollback, os eventos nem são emitidos — o sistema externo nunca recebe notificação de algo que não aconteceu de fato.
+
+### Onde está cada coisa no código
+
+| O que | Arquivo |
+|---|---|
+| Plano completo (fonte autoritativa) | `leapy/docs/plans/rbac-autorizacao-monorepo.md` |
+| `PERM`, `ROLE`, `ROLE_PERMISSIONS`, `ROLE_SCOPE` | `packages/core/src/services/permissions/constants.ts` |
+| `PermissionsService` (impl) | `packages/core/src/services/permissions/permissions.service.ts` |
+| Tipos compartilhados (`LegacySession`, `Scope`, `Permission` etc.) | `packages/core/src/types.ts` |
+| `createRepos`, `createSystemRepos` | `packages/core/src/repositories/index.ts` |
+| Repo escopado de exemplo | `packages/core/src/repositories/users.repo.ts` |
+| `createRoute` | `apps/web/src/lib/create-route.ts` |
+| `requirePageAccess`, `requirePageAuth`, `requirePermission` | `apps/web/src/lib/page-access.ts` |
+| `computePagePermissions` | `apps/web/src/lib/compute-permissions.ts` |
+| `getSession` + cookie decode | `apps/web/src/lib/auth.ts` |
+| `getServerContext`, `createApiContext` | `apps/web/src/lib/context.ts` |
+| `SessionProvider`, `useSession` | `apps/web/src/components/session-provider.tsx` |
+| `toClientSession` (server → client projection) | `apps/web/src/lib/to-client-session.ts` |
+| `reportPermissionDenied` (Sentry) | `apps/web/src/lib/error-handler.ts` |
+| Página `/unauthorized` | `apps/web/src/app/unauthorized/page.tsx` |
+| `canImpersonateTarget` rule | `packages/core/src/domain/impersonation.rules.ts` |
+| ESLint barrando imports em client | `eslint.config.mjs` (linhas ~446-508) |
+| `mintSession` test helper | `apps/web/tests/helpers/with-session.ts` |
+| `withRollback` test helper | `packages/core/tests/helpers/with-rollback.ts` |
+| Cheatsheet por package | `apps/web/AGENTS.md`, `packages/core/AGENTS.md` |
+
+### O que ainda não está pronto
+
+- **Emissão real de eventos Inngest.** Quando uma use case retorna `{ events: [...] }`, hoje os eventos só viram `console.warn`. A emissão de verdade (depois do commit da transação, no padrão outbox) entra na Fase 2.5, num track paralelo.
+- **Persistência de auditoria.** O `AuditService` hoje só faz `console.log`. Persistir na tabela `audit_log` via Inngest entra na Fase 3.
+- **Teste de sanidade em CI.** Faltam dois: (a) checar que toda role registrada no Directus existe em `ROLE` no código, e (b) checar que toda permissão usada em rotas existe em `PERM`. Não é bloqueador (o sistema nega por default em runtime), mas seria detecção mais rápida de inconsistências.
+- **Página `/unauthorized` enxuta.** Hoje só tem uma mensagem em pt-BR e um botão "Voltar". Pode evoluir pra explicação contextual ("você não tem permissão `jovens:update`, fale com o admin da conta") quando fizer sentido.
+- **`computePagePermissions` sem consumidor.** A função existe e está documentada, mas ainda não tem nenhuma página usando. É o padrão recomendado pra quando aparecer a primeira UI que renderiza condicionalmente por permissão.
+
+---
+
+*Versão atual do monorepo: `0.4.1.0`. Última atualização deste doc: 2026-05-19.*
