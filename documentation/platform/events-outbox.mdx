@@ -11,6 +11,15 @@ transação** que produz a mudança de estado. Se a transação der rollback, o 
 fica enfileirado — garantindo atomicidade entre "estado mudou" e "evento agendado", sem
 2-phase commit com o Inngest.
 
+<Warning>
+**Estado atual: o dispatcher é um STUB.** A escrita no outbox (insert na transação) já
+funciona, mas o cron `dispatch-outbox-events` (`leapy/apps/inngest/src/functions/dispatch-outbox-events.ts`)
+está registrado a cada 1 min apenas como marcador — **ainda não lê o outbox nem chama
+`inngest.send()`**. Ou seja, eventos enfileirados hoje **não são despachados** até o
+dispatcher real ser implementado (`repos.eventsOutbox.findPending` → `inngest.send` →
+`markDispatched`). As seções abaixo descrevem o comportamento **projetado**.
+</Warning>
+
 ```mermaid
 flowchart LR
     Tx["Transação de negócio<br/>(ex: INSERT directus_users)"] --> Outbox["INSERT events_outbox<br/>(mesma transação)"]
