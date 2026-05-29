@@ -111,6 +111,7 @@
                 "group": "Presenças",
                 "pages": [
                   "documentation/domains/presences/index",
+                  "documentation/domains/presences/pipeline-zoom-backoffice",
                   "documentation/domains/presences/justificativas",
                   "documentation/domains/presences/alinhamento",
                   "documentation/domains/presences/journeys",

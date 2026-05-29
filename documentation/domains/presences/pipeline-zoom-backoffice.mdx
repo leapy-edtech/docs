@@ -1,0 +1,251 @@
+---
+title: "Pipeline Zoom → Backoffice"
+description: "Como a presença sai do Zoom e chega ao Directus consolidado: cenários Make, flows Directus, geração automática de faltas e detecção de pipeline parado."
+---
+
+## Contexto de Produto
+
+Em turmas síncronas no Zoom (`Turmas.modelo = 'leapy'`), a presença é coletada pela API do
+Zoom, transformada em registros brutos, consolidada em uma linha por jovem por encontro, e
+encaminhada pros próximos passos (alinhamento por email e justificativas). Este pipeline é o
+**caminho técnico Zoom → Backoffice** — o que acontece **antes** dos jobs Inngest de
+[`alinhamento`](/documentation/domains/presences/alinhamento) e
+[`justificativas`](/documentation/domains/presences/justificativas).
+
+O pipeline tem três etapas com horários fixos (Brasília) + uma quarta etapa no dia seguinte:
+
+- **19:05** — coleta bruta do Zoom (Make)
+- **20:30** — reconciliação bruto → consolidado (Make dispara flows Directus)
+- **07:00 (dia seguinte)** — alinhamento por email (Make dispara job Inngest, ver
+  [`alinhamento`](/documentation/domains/presences/alinhamento))
+
+## Visão Geral
+
+```mermaid
+flowchart TB
+    Z[Encontro Zoom termina] --> M1
+    subgraph "Make.com — pasta [1.Presenças] Backoffice <> Zoom"
+        M1["19:05 BRT<br/>Presenças Zoom"]
+        M1 -->|paginação<br/>(on-demand)| M2["Presenças Retroativas<br/>next_page_token"]
+        M2 --> M1
+        M3["20:30 BRT<br/>Consolidar Presenças"]
+        M4["07:00 BRT (D+1)<br/>Alinhar presenças"]
+    end
+    M1 --> RPB[("report_presenca_zoom_bruto")]
+    M1 --> LOG[("report_presenca_logs")]
+    M3 -->|webhook| F1
+    subgraph "Directus flows"
+        F1["[Presença][Parte 1]<br/>Dados zoom bruto"]
+        F1 --> F2["[Parte 2]<br/>Grava consolidados"]
+        F1 --> F3["[Parte 3]<br/>Calculated zoom bruto"]
+        F1 --> FCF["Calcular Faltas I/II/III"]
+        F2 --> RPZ[("report_presenca_zoom")]
+        FCF --> RPZ
+    end
+    M4 -->|dispara| ALI["Job Inngest<br/>alinhar-presencas<br/>(documento separado)"]
+```
+
+## Papéis
+
+| Papel | Quem é | Responsabilidade no pipeline |
+|---|---|---|
+| **Program Lead (PL)** | Funcionário Leapy | Gerencia a turma, aprova/reprova justificativas. **Responsável formal** quando o pipeline para ou registros precisam ser corrigidos. |
+| **Champion** | Palestrante **externo contratado** | Conduz a aula síncrona Zoom. **Não interage com backoffice.** Não lança presença, não aprova justificativa. |
+| **Jovem (aprendiz)** | Participante da turma | Entra no Zoom (origem do dado); recebe email de alinhamento no D+1; pode submeter justificativa pelo LeapyRH. |
+
+<Note>
+  A confusão "champion = Leapy" aparece em scenarios Make legados (ex: "Mudar senha usuários — Leapy Hub"). **Champion é sempre externo** — quem aprova/corrige presença é o PL.
+</Note>
+
+## Modelos de Turma e Obrigatoriedade
+
+A coleção `Turmas` tem o campo `modelo` com dois valores em produção:
+
+| `Turmas.modelo` | Volume aprox. | Pipeline de presença |
+|---|---|---|
+| `leapy` | 74 turmas | **Síncrono Zoom** — pipeline descrito nesta página |
+| `ecossistema` | 89 turmas | Import periódico manual (responsável da empresa-cliente). Fora do escopo aqui. |
+
+**Regra de obrigatoriedade (apenas `leapy`):**
+
+Se `Turmas.modelo = 'leapy'` e `Jovens.Status_formacao = 'em_andamento'`, então em todo dia
+que casa com `Turmas.dia_de_curso` (ex: `terca_feira`) o jovem **deve** ter linha em
+`report_presenca_zoom` para o encontro daquele dia — exceto em feriados.
+
+<Note>
+  Outros valores de `Status_formacao` (`nao_iniciado`, `pausado`, `ferias`, `concluido`,
+  `cancelado`, `desistiu`, `efetivado`) **não geram obrigação**.
+</Note>
+
+## Etapa 1 — Coleta Bruta (19:05 BRT)
+
+**Cenário Make:** `[2546826] Presenças Zoom` (ativo).
+**Trigger:** cron diário, 19h05 horário de Brasília (após o término típico das aulas do dia).
+
+**O que faz:**
+1. Consulta a Zoom API por turmas com aula no dia.
+2. Traz lista de participantes (entrada, saída, duração).
+3. Grava cada participação em `report_presenca_zoom_bruto`.
+4. Se a Zoom API retorna `next_page_token` (paginação), dispara on-demand
+   `[2547176] Presenças Retroativas 'next_page_token'` pra continuar.
+5. Gera uma linha em `report_presenca_logs` com o resultado da execução por meeting.
+
+**Volume normal:** 5–10 execuções por dia útil (1 por meeting processado).
+
+| Cenário | ID Make | Status | Trigger |
+|---|---|---|---|
+| Presenças Zoom | `2546826` | ativo | cron 19h05 BRT |
+| Presenças Retroativas `next_page_token` | `2547176` | ativo | on-demand (chamado por Presenças Zoom) |
+
+## Etapa 2 — Reconciliação Bruto → Consolidado (20:30 BRT)
+
+**Cenário Make:** `[3068157] Consolidar Presenças` (ativo).
+**Trigger:** cron diário, 20h30 BRT.
+**O que faz:** **somente dispara** o flow Directus `[Presença][Parte 1] Dados zoom bruto`
+(via webhook). Toda a lógica de reconciliação vive nos flows.
+
+**Flows Directus envolvidos (todos `active`):**
+
+| Flow ID | Nome | Trigger | Responsabilidade |
+|---|---|---|---|
+| `c1bfa5ce-300d-4c45-83fb-73791bb41da3` | `[Presença][Parte 1] Dados zoom bruto` | webhook | Lê `report_presenca_zoom_bruto`, agrega por `meeting_id + jovem`, calcula `sugestao_presenca`, dispara `[Parte 2]`, `[Parte 3]` e `Calcular Faltas`. |
+| `c3f2f7da-ffed-47f3-88c2-5c4c345ec01a` | `[Presença][Parte 2] Grava dados de presença consolidados` | operation | Faz o `INSERT` em `report_presenca_zoom`. Uma linha por jovem por encontro. |
+| `d20d4c3f-5d93-469f-b012-2339637e9ce4` | `[Presença][Parte 3] Calculated zoom bruto` | webhook | Marca rows em `report_presenca_zoom_bruto` como `calculated = true` (evita reprocessamento). |
+| `69b77463-2034-4bba-9704-e79b56efd913` | `[Presença] Calcular Faltas` | operation | Identifica jovens da turma que não compareceram. Separa imersão vs aula regular. |
+| `2627ba18-7ac1-4e17-9671-09e2e7f203cf` | `[Presença] Calcular Faltas II` | operation | **Faz `INSERT` em `report_presenca_zoom` com `presenca = 'ausente'`** pra cada jovem da turma que não compareceu. |
+| `787e9ae4-d812-4c40-bcab-fc83e8267ba3` | `[Presença] Calcular Faltas III` | operation | Lê `csat_in`, `csat_out`, `last_access` pra complementar contexto da falta. |
+| `4253cd06-6f3d-45ab-af3b-357f33bd2ec5` | `[Presença][PARTE 0] trigger presencas flow` | **manual** | Uso restrito ao time tech (testes / fallback quando `calculated = true` não foi marcado). **PL não interage com este flow.** |
+
+<Note>
+  Os ~8.000 registros com `presenca = 'ausente'` em produção vêm
+  predominantemente do flow `Calcular Faltas II` — não são edições humanas.
+</Note>
+
+## Etapa 3 — Alinhamento por Email (07:00 BRT, D+1)
+
+**Cenário Make:** `[4397409] Alinhar presenças` (ativo).
+**Trigger:** cron diário, 07h00 BRT (manhã seguinte ao encontro).
+**O que faz:** dispara o evento Inngest `backoffice/alinhar-presencas.send` que executa o
+job `alinhar-presencas` — descrito em detalhe em
+[Alinhamento de Presenças](/documentation/domains/presences/alinhamento).
+
+Esta página **não duplica** o conteúdo do job Inngest. Pra subject dos emails, templates
+Liquid e lógica de chunking, ver a página vinculada.
+
+## Cenários Make Auxiliares (Dashboards)
+
+Há dois cenários ativos que **não fazem parte do pipeline operacional** — apenas alimentam
+dashboards de analytics:
+
+| Cenário | ID Make | Propósito |
+|---|---|---|
+| `chart_presenca_por_mes_de_entrada` | `3780212` | Agregação mensal pra dashboard |
+| `update_chart_presenca_por_mes_de_entrada` | `2968955` | Atualização incremental do mesmo |
+
+Sofia (e operação) **ignora esses** ao investigar problemas de presença.
+
+## Coleções Envolvidas
+
+Resumo. Schema completo das três coleções (campos, tipos, valores reais) em
+[Modelo de Dados — Presenças](/documentation/domains/presences/data-model).
+
+| Coleção | Quando consultar |
+|---|---|
+| `report_presenca_zoom_bruto` | "Dado bruto chegou do Zoom?" (uma linha por participação Zoom; pode ter várias por encontro). |
+| `report_presenca_zoom` | "Qual o status final de presença do jovem nesse encontro?" (uma linha por jovem por encontro — fonte de verdade). |
+| `report_presenca_logs` | "O pipeline rodou no dia X? Com sucesso?" (uma linha por meeting processado). |
+
+## Detectar Pipeline Parado
+
+A query mais útil pra "saúde do pipeline" é olhar `report_presenca_logs` — se não há novos
+registros em dia útil, algo quebrou.
+
+```sql
+-- Volume de runs por dia (últimos 14 dias)
+SELECT
+  date_trunc('day', meeting_date)::date AS dia,
+  count(*) AS runs,
+  count(*) FILTER (WHERE success = true) AS ok,
+  count(*) FILTER (WHERE success = false) AS fail
+FROM report_presenca_logs
+WHERE meeting_date >= now() - interval '14 days'
+GROUP BY 1
+ORDER BY 1 DESC;
+```
+
+**Volume normal:** 5–10 runs/dia em dias úteis. **Zero runs por mais de 24h em dia útil** =
+pipeline quebrado.
+
+### Caso real — 25 a 28 de maio de 2026
+
+Em maio de 2026 a primeira linha de detecção foi via essa query: `report_presenca_logs` não
+recebeu novos registros entre 25/05 e 28/05. O cenário `[2546826] Presenças Zoom` no Make
+estava ativo mas não rodava (causa-raiz: {/* TODO: confirmar quando fix sair */}). PL e tech
+foram acionados; o intervalo de quatro dias úteis foi recuperado posteriormente via
+re-execução do pipeline.
+
+**Lição operacional:** automatizar alerta de "0 runs em dia útil" reduziria o tempo de
+detecção de horas pra minutos. {/* TODO: avaliar Sentry/Inngest alert ou cron de
+self-check. */}
+
+## Operação — Re-rodar o Pipeline pra um Dia Específico
+
+Quando o pipeline ficou parado e o dado bruto Zoom precisa ser reprocessado retroativamente:
+
+1. **Time tech** dispara manualmente o cenário Make `[2547176] Presenças Retroativas` (que
+   tem suporte a `next_page_token`) pra recoletar Zoom API da janela afetada.
+2. Após `report_presenca_zoom_bruto` repopular, time tech dispara o flow manual
+   `[Presença][PARTE 0] trigger presencas flow` no Directus admin pra forçar reconciliação.
+3. Sofia confirma sucesso consultando `report_presenca_logs` na janela e
+   `report_presenca_zoom` por jovem afetado.
+
+PL **não executa** essas operações diretamente — escala pra tech. Sofia é read-only (ver
+[regras de negócio](/documentation/domains/presences/business-rules)).
+
+## Sintomas Comuns e Hipóteses
+
+### "Jovem X sem presença em data Y"
+
+Investigação em camadas (ordem de probabilidade):
+
+1. **Feriado** — Sofia não tem coleção de feriados; sempre confirmar com PL.
+2. **Aula não aconteceu** — turma inteira sem registro nesse dia (ver `report_presenca_zoom`
+   por `turma + meeting_date_day`).
+3. **Status do jovem** — `Jovens.Status_formacao ≠ 'em_andamento'` → sem obrigação.
+4. **Pipeline parado** — `report_presenca_logs` sem novos registros no dia útil. Ver seção
+   anterior.
+5. **Reconciliação falhou** — bruto chegou (`report_presenca_zoom_bruto` tem linhas) mas
+   consolidado vazio → flow `[Parte 1]` ou `[Parte 2]` quebrou.
+6. **Coleta Zoom falhou** — `report_presenca_logs` mostra `success = false`. Hipóteses:
+   `Turmas.zoom_id` inválido, credencial Zoom expirada, throttling Zoom API.
+
+### "Vários jovens da mesma turma sem presença"
+
+Praticamente sempre é Etapa 1 (coleta) ou Etapa 2 (reconciliação) — não problema individual.
+Começar pela query de `report_presenca_logs` da turma + janela.
+
+## Referências de Código
+
+| Recurso | Localização |
+|---|---|
+| Pasta Make | `[1.Presenças] Backoffice <> Zoom` (us1.make.com) |
+| Flows Directus de reconciliação | `directus-backoffice-with-extensions` (admin Directus → Flows → buscar "Presença") |
+| Flow de alinhamento de email | Disparado pelo Make, segue pra job Inngest — ver [Alinhamento](/documentation/domains/presences/alinhamento) |
+| Hooks de justificativa | `directus-backoffice-with-extensions/extensions/hooks/src/hook-justificativa-*` |
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Presenças — Visão Geral" icon="calendar-check" href="/documentation/domains/presences/index">
+    Visão de produto e funcionalidades do módulo
+  </Card>
+  <Card title="Alinhamento de Presenças" icon="envelope" href="/documentation/domains/presences/alinhamento">
+    Job Inngest que envia email no D+1 (07h BRT)
+  </Card>
+  <Card title="Justificativas de Presença" icon="file-pen" href="/documentation/domains/presences/justificativas">
+    Hooks Directus + jobs Inngest do fluxo de justificativa
+  </Card>
+  <Card title="Modelo de Dados — Presenças" icon="database" href="/documentation/domains/presences/data-model">
+    Schemas das três coleções (`report_presenca_zoom*`)
+  </Card>
+</CardGroup>

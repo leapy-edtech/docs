@@ -148,3 +148,51 @@ Integração para controle de jornada:
 - Exportação de registros de presença
 - Validação de horas trabalhadas
 - Relatórios consolidados
+
+## Detectar Pipeline Zoom Parado
+
+O pipeline cron Make + flows Directus que materializa `report_presenca_zoom` está descrito em
+[Pipeline Zoom → Backoffice](/documentation/domains/presences/pipeline-zoom-backoffice). A
+forma mais simples de detectar parada é olhar `report_presenca_logs`:
+
+```sql
+-- Saúde do pipeline nos últimos 14 dias
+SELECT
+  date_trunc('day', meeting_date)::date AS dia,
+  count(*) AS runs,
+  count(*) FILTER (WHERE success = true) AS ok,
+  count(*) FILTER (WHERE success = false) AS fail
+FROM report_presenca_logs
+WHERE meeting_date >= now() - interval '14 days'
+GROUP BY 1
+ORDER BY 1 DESC;
+```
+
+**Sinais de pipeline parado:**
+
+| Sinal | Interpretação |
+|---|---|
+| Zero runs por > 24h em dia útil | Cenário Make `[2546826] Presenças Zoom` provavelmente não disparou. Checar UI Make. |
+| Volume < 5 runs em dia útil | Algumas turmas não foram coletadas. Investigar `Turmas.zoom_id` / `link_do_zoom`. |
+| Picos de `success = false` | Zoom API com throttling ou credencial expirada. Tech precisa renovar. |
+
+**Caso real (25-28/05/2026):** quatro dias úteis sem runs novos em `report_presenca_logs`.
+Detecção via essa query, recuperação posterior via re-execução manual do cenário
+`[2547176] Presenças Retroativas` + flow `[PARTE 0] trigger presencas flow`.
+
+### Procedimento de Escalation
+
+1. **PL detecta** sintoma (jovens reportam ausência indevida; relatório bate "vazio").
+2. Roda a query acima → se `runs = 0` em dia útil, confirma parada do pipeline.
+3. **Escala pra time tech** com: janela afetada (datas), turmas impactadas, último run com
+   sucesso.
+4. **Time tech** verifica Make UI, status do cenário, credenciais Zoom; executa
+   `Presenças Retroativas` pra janela; aciona flow manual `[PARTE 0]`.
+5. **PL confirma** pós-fato consultando `report_presenca_zoom` por jovem afetado.
+
+PL não executa re-execução manual diretamente; sempre via tech.
+
+<Note>
+  Considerar automação de alerta "0 runs em dia útil" via Sentry, cron de self-check
+  ou Inngest scheduled function — reduz tempo de detecção de horas pra minutos.
+</Note>
