@@ -1,0 +1,89 @@
+---
+title: "Dados Pessoais e PII (LGPD)"
+description: "Onde os dados pessoais sensíveis vivem no modelo de dados e como o monorepo impede que vazem para logs, telemetria e Sentry"
+---
+
+## Visão Geral
+
+Os dados pessoais sensíveis dos usuários (aprendizes, candidatos, lideranças) ficam isolados
+em tabelas `user_*` dedicadas, e o monorepo `leapy/packages/core` tem uma estratégia explícita
+para **impedir que esses campos vazem** para logs, telemetria, breadcrumbs do Sentry ou
+payloads de eventos observáveis.
+
+<Warning>
+Esta página descreve **o modelo de dados e o tratamento**, não dados reais. CPF, RG e afins
+nunca devem ser colados em issues, logs ou mensagens — é exatamente isso que a redação
+automática abaixo previne.
+</Warning>
+
+## Onde os dados sensíveis vivem
+
+| Tabela | Conteúdo sensível |
+|---|---|
+| `user_personal_data` | `cpf`, `rg`, `pis`, `personal_email`, `phone_number`, `marital_status`, `gender`, `ethnicity`, `sexual_orientation` |
+| `user_candidate_profile` | Perfil de candidatura |
+| `user_documents` | Documentos enviados pelo usuário |
+| `user_apprenticeship_data` | Dados contratuais do aprendiz |
+| `user_benefits` | Benefícios |
+| `user_experiencias_profissionais` | Histórico profissional |
+| `user_job_applications` | Candidaturas a vagas |
+
+<Note>
+O e-mail e telefone **de trabalho** vivem em `directus_users` (`email`, `phoneNumber`); o
+contato **pessoal** (`personal_email`, `personal_phone`) é PII e mora em `user_personal_data`.
+</Note>
+
+## A lista canônica de campos PII
+
+`packages/core/src/domain/pii-fields.ts` mantém uma **lista única** dos campos que nunca podem
+aparecer em logs/telemetria. Centralizar evita drift entre o redactor de logs, snapshots de
+teste e revisão manual. Adicionar um campo à lista faz o redactor pegá-lo automaticamente.
+
+Categorias cobertas por `PII_FIELDS`:
+- **Documentos:** `cpf`, `rg`, `pis`
+- **Contato pessoal:** `personalEmail`, `personalPhone`
+- **Financeiro:** `salary`, `salaryAmount`, `salaryHistory`
+- **Auth:** `password`, `hashedPassword`, `temporaryPassword`, `tfaSecret`
+- **Saúde (dado sensível especial da LGPD):** `cid10`, `needForAccessibility`
+- **Tokens:** `token`, `refreshToken`, `authData`
+
+`isPIIField(name)` faz lookup O(1) num `Set`, usado no hot path da redação.
+
+## Redação automática — `logger-redact.ts`
+
+`redact()` faz deep-redact de um objeto **antes** de ele ir para `console.log`, breadcrumb do
+Sentry ou snapshot de teste: substitui o valor de qualquer chave listada em `PII_FIELDS` por
+`"[REDACTED]"`, preservando o resto da estrutura. **Não muta o input** — retorna uma cópia limpa.
+
+Limitações conscientes (documentadas no código):
+- Recursa em plain objects e arrays, mas não em arrays de objetos heterogêneos arbitrários
+  (PII em `ImportRow[]` está coberto porque cada row é plain object).
+- **Não** detecta PII embutido em strings livres (ex.: `"Salário: R$ 5000"` num campo
+  `description`) — quem escreve a descrição é responsável.
+- Não usar em estrutura cíclica (referência circular causa loop).
+
+## Como aplicar
+
+- Toda referência cross-system a uma conta usa `id` (UUID), nunca o `slug` (ver
+  [Contas](/documentation/domains/accounts/index)).
+- Antes de logar qualquer objeto que possa conter dados de usuário, passe por `redact()`.
+- Ao adicionar um campo sensível novo ao schema, **adicione o nome a `PII_FIELDS`** no mesmo PR.
+
+## Referências de código
+
+| Arquivo | Propósito |
+|---|---|
+| `leapy/packages/core/src/domain/pii-fields.ts` | Lista canônica + `isPIIField` |
+| `leapy/packages/core/src/domain/logger-redact.ts` | `redact()` deep-redact |
+| `leapy/packages/db/src/schema/user-personal-data.ts` (e demais `user-*`) | Onde os dados sensíveis vivem |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Candidatos" icon="user" href="/documentation/domains/candidatos/index">
+    Entidade que carrega dados pessoais e de candidatura
+  </Card>
+  <Card title="Contas" icon="building-user" href="/documentation/domains/accounts/index">
+    Por que id (UUID) é a chave cross-system, não o slug
+  </Card>
+</CardGroup>
