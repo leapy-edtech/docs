@@ -43,6 +43,13 @@
                 ]
               },
               {
+                "group": "Coletas de Pulso",
+                "pages": [
+                  "documentation/domains/pulse-collections/index",
+                  "documentation/domains/pulse-collections/data-model"
+                ]
+              },
+              {
                 "group": "Jovens",
                 "pages": [
                   "documentation/domains/jovens/index",
@@ -132,6 +139,18 @@
                   "documentation/domains/courses-content/matriculas-lifecycle-crons",
                   "documentation/domains/courses-content/operations"
                 ]
+              },
+              {
+                "group": "Turmas",
+                "pages": [
+                  "documentation/domains/turmas/index"
+                ]
+              },
+              {
+                "group": "Cohorts de Entrada",
+                "pages": [
+                  "documentation/domains/cohorts-entrada/index"
+                ]
               }
             ]
           },
@@ -139,7 +158,9 @@
             "group": "Plataforma",
             "pages": [
               "documentation/platform/architecture",
+              "documentation/architecture/monorepo-core",
               "documentation/platform/events-jobs-inngest",
+              "documentation/platform/events-outbox",
               "documentation/platform/automations-make",
               {
                 "group": "Backoffice Directus",

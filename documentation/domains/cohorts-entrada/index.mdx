@@ -1,0 +1,47 @@
+---
+title: "Cohorts de Entrada"
+description: "Batches de entrada de jovens aprendizes — schema cohorts_entrada e sua relação com Jovens"
+---
+
+## Visão Geral
+
+Um **cohort de entrada** (`cohorts_entrada`) representa um **batch de entrada** de jovens
+aprendizes — o grupo que ingressa no programa em uma mesma janela. Cada jovem referencia
+seu cohort de entrada via `"Jovens".cohort_entrada`.
+
+<Note>
+Não confundir com **Turmas**: o cohort de entrada agrupa jovens pelo momento de ingresso
+(batch), enquanto a [Turma](/documentation/domains/turmas/index) agrupa por formação.
+A coluna `Turmas.cohort_id` é texto livre e **não** referencia esta tabela.
+</Note>
+
+## Modelo de dados
+
+Tabela `cohorts_entrada` (`leapy/packages/db/src/schema/cohorts-entrada.ts`):
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `integer` | PK |
+| `nome` | `varchar(255)` | Nome do batch de entrada |
+| `data_de_inicio` | `timestamp` | Início da janela de entrada |
+| `data_de_encerramento` | `timestamp` | Encerramento da janela |
+
+**Relação:** `"Jovens".cohort_entrada → cohorts_entrada.id`
+(Directus relation `id=382`, many `Jovens` → one `cohorts_entrada`).
+
+## Use cases
+
+| Use case | Propósito |
+|---|---|
+| `cohorts-entrada/list-cohorts-entrada` | Lista os cohorts de entrada (ex: para seleção em formulários de importação) |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Jovens" icon="user-graduate" href="/documentation/domains/jovens/index">
+    A entidade que referencia o cohort de entrada
+  </Card>
+  <Card title="Turmas" icon="users-class" href="/documentation/domains/turmas/index">
+    Agrupamento por formação (distinto do batch de entrada)
+  </Card>
+</CardGroup>
