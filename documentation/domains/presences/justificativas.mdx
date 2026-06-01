@@ -1,13 +1,13 @@
 ---
 title: "Presenças — Fluxo de Justificativas"
-description: "Como o sistema processa justificativas de ausência: notificação de recebimento, análise pelo RH e atualização automática do registro de presença."
+description: "Como o sistema processa justificativas de ausência: notificação de recebimento, análise pelo Program Lead (PL) e atualização automática do registro de presença."
 ---
 
 ## Contexto de Produto
 
 Quando um jovem aprendiz falta a uma aula e envia uma justificativa, o sistema precisa:
 1. Confirmar ao jovem que a justificativa foi recebida
-2. Aguardar a análise do RH (aprovação ou reprovação)
+2. Aguardar a análise do **Program Lead (PL)** — funcionário Leapy responsável pela turma, que aprova ou reprova a justificativa pelo backoffice
 3. Notificar o jovem com o resultado
 4. Se aprovada, atualizar o registro de presença para `abono`
 
@@ -27,7 +27,7 @@ flowchart TB
     end
 
     subgraph Análise e Resultado
-        RH[RH atualiza\nstatus_justificativa\naprovada|reprovada]
+        RH[PL atualiza\nstatus_justificativa\naprovada|reprovada]
         UPDATE2[Directus items.update\nreport_presenca_zoom\nstatus_justificativa = aprovada|reprovada]
         HOOK_ANA[hook-justificativa-analisada]
         WF2[GET /workflows/presencas\n/justificativa-analisada\n?send_event=true&presenca_id=]
@@ -101,7 +101,7 @@ O endpoint de workflow recebe a requisição e emite o evento Inngest:
 **Feature flag:** `HOOK_JUSTIFICATIVA_ANALISADA`  
 **Condição de disparo:** `item.payload.status_justificativa === "aprovada"` ou `=== "reprovada"`
 
-Quando o RH registra o resultado da análise, o hook dispara:
+Quando o PL registra o resultado da análise, o hook dispara:
 
 ```
 GET ${DIRECTUS_LOCAL_URL}/workflows/presencas/justificativa-analisada
@@ -163,7 +163,7 @@ presenca = status_justificativa === "aprovada"
 
 **Reprocessar email de resultado:**
 
-Se o RH atualizou `status_justificativa` mas o email não foi enviado:
+Se o PL atualizou `status_justificativa` mas o email não foi enviado:
 
 ```bash
 # Disparar evento manualmente no Inngest Dashboard
