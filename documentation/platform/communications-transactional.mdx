@@ -232,6 +232,26 @@ flowchart LR
 | `e391ce8e-...` | `Faltas - advertência` | operation | Sub-flow de advertência |
 | `9c37268c-...` | `[Manual] Calcular Faltas` | manual | Re-calcular faltas (suporte) |
 
+### Cenários Make Complementares
+
+Junto aos flows Directus acima, dois cenários Make participam do fluxo de notificação de
+falta — provavelmente reagem a webhooks disparados pelos sub-flows:
+
+| ID Make | Nome | Status | Comportamento observado |
+|---|---|---|---|
+| `3571191` | `Jovens faltantes` | ativo | Padrão de execução em **batch** (~50 runs simultâneas em segundos), uma execução por jovem. Última run em 25/05/2026 às 10:05 BRT — depois disso, zero execuções. Confirma que o disparo upstream (provavelmente o flow manual `[Notif] Faltas`) não foi acionado desde então. |
+| `3450372` | `Falta - Retorno justificativa de falta` | ativo | Zero execuções no último mês — provavelmente processa casos pontuais de retorno de justificativa. |
+| `3405106` | `Faltas - Coleta de justificativa` | inativo | Legado. |
+
+{/* TODO: confirmar função exata do scenario 3571191 dentro do fluxo (operação atômica
+por jovem — envio de e-mail, registro auxiliar, sync com sistema externo?). O ID é
+descobrível via `make_scenarios_list({name_contains: "falt"})`. */}
+
+**Sinal operacional:** se [resend logs](https://resend.com/emails) mostram que o aviso de
+falta parou de sair, mas o flow Directus `[Notif] Faltas` aparenta estar ativo, vale
+verificar também o histórico de execuções de `3571191` — se ele também parou no mesmo dia,
+confirma que o problema é a cadeia upstream (ops esqueceu de acionar) e não falha de email.
+
 ## Vagas — Status Atualizadas
 
 Caso típico: o status de uma vaga é atualizado para `2_avaliacao_empresa` mas a empresa

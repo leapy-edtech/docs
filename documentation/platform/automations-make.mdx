@@ -71,6 +71,8 @@ Pasta no painel: `[1.Presenças] Backoffice <> Zoom`. Detalhes completos em
 | `3707918` | `Vagas novas` | webhook Directus `vagas.created` | Notifica candidatos elegíveis sobre vaga recém-publicada |
 | `3708160` | `Vagas status atualizadas` | webhook Directus `vagas.updated` (campo `status`) | Notifica jovem/RH/empresa conforme novo status |
 | `4573490` | `Admissão - Integration Airtable, Google Sheets` | webhook | Sincronia de admissão entre planilhas externas |
+| `3571191` | `Jovens faltantes` | webhook | Reage ao disparo do flow Directus `[Notif] Faltas` — uma execução por jovem com falta (~50 runs simultâneas em batch). Detalhes em [Comunicações Transacionais — Aviso de Falta](/documentation/platform/communications-transactional#aviso-de-falta--flow-manual-notif-faltas). |
+| `3450372` | `Falta - Retorno justificativa de falta` | webhook | Processa retorno de justificativa pontual (poucas execuções históricas). |
 
 Caso conhecido a investigar: o cenário `3708160` Vagas status atualizadas tem possível
 buraco no roteador — cobre `4_contratacao_feita` mas pode não cobrir `2_avaliacao_empresa`
