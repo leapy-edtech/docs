@@ -82,7 +82,8 @@
                   "documentation/domains/matchmaker/data-model",
                   "documentation/domains/matchmaker/integrations",
                   "documentation/domains/matchmaker/operations",
-                  "documentation/domains/matchmaker/metrics"
+                  "documentation/domains/matchmaker/metrics",
+                  "documentation/domains/matchmaker/skills"
                 ]
               },
               {
@@ -209,7 +210,9 @@
               "documentation/platform/zoom-agenda",
               "documentation/platform/moodle-sso",
               "documentation/platform/moodle-links-weekly",
-              "documentation/platform/conventions"
+              "documentation/platform/conventions",
+              "documentation/platform/soft-delete-purga",
+              "documentation/platform/arcos-entidades"
             ]
           },
           {

@@ -1,0 +1,58 @@
+---
+title: "Arcos e Entidades"
+description: "Dimensões organizacionais usadas na importação de cohorts e na classificação de aprendizes"
+---
+
+## Visão Geral
+
+**Arcos** e **Entidades** são duas dimensões organizacionais de referência usadas no
+backoffice — principalmente na importação de cohorts e no vínculo de aprendizes
+(`user_apprenticeship_data` tem `arco_id` e `entidade_id`). São tabelas pequenas e estáveis,
+expostas por use-cases de listagem.
+
+## `Arcos`
+
+Tabela `Arcos` (`leapy/packages/db/src/schema/arcos.ts`):
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `integer` | PK |
+| `Nome` | `varchar(255)` | Nome do arco |
+| `formato` | `varchar(255)` | Formato |
+| `status` | `varchar(255)` | Status |
+
+## `entidades`
+
+Tabela `entidades` (`leapy/packages/db/src/schema/entidades.ts`):
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `integer` | PK |
+| `nome_fantasia` | `varchar(255)` | Nome fantasia da entidade |
+
+## Use cases
+
+| Use case | Propósito |
+|---|---|
+| `backoffice/list-arcos` | Lista os arcos (ex.: opções de formulário no import) |
+| `backoffice/list-entidades` | Lista as entidades |
+
+Essas listagens alimentam os formulários de importação de cohorts e de gestão de aprendizes.
+
+## Referências de código
+
+| Repo | Arquivo | Propósito |
+|---|---|---|
+| `leapy` | `packages/db/src/schema/arcos.ts`, `entidades.ts` | Schemas |
+| `leapy` | `packages/core/src/use-cases/backoffice/list-arcos.ts`, `list-entidades.ts` | Listagem |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Cohorts de Entrada" icon="layer-group" href="/documentation/domains/cohorts-entrada/index">
+    Batches de entrada que usam estas dimensões no import
+  </Card>
+  <Card title="Gestão de Aprendizes" icon="user-graduate" href="/documentation/domains/jovens/gestao-aprendizes">
+    Aprendizes vinculam arco_id e entidade_id
+  </Card>
+</CardGroup>
