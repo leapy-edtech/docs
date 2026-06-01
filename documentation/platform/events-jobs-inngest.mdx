@@ -1,174 +1,216 @@
 ---
 title: "Eventos e Jobs - Inngest"
-description: "Sistema de eventos e jobs assíncronos com Inngest"
+description: "Arquitetura assíncrona da Leapy com Inngest: eventos canônicos, jobs por domínio, scheduling e como diagnosticar runs."
 ---
 
-## Visão Geral
+## Contexto de Produto
 
-O Inngest é a plataforma de orquestração de eventos e jobs da Leapy, responsável por processamento assíncrono, workflows e automações.
+Inngest é a plataforma de orquestração de eventos e jobs assíncronos da Leapy, hospedando
+50+ functions distribuídas em domínios (presenças, follow-up, régua de comunicação, pulsos,
+matrículas, Moodle, vagas). O código fica em [`leapy-edtech/backoffice-inngest-functions`](https://github.com/leapy-edtech/backoffice-inngest-functions/tree/main/src/inngest/functions).
+
+Em complemento, [Automações Make](/documentation/platform/automations-make) cuida de crons
+e integrações externas. Inngest cuida do trabalho do código (envio de emails, agregação de
+dados, sync de progresso).
 
 ## Conceitos
 
 ### Eventos
 
-Eventos são disparados quando algo acontece no sistema:
+Eventos são disparados quando algo acontece — direto pelo código ou via webhook externo.
+Cada evento tem um nome canônico e um payload tipado:
 
 ```typescript
-// Disparar um evento
 await inngest.send({
-  name: "pulse.response.submitted",
+  name: "backoffice/alinhar-presencas.send",
   data: {
-    pulse_id: "uuid",
-    talent_id: "uuid",
-    response_id: "uuid"
-  }
+    ids: [101, 102, 103],
+    chunk_size: 10,
+  },
 });
 ```
 
 ### Functions
 
-Functions são handlers que respondem a eventos:
+Functions reagem a eventos com lógica de negócio. Cada function tem `id` único, declara o
+evento que escuta e retorna um resultado:
 
 ```typescript
-const processResponse = inngest.createFunction(
-  { id: "process-pulse-response" },
-  { event: "pulse.response.submitted" },
+export const sendReguaComunicacaoJovens = inngest.createFunction(
+  { id: "send-regua-comunicacao-jovens" },
+  { event: "backoffice/regua-comunicacao/jovens.send" },
   async ({ event, step }) => {
-    // Processar a resposta
-    await step.run("validate-response", async () => {
-      return validateResponse(event.data.response_id);
-    });
-    
-    await step.run("update-metrics", async () => {
-      return updatePulseMetrics(event.data.pulse_id);
-    });
-  }
+    for (const jovem of event.data.data) {
+      await step.run("send-lembrete-jovens", async () => {
+        return await sendEmail(jovem.jovem_email_corporativo, event.data.evento);
+      });
+    }
+  },
 );
 ```
 
 ### Steps
 
-Steps são unidades atômicas dentro de uma function:
+Steps são as unidades atômicas de retry. Cada `step.run` é uma transação — em caso de erro,
+Inngest re-tenta apenas o step falhado, mantendo os anteriores.
+
+### Scheduled Functions
+
+Functions com `cron` rodam por agendamento. A Leapy também usa **hooks Directus com schedule**
+pra disparar eventos Inngest indiretamente — alguns crons vivem no Directus, outros no
+Inngest direto.
+
+## Eventos Canônicos
+
+### Comunicações e Régua
+
+| Evento | Disparado por | Function que processa |
+|---|---|---|
+| `backoffice/regua-comunicacao/jovens.send` | hook cron Directus `hook-regua-comunicacao-jovens` (06:01 BRT) | `send-regua-comunicacao-jovens` |
+| `backoffice/regua-comunicacao/lideranca.send` | hook cron `hook-regua-comunicacao-lideranca` (05:01 BRT) | `send-regua-comunicacao-lideranca` |
+| `backoffice/regua-comunicacao/rh.send` | hook cron `hook-regua-comunicacao-rh` (04:01 BRT) | `send-regua-comunicacao-rh` |
+| `followup/send` | hook `hook-cron-followup-triggers` (FUP v1) | `follow-up-send` |
+| `followup-v2/send` | hook `hook-cron-followup-v2-triggers` (FUP v2) | `follow-up-v2-send` |
+| `emails/resend.send` | endpoint Directus `/emails/send` (render Liquid) | `email-send-resend` |
+
+Detalhes em [Régua de Comunicação e Follow-up](/documentation/platform/communications-fup)
+e [Comunicações Transacionais](/documentation/platform/communications-transactional).
+
+### Presenças
+
+| Evento | Disparado por | Function |
+|---|---|---|
+| `backoffice/alinhar-presencas.send` | Make scenario `[4397409] Alinhar presenças` (07:00 BRT) | `alinhar-presencas` |
+| `backoffice/justificativa-recebida.send` | hook `hook-justificativa-recebida` | `justificativa-recebida` |
+| `backoffice/justificativa-analisada.send` | hook `hook-justificativa-analisada` (quando `status_justificativa` muda) | `justificativa-analisada` |
+
+Detalhes em [Alinhamento de Presenças](/documentation/domains/presences/alinhamento) e
+[Justificativas de Presença](/documentation/domains/presences/justificativas).
+
+### Pulsos
+
+| Evento | Function |
+|---|---|
+| `backoffice/pulsos/lembrete-jovens.send` | `send-pulsos-lembrete-to-jovens` |
+| `backoffice/pulsos/lembrete-liderancas.send` | `send-pulsos-lembrete-to-liderancas` |
+| `backoffice/pulsos/update-to-pendentes` | `update-pulsos-jovens-to-pendentes` |
+| `backoffice/pulsos/update-to-vencidos` | `update-pulsos-jovens-to-vencidos` |
+| `backoffice/pulsos/processa` | `processa-pulsos` (calcula respostas + métricas) |
+
+### Moodle
+
+Pasta `src/inngest/functions/moodle/` + `moodle-links/`. Eventos cobrem sync de cohorts,
+matrículas em cursos, criação de usuários Moodle a partir de Jovens.
+
+### Vagas / Matchmaker
+
+Pasta `src/inngest/functions/matchmaker/`. Eventos cobrem:
+- Inferência de match via LinkedIn (`linkedin_inference_active_jobs`).
+- Disparos de notificação para jovens elegíveis (correlacionado ao Make scenario
+  `[3707918] Vagas novas`).
+
+### Estágio / Talents
+
+Pasta `src/inngest/functions/mvp-estagio/talents/`. Cobre PDI, onboarding, follow-up de
+liderança no estágio.
+
+## Catálogo de Functions por Pasta
+
+| Pasta | Functions Notáveis |
+|---|---|
+| `cronogramas/` | Atualização de status, datas, NPS e proficiência do cronograma |
+| `follow-up/` | FUP v1 (WhatsApp + Email genérico) |
+| `follow-up-v2/` | FUP v2 (WhatsApp Meta templates) |
+| `matriculas/` | Sync de certificados Moodle, criação de matrículas |
+| `moodle/`, `moodle-links/` | Sync com Moodle (users, cohorts, courses) |
+| `mvp-estagio/talents/` | PDI, follow-up estágio |
+| `notificacoes/` | Notificações RH (created, lembrete) |
+| `one-time/` | Scripts de migração one-shot |
+| `presencas/` | Alinhamento, justificativas, agenda Zoom |
+| `pulsos/` | Lembretes e processamento de pulsos |
+| `regua-comunicacao/` | 3 jobs (jovens/lideranca/rh) |
+| `resend-email/` | Envio Resend genérico (`email-send-resend`) |
+| `supabase-functions/` | Integração Supabase |
+| `vision/` | Vision AI |
+
+## Retry e Error Handling
+
+Por default, Inngest re-tenta steps falhados até **3 vezes** com backoff exponencial.
+Functions críticas podem override:
 
 ```typescript
-// Step com retry automático
-await step.run("send-notification", async () => {
-  return await sendEmail(recipient, template);
-});
-
-// Step com delay
-await step.sleep("wait-1-hour", "1h");
-
-// Step com timeout
-await step.run("process-data", { timeout: "5m" }, async () => {
-  return await heavyProcessing();
-});
-```
-
-## Padrões Comuns
-
-### Event Fan-out
-
-Um evento disparando múltiplos processamentos:
-
-```typescript
-// Evento principal
-await inngest.send({ name: "talent.created", data: { talent_id } });
-
-// Múltiplos handlers
 inngest.createFunction(
-  { id: "sync-talent-to-hris" },
-  { event: "talent.created" },
-  async ({ event }) => { /* ... */ }
-);
-
-inngest.createFunction(
-  { id: "send-welcome-email" },
-  { event: "talent.created" },
-  async ({ event }) => { /* ... */ }
-);
-```
-
-### Scheduled Jobs
-
-Jobs executados em horários específicos:
-
-```typescript
-inngest.createFunction(
-  { id: "daily-pulse-reminders" },
-  { cron: "0 10 * * *" }, // 10h todos os dias
-  async () => {
-    const activePulses = await getActivePulses();
-    for (const pulse of activePulses) {
-      await sendReminders(pulse);
-    }
-  }
-);
-```
-
-### Retry e Error Handling
-
-```typescript
-inngest.createFunction(
-  { 
+  {
     id: "process-webhook",
     retries: 5,
     onFailure: async ({ event, error }) => {
       await notifyTeam(error);
-    }
+    },
   },
   { event: "webhook.received" },
   async ({ event }) => {
-    // Processo que pode falhar
-  }
+    // …
+  },
 );
 ```
 
-## Eventos do Sistema
+## Diagnóstico Operacional
 
-### Pulsos
+Consultas comuns via dashboard ou API REST do Inngest:
 
-| Evento | Descrição |
-|--------|-----------|
-| `pulse.created` | Pulso criado |
-| `pulse.activated` | Pulso ativado |
-| `pulse.response.submitted` | Resposta enviada |
-| `pulse.closed` | Pulso encerrado |
+| Pergunta | Onde checar |
+|---|---|
+| "Esse job rodou em data X?" | Dashboard: filtro por function + janela. API: `GET /v1/events?name=<event>&triggered_after=<data>` + `GET /v1/events/{id}/runs` |
+| "Detalhes do erro do run Y?" | Dashboard: clique no run. API: `GET /v1/runs/<run_id>` (atenção: este endpoint pode estar instável — preferir o caminho via `/events/{id}/runs`). |
 
-### Talentos
-
-| Evento | Descrição |
-|--------|-----------|
-| `talent.created` | Talento criado |
-| `talent.updated` | Talento atualizado |
-| `talent.terminated` | Talento desligado |
-
-### Matchmaker
-
-| Evento | Descrição |
-|--------|-----------|
-| `opportunity.published` | Oportunidade publicada |
-| `application.submitted` | Candidatura enviada |
-| `application.status_changed` | Status alterado |
+Dashboard: [app.inngest.com](https://app.inngest.com).
 
 ## Dashboard Inngest
 
-O dashboard permite:
-
-- Visualizar eventos em tempo real
-- Monitorar execução de functions
-- Ver logs detalhados
-- Reprocessar eventos com falha
-- Cancelar execuções
-
-<Note>
-  Acesse o dashboard em: [Inngest Dashboard](https://app.inngest.com)
-</Note>
+Permite:
+- Visualizar eventos em tempo real.
+- Monitorar execução de functions (success rate, latência, erros).
+- Ver logs detalhados por run.
+- Reprocessar eventos com falha (botão "Replay").
+- Cancelar execuções em andamento.
 
 ## Boas Práticas
 
-1. **Idempotência**: Functions devem ser idempotentes
-2. **Steps granulares**: Divida em steps pequenos para retry eficiente
-3. **Timeouts**: Sempre defina timeouts em operações externas
-4. **Logs**: Use logs estruturados para debugging
-5. **Alertas**: Configure alertas para falhas críticas
+1. **Idempotência**: functions devem produzir o mesmo efeito ao re-executar com mesmo
+   payload (Inngest pode replay).
+2. **Steps granulares**: dividir em `step.run` pequenos pra retry eficiente — não fazer
+   tudo num único step.
+3. **Timeouts em operações externas**: `step.run` com chamada HTTP deve ter timeout
+   explícito.
+4. **Logs estruturados**: `console.log(JSON.stringify({ event_id, jovem_id, ... }))` —
+   facilita filtro no dashboard.
+5. **Alertas para falhas críticas**: usar `onFailure` em functions críticas (envio de email
+   transacional, sync de Moodle).
+6. **Naming convention para eventos**: `<dominio>/<acao>` (ex: `backoffice/alinhar-presencas.send`).
+   Domínio em snake-kebab, ação no infinitivo + sufixo `.send` / `.update` / `.created`.
+
+## Referências de Código
+
+| Recurso | Localização |
+|---|---|
+| Repo principal | [`leapy-edtech/backoffice-inngest-functions`](https://github.com/leapy-edtech/backoffice-inngest-functions) |
+| Inngest client | `src/inngest/client.ts` |
+| Function registry (index) | `src/inngest/functions/index.ts` |
+| Subset de envio de emails | `src/inngest/functions/resend-email/email-send-resend.ts` |
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Automações Make" icon="gear" href="/documentation/platform/automations-make">
+    Cenários Make que disparam eventos Inngest
+  </Card>
+  <Card title="Comunicações Transacionais" icon="envelope" href="/documentation/platform/communications-transactional">
+    Catálogo de comunicações por evento (e qual job processa cada uma)
+  </Card>
+  <Card title="Régua de Comunicação e Follow-up" icon="message" href="/documentation/platform/communications-fup">
+    Régua de Jovens / Lideranças / RH e FUP WhatsApp
+  </Card>
+  <Card title="Observabilidade" icon="chart-line" href="/documentation/platform/observability">
+    Logs, métricas e alertas
+  </Card>
+</CardGroup>

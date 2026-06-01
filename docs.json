@@ -150,6 +150,7 @@
               },
               "documentation/platform/agent-system",
               "documentation/platform/communications-fup",
+              "documentation/platform/communications-transactional",
               "documentation/platform/observability",
               "documentation/platform/environments",
               "documentation/platform/security-data",
