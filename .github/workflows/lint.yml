@@ -1,0 +1,42 @@
+name: Docs Lint
+
+# Valida a documentação Mintlify em PRs: links internos quebrados e
+# consistência do OpenAPI. É a barreira automática que faltava no repo
+# (antes, só o /review manual pegava link quebrado).
+
+on:
+  pull_request:
+    paths:
+      - "**/*.mdx"
+      - "docs.json"
+      - "api-reference/openapi.json"
+      - ".github/workflows/lint.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Mintlify CLI
+        run: npm install -g mint
+
+      - name: Check broken links
+        run: mint broken-links
+
+      - name: Validate OpenAPI spec
+        run: mint openapi-check api-reference/openapi.json
