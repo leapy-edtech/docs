@@ -1,0 +1,59 @@
+---
+title: "Vagas"
+description: "Vagas de estágio/aprendizagem — schema e os hooks Directus que reagem a criação e mudança de status"
+---
+
+## Visão Geral
+
+Uma **Vaga** (`vagas`) é uma oportunidade de estágio/aprendizagem aberta por uma empresa. As
+vagas alimentam o funil de [Hiring](/documentation/domains/hiring/index) e o
+[Matchmaker](/documentation/domains/matchmaker/index), e disparam hooks no Directus quando são
+criadas ou mudam de status.
+
+## Modelo de dados
+
+Tabela `vagas` (`leapy/packages/db/src/schema/vagas.ts`):
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `serial` | PK |
+| `nome_da_vaga` | `varchar(255)` | Título da vaga |
+| `empresa_id` | `integer` | Empresa que abriu a vaga |
+| `status` | `varchar(255)` | Status da vaga |
+| `area_da_vaga` | `varchar(255)` | Área/cargo |
+| `modelo_de_trabalho` | `varchar(255)` | Presencial / híbrido / remoto |
+| `cidade` / `estado` | `varchar` | Localização |
+| `quantidade_de_vagas` | `integer` | Número de posições |
+| `data_de_inicio` | `timestamp` | Início previsto |
+
+## Hooks (Directus)
+
+Dois hooks reagem a mudanças em vagas no Directus:
+
+| Hook | Quando |
+|---|---|
+| `hook-vagas-novas` | Vaga criada |
+| `hook-vagas-status-atualizadas` | Status da vaga atualizado |
+
+Esses hooks são o ponto de entrada para reagir a novas oportunidades (ex.: acionar o
+matchmaking ou notificar). Ver [Jobs e Eventos Inngest](/documentation/platform/events-jobs-inngest)
+para a arquitetura assíncrona.
+
+## Referências de código (multirepo)
+
+| Repo | Arquivo | Propósito |
+|---|---|---|
+| `leapy` | `packages/db/src/schema/vagas.ts` | Schema da tabela `vagas` |
+| `directus-backoffice-with-extensions` | `extensions/hooks/src/hook-vagas-novas/` | Reage a vaga criada |
+| `directus-backoffice-with-extensions` | `extensions/hooks/src/hook-vagas-status-atualizadas/` | Reage a mudança de status |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Hiring" icon="briefcase" href="/documentation/domains/hiring/index">
+    O processo de contratação que consome as vagas
+  </Card>
+  <Card title="Matchmaker" icon="wand-magic-sparkles" href="/documentation/domains/matchmaker/index">
+    Casamento de candidatos com vagas
+  </Card>
+</CardGroup>

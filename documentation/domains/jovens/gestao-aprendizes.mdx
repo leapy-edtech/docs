@@ -1,0 +1,84 @@
+---
+title: "Gestão de Aprendizes e Documentos"
+description: "CRUD de aprendizes e gestão de documentos no monorepo leapy/packages/core — distinta do ciclo de vida operacional (crons) descrito em Lifecycle"
+---
+
+## Visão Geral
+
+Esta página cobre a **gestão de aprendizes pelo backoffice** no monorepo
+`leapy/packages/core` (use-cases `aprendizes/*`): CRUD e o **gerenciamento de documentos** do
+aprendiz. É complementar ao [Ciclo de Vida](/documentation/domains/jovens/lifecycle), que
+descreve os fluxos automáticos (crons de desligamento, efetivação, etc.).
+
+<Info>
+No monorepo, "aprendiz" e "jovem" são a mesma entidade: `user_apprenticeship_data` mapeia para
+a tabela física legada `"Jovens"`. Esta página foca o que o monorepo adicionou — CRUD e
+documentos; os fluxos operacionais continuam em [Lifecycle](/documentation/domains/jovens/lifecycle).
+</Info>
+
+## Use cases
+
+Em `leapy/packages/core/src/use-cases/aprendizes/`:
+
+| Use case | Propósito |
+|---|---|
+| `create-aprendiz` / `update-aprendiz` | CRUD do aprendiz |
+| `get-aprendiz` / `list-aprendizes` | Leitura |
+| `soft-delete-aprendiz` / `delete-aprendiz` | Remoção (soft / definitiva) |
+| `list-leaders` | Lideranças disponíveis para vínculo |
+| `upload-aprendiz-document` | Envia um documento (um tipo) |
+| `list-aprendiz-documents` | Lista os documentos do aprendiz |
+| `get-aprendiz-document-file` | Baixa o arquivo de um documento |
+| `delete-aprendiz-document` | Remove um documento |
+
+## Dados do aprendiz
+
+`user_apprenticeship_data` (tabela física `"Jovens"`) liga o aprendiz à sua formação:
+`Status_formacao`, `turma_id`, `arco_id`, `entidade_id`, `empresa_id`, `lideranca_id`,
+integração Moodle (`moodle_exist`) e Zoom (`zoom_join_url`, `zoom_id`), além de
+`classificacao_automatica` e `ativo`.
+
+## Documentos do aprendiz
+
+`user_documents` tem **uma linha por aprendiz** com 9 colunas FK (uma por tipo de documento),
+cada uma apontando para um arquivo em `directus_files`. Tipos (`DOCUMENT_TYPES`):
+
+| Tipo | Documento |
+|---|---|
+| `identity_card` | Documento de identidade |
+| `taxpayer_id` | CPF |
+| `residence_proof` | Comprovante de residência |
+| `education_proof` | Comprovante de escolaridade |
+| `voter_registration_card` | Título de eleitor |
+| `military_reserve_certificate` | Certificado de reservista |
+| `contract` | Contrato |
+| `enrollment_declaration_in_apprenticeship_course` | Declaração de matrícula no curso de aprendizagem |
+| `apprenticeship_course_calendar` | Calendário do curso de aprendizagem |
+
+<Note>
+A FK para `directus_files` **não** é declarada no Drizzle — `directus_files` é gerenciada pelo
+Directus e não existe no Docker local. Os documentos são arquivos com dados pessoais; ver
+[Dados Pessoais e PII](/documentation/platform/pii-lgpd).
+</Note>
+
+## Referências de código
+
+| Repo | Arquivo | Propósito |
+|---|---|---|
+| `leapy` | `packages/core/src/use-cases/aprendizes/*` | CRUD e documentos |
+| `leapy` | `packages/db/src/schema/user-apprenticeship-data.ts` | Dados de formação (tabela `"Jovens"`) |
+| `leapy` | `packages/db/src/schema/user-documents.ts` | Documentos (9 tipos) |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Ciclo de Vida do Jovem" icon="arrows-rotate" href="/documentation/domains/jovens/lifecycle">
+    Fluxos automáticos (desligamento, efetivação) via crons
+  </Card>
+  <Card title="Turmas" icon="users-class" href="/documentation/domains/turmas/index">
+    A formação a que o aprendiz é vinculado
+  </Card>
+  <Card title="Dados Pessoais e PII" icon="shield-halved" href="/documentation/platform/pii-lgpd">
+    Tratamento dos documentos e dados sensíveis
+  </Card>
+</CardGroup>
