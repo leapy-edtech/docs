@@ -1,0 +1,61 @@
+---
+title: "Candidatos"
+description: "Candidatos, candidaturas e experiências profissionais — domínio do monorepo leapy/packages/core"
+---
+
+## Visão Geral
+
+O domínio de **Candidatos** cobre a pessoa candidata, suas **candidaturas** e o histórico de
+**experiências profissionais**. É a base do funil de seleção que alimenta o
+[Matchmaker](/documentation/domains/matchmaker/index) e o [Hiring](/documentation/domains/hiring/index).
+
+Um candidato é um `directus_users` com o papel `user-candidate` — o UUID do papel é resolvido
+por subquery no repositório (`SELECT id FROM directus_roles WHERE name = 'user-candidate'`),
+sem env var nem constante hardcoded.
+
+## Use cases
+
+Em `leapy/packages/core/src/use-cases/candidatos/`:
+
+| Use case | Propósito |
+|---|---|
+| `create-candidato` / `update-candidato` / `delete-candidato` | CRUD do candidato |
+| `get-candidato` / `list-candidatos` | Leitura |
+| `create-candidatura` | Registra uma candidatura |
+| `create-experiencia` / `update-experiencia` / `delete-experiencia` | Histórico profissional do candidato |
+
+## Regras de negócio
+
+`candidato.rules.ts` expõe `canSoftDeleteCandidato`: recebe o `deleted_at` de
+`directus_users` (não de `user_careers`) e retorna `false` se já deletado — previne
+double-delete. O papel de candidato é resolvido por subquery no repositório, não por
+constante.
+
+## Modelo de dados
+
+O perfil de candidato vive em `user_candidate_profile` (`onboarding_step`,
+`intended_graduation_course`, etc.), ligado ao `directus_users`. Dados pessoais sensíveis
+(CPF, RG, contato pessoal) ficam em `user_personal_data` — ver
+[Dados Pessoais e PII](/documentation/platform/pii-lgpd) para o tratamento de privacidade.
+
+## Referências de código
+
+| Repo | Arquivo | Propósito |
+|---|---|---|
+| `leapy` | `packages/core/src/use-cases/candidatos/*` | CRUD, candidatura e experiências |
+| `leapy` | `packages/core/src/domain/candidato.rules.ts` | Soft-delete do candidato |
+| `leapy` | `packages/db/src/schema/user-candidate-profile.ts` | Perfil de candidato |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Matchmaker" icon="wand-magic-sparkles" href="/documentation/domains/matchmaker/index">
+    Como candidatos são classificados e casados com vagas
+  </Card>
+  <Card title="Hiring" icon="briefcase" href="/documentation/domains/hiring/index">
+    O processo de contratação a jusante
+  </Card>
+  <Card title="Dados Pessoais e PII" icon="shield-halved" href="/documentation/platform/pii-lgpd">
+    Tratamento de dados sensíveis do candidato
+  </Card>
+</CardGroup>

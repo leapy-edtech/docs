@@ -164,6 +164,18 @@
                 "pages": [
                   "documentation/domains/empresas/index"
                 ]
+              },
+              {
+                "group": "Planos e Assinaturas",
+                "pages": [
+                  "documentation/domains/plans/index"
+                ]
+              },
+              {
+                "group": "Candidatos",
+                "pages": [
+                  "documentation/domains/candidatos/index"
+                ]
               }
             ]
           },
@@ -188,6 +200,7 @@
               "documentation/platform/observability",
               "documentation/platform/environments",
               "documentation/platform/security-data",
+              "documentation/platform/pii-lgpd",
               "documentation/platform/rbac-monorepo",
               "documentation/platform/impersonation",
               "documentation/platform/zoom-agenda",
