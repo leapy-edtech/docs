@@ -55,7 +55,8 @@
                 "pages": [
                   "documentation/domains/jovens/index",
                   "documentation/domains/jovens/lifecycle",
-                  "documentation/domains/jovens/solicitacoes-rh"
+                  "documentation/domains/jovens/solicitacoes-rh",
+                  "documentation/domains/jovens/gestao-aprendizes"
                 ]
               },
               {
@@ -67,7 +68,8 @@
               {
                 "group": "Hiring",
                 "pages": [
-                  "documentation/domains/hiring/index"
+                  "documentation/domains/hiring/index",
+                  "documentation/domains/hiring/vagas"
                 ]
               },
               {
@@ -102,7 +104,8 @@
                   "documentation/domains/talents/data-model",
                   "documentation/domains/talents/migration-jovens-talentos",
                   "documentation/domains/talents/pdi-workflow",
-                  "documentation/domains/talents/operations"
+                  "documentation/domains/talents/operations",
+                  "documentation/domains/talents/onboarding-import"
                 ]
               },
               {
