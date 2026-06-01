@@ -1,0 +1,98 @@
+---
+title: "Contas (Accounts)"
+description: "Entidade multi-tenant da Leapy — cada conta é um cliente de RH. Schema, regras de slug/tamanho e soft-delete no monorepo leapy/packages/core"
+---
+
+## Visão Geral
+
+Uma **Conta** (`accounts`) representa um **cliente de RH** da Leapy — a raiz do
+multi-tenant. Cada conta agrupa empresas (CNPJs), turmas, jovens e configurações. O CRUD
+vive no monorepo `leapy/packages/core` (use-cases `backoffice/accounts/*`), sobre a tabela
+legada `accounts` do Directus.
+
+<Info>
+A tabela `accounts` é legada do Directus; o monorepo passou a possuí-la e adicionou
+soft-delete + CRUD de backoffice. Mudanças de schema seguem o runbook
+`docs/migration/runbooks/schema-ownership-transfer.md` no monorepo.
+</Info>
+
+## Modelo de dados
+
+Tabela `accounts` (`leapy/packages/db/src/schema/accounts.ts`). Campos principais:
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `uuid` | PK — **identificador estável cross-system** |
+| `name` | `varchar(255)` | Nome da conta |
+| `slug` | `varchar(255)` | Slug para URL/display; **reciclável** após soft-delete |
+| `ativo` | `boolean` | Conta ativa (default `true`) |
+| `ponto_focal` / `email_ponto_focal` | `varchar(255)` | Contato principal no cliente |
+| `program_lead` | `uuid` | FK → `directus_users.id` (`ON DELETE SET NULL`) |
+| `Tamanho` | `varchar(255)` | Porte do cliente (categórico — ver abaixo) |
+| `logo_url` | `varchar(500)` | Reservado para upload de logo (hoje `null`) |
+| `deleted_at` / `deleted_by` / `purge_after` | — | Soft-delete |
+
+<Warning>
+**`slug` não é identificador.** Slugs são recicláveis após soft-delete (partial unique em
+`slug WHERE deleted_at IS NULL`). Portanto **toda referência cross-system a uma conta usa
+`id` (UUID)** — logs, eventos Inngest, `distinct_id` do PostHog, tags do Sentry, audit. O
+`slug` serve só para URL e exibição. Eventos Inngest carregam `accountId` (UUID) como chave;
+`accountSlug` pode ir junto apenas como contexto de debug, nunca como chave de lookup.
+</Warning>
+
+### Porte da conta (`Tamanho`)
+
+Coluna `varchar` livre (não enum) — valores categóricos com faixa embutida. O mapeamento de
+label e ordenação vive em `account.rules.ts` (`ACCOUNT_TAMANHO_META`); valores não mapeados
+fazem fallback para o valor cru (a UI não quebra se o admin do Directus adicionar um novo).
+
+| Valor | Label |
+|---|---|
+| `BF` | BF (Base Familiar) |
+| `P (6-15)` | P — Pequena (6-15) |
+| `M (16-60)` | M — Média (16-60) |
+| `G (60-100)` | G — Grande (60-100) |
+| `GG >100` | GG — Muito Grande (>100) |
+
+## Regras de negócio
+
+Funções puras em `account.rules.ts`:
+
+| Função | Regra |
+|---|---|
+| `isValidAccountSlug` | Slug kebab-case, 2-64 chars, `[a-z0-9-]`. Validado antes do unique no banco |
+| `getAccountTamanhoLabel` / `getAccountTamanhoSortOrder` | Label e ordenação do porte, com fallback para valor não mapeado |
+| `canSoftDeleteAccount` | Só arquiva conta ativa (`deleted_at === null`); idempotente — o caller decide se "já deletada" é erro ou no-op |
+
+## Use cases
+
+Em `leapy/packages/core/src/use-cases/backoffice/accounts/`:
+
+| Use case | Propósito |
+|---|---|
+| `create-account` / `update-account` | CRUD com validação de slug |
+| `delete-account` | Soft-delete (`deleted_at`/`purge_after`) |
+| `get-account` / `list-accounts` | Leitura |
+| `assert-account-active` | Guarda: rejeita operações em conta inativa/arquivada |
+| `get-account-subscription` | Plano/assinatura vigente da conta |
+| `switch-account-plan` | Troca de plano |
+
+## Referências de código (multirepo)
+
+| Repo | Arquivo | Propósito |
+|---|---|---|
+| `leapy` | `packages/db/src/schema/accounts.ts` | Schema da tabela `accounts` |
+| `leapy` | `packages/core/src/domain/account.rules.ts` | Regras de slug, porte e soft-delete |
+| `leapy` | `packages/core/src/use-cases/backoffice/accounts/*` | CRUD e operações |
+| `leapy-rh` | `src/app/api/backoffice/accounts/*` | Rotas BFF de contas |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Empresas" icon="building" href="/documentation/domains/empresas/index">
+    CNPJs contratantes vinculados a uma conta
+  </Card>
+  <Card title="Arquitetura do Monorepo" icon="cubes" href="/documentation/architecture/monorepo-core">
+    A camada packages/core onde contas são modeladas
+  </Card>
+</CardGroup>
