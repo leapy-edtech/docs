@@ -1,17 +1,28 @@
 ---
 title: "Automações - Make"
-description: "Sistema de automações e integrações com Make (Integromat)"
+description: "Catálogo dos cenários Make ativos na conta da Leapy, com IDs reais, schedules e fluxos correlacionados."
 ---
 
-## Visão Geral
+## Contexto de Produto
 
-Make (anteriormente Integromat) é a plataforma de automações e integrações da Leapy, conectando a plataforma com sistemas externos e automatizando workflows complexos.
+Make (anteriormente Integromat) é a plataforma de automação no-code da Leapy. Hoje cobre
+três áreas principais:
+
+1. **Pipeline de presenças Zoom** — coleta + reconciliação diária.
+2. **Comunicações por status** — notificações automáticas quando uma vaga muda de status ou
+   um jovem novo é criado.
+3. **Agregação de dashboards** — atualização periódica de tabelas analíticas.
+
+Outros caminhos (comunicações de régua, follow-up WhatsApp, alinhamento de presença) são
+implementados via **Inngest functions + hooks Directus**, não Make. Ver
+[Eventos e Jobs Inngest](/documentation/platform/events-jobs-inngest) e
+[Régua de Comunicação e Follow-up](/documentation/platform/communications-fup).
 
 ## Conceitos
 
 ### Cenários
 
-Cenários são workflows automatizados compostos por módulos:
+Cenários Make são workflows automatizados compostos por módulos encadeados:
 
 ```mermaid
 flowchart LR
@@ -21,133 +32,155 @@ flowchart LR
     D --> E[Ação Final]
 ```
 
-### Módulos
+| Tipo de Módulo | Descrição |
+|---|---|
+| **Trigger** | Inicia o cenário (webhook, schedule, polling) |
+| **Ação** | Operação atômica (consultar API, transformar dados, enviar email) |
+| **Filtro** | Conditional — passa adiante ou não |
+| **Router** | Divide o fluxo em múltiplos caminhos |
+| **Aggregator** | Agrupa itens de uma iteração |
 
-| Tipo | Descrição |
-|------|-----------|
-| **Trigger** | Inicia o cenário (webhook, schedule) |
-| **Ação** | Executa uma operação |
-| **Filtro** | Condiciona o fluxo |
-| **Router** | Divide em múltiplos caminhos |
-| **Aggregator** | Agrupa múltiplos itens |
+### Acesso ao painel
 
-## Cenários Ativos
+UI: [us1.make.com/scenarios](https://us1.make.com/71159/scenarios). Cada cenário tem
+histórico de execuções, blueprint editável, logs por módulo.
 
-### Sincronização HRIS
+## Catálogo de Cenários Ativos
 
-Sincroniza dados de colaboradores com sistemas externos de RH.
+Listagem dos cenários ativos na conta (snapshot 29/05/2026 — confirmar no painel Make antes
+de basear decisão crítica). Os IDs são canônicos e podem ser usados em consultas via API
+Make (`GET /scenarios/<id>` e `GET /scenarios/<id>/executions`).
 
-```mermaid
-flowchart LR
-    A[Webhook: talent.updated] --> B[Mapear Campos]
-    B --> C[Upsert no HRIS]
-    C --> D[Log Resultado]
-```
+### Pipeline de Presenças Zoom
 
-**Configuração:**
+Pasta no painel: `[1.Presenças] Backoffice <> Zoom`. Detalhes completos em
+[Pipeline Zoom → Backoffice](/documentation/domains/presences/pipeline-zoom-backoffice).
 
-- Trigger: Webhook do Inngest
-- Destino: API do HRIS (Gupy, etc)
-- Frequência: Tempo real
+| ID | Nome | Trigger | O que faz |
+|---|---|---|---|
+| `2546826` | `Presenças Zoom` | cron 19:05 BRT | Coleta participações via Zoom API → `report_presenca_zoom_bruto` |
+| `2547176` | `Presenças Retroativas 'next_page_token'` | on-demand | Continuação paginada disparada pela `Presenças Zoom` |
+| `3068157` | `Consolidar Presenças` | cron 20:30 BRT | Dispara flow Directus `[Presença][Parte 1] Dados zoom bruto` |
+| `4397409` | `Alinhar presenças` | cron 07:00 BRT (D+1) | Dispara evento Inngest `backoffice/alinhar-presencas.send` |
 
-### Notificações Slack/Teams
+### Comunicações por Evento
 
-Envia notificações para canais de comunicação.
+| ID | Nome | Trigger | O que faz |
+|---|---|---|---|
+| `2043662` | `E-mail boas-vindas novos usuários` | hook `directus_users.created` | Subject `Bem-vinda(o) ao Leapy RH!` via Resend |
+| `3707918` | `Vagas novas` | webhook Directus `vagas.created` | Notifica candidatos elegíveis sobre vaga recém-publicada |
+| `3708160` | `Vagas status atualizadas` | webhook Directus `vagas.updated` (campo `status`) | Notifica jovem/RH/empresa conforme novo status |
+| `4573490` | `Admissão - Integration Airtable, Google Sheets` | webhook | Sincronia de admissão entre planilhas externas |
 
-```mermaid
-flowchart LR
-    A[Webhook: pulse.closed] --> B[Formatar Mensagem]
-    B --> C{Canal}
-    C -->|Slack| D[Enviar Slack]
-    C -->|Teams| E[Enviar Teams]
-```
+Caso conhecido a investigar: o cenário `3708160` Vagas status atualizadas tem possível
+buraco no roteador — cobre `4_contratacao_feita` mas pode não cobrir `2_avaliacao_empresa`
+(reportes de "empresa não recebeu o e-mail de avaliação" sugerem esse gap).
 
-### Exportação de Relatórios
+### Agregação de Dashboards
 
-Gera e distribui relatórios automaticamente.
+| ID | Nome | Trigger | O que faz |
+|---|---|---|---|
+| `3780212` | `chart_presenca_por_mes_de_entrada` | schedule | Recalcula tabela analítica de presença por mês de entrada |
+| `2968955` | `update_chart_presenca_por_mes_de_entrada` | schedule | Atualização incremental do mesmo |
 
-```mermaid
-flowchart LR
-    A[Schedule: Mensal] --> B[Gerar Dados]
-    B --> C[Criar Excel]
-    C --> D[Upload Drive]
-    D --> E[Enviar Email]
-```
+> Estes cenários não fazem parte do pipeline operacional — apenas alimentam dashboards.
 
-### Onboarding Automatizado
+### Outros Ativos
 
-Workflow de onboarding de novos colaboradores.
-
-```mermaid
-flowchart LR
-    A[talent.created] --> B[Criar Conta Email]
-    B --> C[Provisionar Acessos]
-    C --> D[Enviar Kit Boas-vindas]
-    D --> E[Atribuir Treinamentos]
-```
+| ID | Nome | Notas |
+|---|---|---|
+| `4005524` | `Teste Notificações` | Apenas teste |
+| `2018053` | `Integration Webhooks` | Webhook genérico inbound |
 
 ## Integração com Inngest
 
-### Webhook Outbound
+Make e Inngest convivem na Leapy — Make dispara crons e gerencia integrações externas;
+Inngest executa jobs assíncronos do código. Os dois se comunicam via eventos:
 
-O Inngest pode disparar webhooks para o Make:
+### Make → Inngest (mais comum)
 
-```typescript
-await step.run("trigger-make", async () => {
-  await fetch(MAKE_WEBHOOK_URL, {
-    method: "POST",
-    body: JSON.stringify(eventData)
-  });
-});
-```
-
-### Webhook Inbound
-
-Make pode disparar eventos no Inngest:
+Cenários Make como `Alinhar presenças` chamam o endpoint Inngest pra disparar um evento:
 
 ```typescript
-// Endpoint que recebe webhook do Make
-export async function POST(req: Request) {
-  const data = await req.json();
-  await inngest.send({
-    name: "external.integration.completed",
-    data
-  });
+// No blueprint Make, módulo HTTP > "Make a request":
+// POST <INNGEST_INGEST_URL>
+// Body:
+{
+  "name": "backoffice/alinhar-presencas.send",
+  "data": { "ids": [101, 102, 103] }
 }
 ```
+
+### Inngest → Make (raro)
+
+Inngest pode chamar webhooks Make via fetch em `step.run`, mas hoje a Leapy usa pouco essa
+direção — preferencialmente os jobs Inngest fazem o trabalho localmente.
+
+## Diagnóstico Operacional
+
+Consultas comuns durante investigação de problemas, via UI Make ou via API:
+
+| Pergunta | Onde checar |
+|---|---|
+| "Que cenários existem com nome contendo X?" | UI: filtro de busca em [us1.make.com/scenarios](https://us1.make.com/71159/scenarios). API: `GET /scenarios?teamId=<id>&name_contains=X` |
+| "Esse cenário rodou em data Y?" | UI: `us1.make.com/scenarios/<id>/history`. API: `GET /scenarios/<id>/executions?from=<data>` |
+| "Detalhes do erro da execução Z?" | UI: clicar na execução no history. API: `GET /scenarios/<id>/executions/<execution_id>` |
+
+> Em investigações de campo, a **leitura** dos cenários é segura. Mutações (rodar manualmente,
+> editar blueprint, ativar/desativar) afetam produção em tempo real e devem passar pelo time
+> tech responsável pelo cenário, com backup do blueprint antes de qualquer alteração.
 
 ## Gestão de Cenários
 
 ### Versionamento
 
-Cenários são versionados e documentados:
-
-- Backup antes de alterações
-- Changelog de modificações
-- Rollback quando necessário
+Cenários ativos hoje **não têm versionamento formal** — o blueprint é editável live na UI. Para
+mudanças críticas: exportar blueprint via "Export Blueprint" antes de alterar, manter cópia
+local, e usar "Replace Blueprint" pra rollback se necessário.
 
 ### Monitoramento
 
-- **Logs**: Histórico de execuções
-- **Erros**: Alertas de falha
-- **Operações**: Contagem de uso
+- **Histórico de execuções:** `us1.make.com/scenarios/<id>/history` — últimas 100 execuções.
+- **Status do cenário:** ativo / inativo / pausado. Status `error` em ≥3 execuções
+  consecutivas pausa o cenário automaticamente.
+- **Operations consumption:** painel mostra operações usadas vs disponíveis no plano.
 
 ### Ambientes
 
-| Ambiente | Uso |
-|----------|-----|
-| Production | Cenários em produção |
-| Sandbox | Testes e desenvolvimento |
+A conta atual cobre apenas **produção**. Cenários com `[HMG]` ou `[POC]` no nome são restos
+históricos de homologação — verificar se ativos antes de tocar.
 
 ## Boas Práticas
 
-1. **Nomeação clara**: Nomes descritivos para cenários
-2. **Error handling**: Sempre trate erros
-3. **Logs**: Adicione logs em pontos críticos
-4. **Idempotência**: Cenários devem ser seguros para reexecução
-5. **Rate limits**: Respeite limites de APIs externas
-6. **Documentação**: Documente cada cenário
+1. **Nomeação clara**: prefixar com domínio (`[Presença]`, `[Pulsos]`, `[Vagas]`) facilita
+   filtro via `make_scenarios_list({name_contains: ...})`.
+2. **Filtro inicial**: cenários com webhook devem ter filtro logo após o trigger pra ignorar
+   payloads irrelevantes (reduz operations consumption).
+3. **Error handling**: usar módulos `Error Handler` (resume / rollback / commit) — não deixar
+   o cenário pausar silenciosamente em erro transitório.
+4. **Idempotência**: cenários reexecutados não devem duplicar efeito colateral (usar
+   `update` em vez de `create` quando aplicável).
+5. **Documentar IDs em referência cruzada**: incluir o `scenario_id` Make em comentário no
+   código Inngest correspondente, e vice-versa.
 
 <Warning>
-  Alterações em cenários de produção devem ser testadas em sandbox primeiro.
+  Alterações em cenários ativos afetam **produção imediatamente** — não há ambiente sandbox
+  isolado. Sempre exportar blueprint antes de mexer.
 </Warning>
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Pipeline Zoom → Backoffice" icon="calendar-check" href="/documentation/domains/presences/pipeline-zoom-backoffice">
+    Os 4 cenários Make ativos do pipeline de presença
+  </Card>
+  <Card title="Comunicações Transacionais" icon="envelope" href="/documentation/platform/communications-transactional">
+    Catálogo de emails por evento (vagas, boas-vindas, alinhamento)
+  </Card>
+  <Card title="Eventos e Jobs Inngest" icon="bolt" href="/documentation/platform/events-jobs-inngest">
+    Os jobs do código que recebem eventos disparados pelos cenários Make
+  </Card>
+  <Card title="Observabilidade" icon="chart-line" href="/documentation/platform/observability">
+    Logs, métricas e alertas dos cenários
+  </Card>
+</CardGroup>
