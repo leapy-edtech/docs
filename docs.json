@@ -46,7 +46,8 @@
                 "group": "Coletas de Pulso",
                 "pages": [
                   "documentation/domains/pulse-collections/index",
-                  "documentation/domains/pulse-collections/data-model"
+                  "documentation/domains/pulse-collections/data-model",
+                  "documentation/domains/pulse-collections/business-rules"
                 ]
               },
               {
@@ -150,6 +151,18 @@
                 "group": "Cohorts de Entrada",
                 "pages": [
                   "documentation/domains/cohorts-entrada/index"
+                ]
+              },
+              {
+                "group": "Contas",
+                "pages": [
+                  "documentation/domains/accounts/index"
+                ]
+              },
+              {
+                "group": "Empresas",
+                "pages": [
+                  "documentation/domains/empresas/index"
                 ]
               }
             ]
