@@ -1,0 +1,67 @@
+---
+title: "Skills (Taxonomia)"
+description: "Catálogo de habilidades e as skills por usuário — base do matchmaking e alvo do sync de pulsos"
+---
+
+## Visão Geral
+
+A **taxonomia de skills** é o catálogo único de habilidades da plataforma. Cada skill pode ser
+associada a um usuário (via sua carreira) com proficiência e validação. As skills alimentam o
+[Matchmaker](/documentation/domains/matchmaker/index) (casamento candidato↔vaga) e são
+sincronizadas a partir dos [Pulsos](/documentation/domains/pulses/skills-sync).
+
+## Modelo de dados
+
+### `skills` — o catálogo
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `serial` | PK |
+| `name` | `varchar(500)` | Nome — **unique** |
+| `category` / `subcategory` | `varchar` | Classificação |
+| `skill_type` | `varchar(50)` | Tipo (default `specialized`) |
+| `is_software` | `boolean` | Se é uma ferramenta/software (default `false`) |
+| `status` | `varchar(50)` | `active` por padrão |
+
+### `user_skills` — skills por usuário
+
+| Coluna | Tipo | Descrição |
+|---|---|---|
+| `id` | `uuid` | PK |
+| `user_career_id` | `uuid` | FK → carreira do usuário (a quem a skill pertence) |
+| `skill_id` | `integer` | FK → `skills.id` |
+| `proficiency` | `integer` | Nível de proficiência |
+| `is_validated` | `boolean` | Se foi validada (default `false`) |
+| `notes` | `text` | Observações |
+
+<Note>
+As skills do usuário são ligadas à **carreira** (`user_career_id`), não diretamente ao usuário —
+o que permite histórico por vínculo. A validação (`is_validated`) distingue skill declarada de
+skill confirmada.
+</Note>
+
+## Sincronização via Pulsos
+
+O job Inngest `sync-pulso-skills` (evento `backoffice/pulso.skills-sync`) atualiza
+`user_skills` a partir das respostas de pulso — ver
+[Pulsos — Sincronização de Skills](/documentation/domains/pulses/skills-sync) para o fluxo
+completo.
+
+## Referências de código (multirepo)
+
+| Repo | Arquivo | Propósito |
+|---|---|---|
+| `leapy` | `packages/db/src/schema/skills.ts` | Catálogo de skills |
+| `leapy` | `packages/db/src/schema/user-skills.ts` | Skills por carreira de usuário |
+| `backoffice-inngest-functions` | `src/inngest/functions/pulsos/sync-pulso-skills.ts` | Sincroniza skills a partir dos pulsos |
+
+## Veja também
+
+<CardGroup cols={2}>
+  <Card title="Matchmaker" icon="wand-magic-sparkles" href="/documentation/domains/matchmaker/index">
+    Como skills entram no casamento candidato↔vaga
+  </Card>
+  <Card title="Pulsos — Sincronização de Skills" icon="arrows-rotate" href="/documentation/domains/pulses/skills-sync">
+    O job que alimenta user_skills a partir dos pulsos
+  </Card>
+</CardGroup>
