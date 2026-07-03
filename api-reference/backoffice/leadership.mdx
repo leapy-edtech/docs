@@ -1,120 +1,97 @@
 ---
-title: Backoffice — Gestão de Liderança
-description: Endpoints BFF para listagem e criação de lideranças no backoffice, com filtros por conta, status e busca textual.
+title: Leadership (Lideranças)
+description: Criação e gestão de lideranças (gestores de jovens nas empresas) via API do Directus.
 ---
 
 ## Visão geral
 
-Os endpoints `/api/backoffice/leadership` gerenciam lideranças (role `user-leadership-*`) no backoffice. Compõem dados de múltiplas coleções Directus (`directus_users`, `user_personal_data`, `user_careers`) e incluem contagem de estagiários sob cada liderança.
-
-Ambos requerem sessão NextAuth com `accessToken`.
+O recurso **Leadership** permite criar e gerenciar **lideranças** — usuários que atuam como gestores de jovens (aprendizes/estagiários) nas empresas parceiras. Lideranças são criadas como usuários no Directus (`directus_users`) com role `user-leadership` e vinculadas a jovens via `user_careers.leader_id`.
 
 ---
 
-## GET /api/backoffice/leadership
+## Modelo de dados
 
-Lista lideranças com filtros opcionais. A query é montada diretamente no Directus SDK (`readUsers`) com filtros compostos.
+Uma liderança é composta por:
 
-### Query params
+- **`directus_users`**: registro de usuário com role `user-leadership`, contendo `first_name`, `last_name`, `email` (obrigatórios)
+- **`user_personal_data`**: dados pessoais (telefone, etc.)
+- **`user_careers`**: relacionamento com jovem (`user_id`) e empresa (`account_id`), incluindo campo `leader_id` (FK para `directus_users.id`)
 
-| Parâmetro | Tipo | Padrão | Descrição |
-|-----------|------|--------|-----------|
-| `search` | `string` | `""` | Busca por `first_name`, `last_name` ou `email` (case-insensitive) |
-| `account_id` | `string` | `""` | Filtrar por conta |
-| `status` | `string` | `""` | Status do usuário (ex.: `"active"`, `"inactive"`). `"todos"` = sem filtro |
-| `page` | `number` | `1` | Página (base 1) |
-| `limit` | `number` | `25` | Itens por página |
+---
 
-### Comportamento
+## Criação via API
 
-- Filtra sempre por `role = "6cf36344-400a-49a9-a6a2-103a2ee4d897"` (UUID fixo do role `user-leadership`)
-- Combina `_or` para `search`: busca simultânea em nome e email
-- Offset calculado como `(page - 1) * limit`
+### Endpoint: `POST /leadership`
 
-### Resposta `200`
+Cria uma nova liderança no sistema, incluindo:
+1. Usuário em `directus_users` (role `user-leadership`)
+2. Dados pessoais em `user_personal_data`
+3. Vínculo em `user_careers` (liderança → jovem → empresa)
 
+**Validações obrigatórias:**
+- `first_name`, `last_name`, `email` (do usuário liderança)
+- `phone_number` (dados pessoais)
+- `account_id` (empresa)
+
+**Exemplo de payload:**
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "first_name": "Ana",
-      "last_name": "Costa",
-      "email": "ana@empresa.com",
-      "status": "active",
-      "account": "acct_id",
-      "estagiarios_count": 5
-    }
-  ],
-  "total": 42
+  "first_name": "Maria",
+  "last_name": "Silva",
+  "email": "maria.silva@empresa.com",
+  "phone_number": "+5511999999999",
+  "account_id": "uuid-da-empresa"
 }
 ```
-
-### Erros
-
-| Status | Descrição |
-|--------|-----------|
-| `401` | Sessão inválida |
-| `500` | Erro ao consultar o Directus |
-
----
-
-## POST /api/backoffice/leadership
-
-Cria uma nova liderança. Thin proxy para `Directus POST /leadership` (extensão customizada).
-
-### Corpo
-
-| Campo | Tipo | Obrigatório | Descrição |
-|-------|------|-------------|-----------|
-| `first_name` | `string` | sim | Primeiro nome |
-| `last_name` | `string` | sim | Sobrenome |
-| `email` | `string` | sim | Email (normalizado para lowercase pelo BFF) |
-| `phone_number` | `string` | não | Telefone (somente dígitos pelo BFF) |
-| `account_id` | `string` | sim | Conta à qual a liderança pertence |
-
-### Transformações do BFF
-
-- `email.trim().toLowerCase()`
-- `phone_number.replace(/\D/g, "")` (remove não-dígitos)
-
-### Resposta
-
-Passthrough da resposta do Directus com o mesmo status code.
 
 ---
 
 ## Relações com outros recursos
 
-| Recurso | Descrição |
-|---------|-----------|
-| `directus_users` | Usuário base da liderança |
-| `user_personal_data` | Dados pessoais complementares |
-| `user_careers` | Dados de carreira/cargo |
-| `Jovens` | Estagiários sob esta liderança (campo `leader_id`) |
+- **Jovens (Apprentices)**: Vinculados via `user_careers.leader_id`
+- **Empresas (Accounts)**: Identificadas via `user_careers.account_id`
+- **Directus Users**: Lideranças são usuários com role `user-leadership`
+
+---
+
+## Troubleshooting — Dados de liderança vazios
+
+### Problema: jovens com liderança sem nome ou e-mail
+
+**Sintoma:** Ao buscar jovens filtrados por turma (ex: `start_date >= 2026-01-01`), alguns aparecem com dados de liderança (`first_name` ou `email`) vazios.
+
+**Causa raiz:**
+
+1. **Migração da tabela legada `Liderancas`:** Antes da migração para o modelo atual, lideranças eram armazenadas na tabela `Liderancas` (com colunas `Nome`, `E-mail`, FK `user`). Durante a migração para o modelo atual (`directus_users` com role `user-leadership` + `user_careers.leader_id`), registros com `Nome` ou `E-mail` NULL podem ter sido migrados com `first_name`/`email` NULL em `directus_users`. A tabela `Liderancas` é legada e será removida.
+
+2. **Criação via `/leadership` com validação bypassada:** A rota `POST /leadership` valida `first_name`, `last_name` e `email` como obrigatórios. Registros criados após a migração **não deveriam** ter campos vazios, mas podem existir casos edge (ex: validação desabilitada temporariamente, imports diretos no Directus).
+
+**Como identificar:**
+
+Query Directus (ou SQL) para listar jovens em turmas iniciadas em 2026 com liderança incompleta:
+
+```
+Jovens (filtro: turma.start_date >= '2026-01-01')
+  → JOIN user_careers ON user_careers.user_id = Jovens.user
+  → JOIN directus_users ON directus_users.id = user_careers.leader_id
+  → WHERE directus_users.first_name IS NULL
+      OR directus_users.email IS NULL
+```
+
+**Correção:**
+
+- **Manual:** Preencher `first_name` e `email` diretamente no registro de `directus_users` da liderança via Directus Admin.
+- **Bulk:** Se houver muitos registros, rodar script de backfill consultando fonte de verdade (ex: planilha original ou sistema de RH da empresa).
+
+**Prevenção:**
+
+- A validação atual na rota `/leadership` já previne novos registros vazios.
+- Monitorar constraints `NOT NULL` no schema de `directus_users.first_name` e `directus_users.email` (atualmente são nullable por compatibilidade com outras roles; considerar constraint condicional por role no futuro).
 
 ---
 
 ## Referências de código
 
-| Arquivo | Repo |
-|---------|------|
-| `src/app/api/backoffice/leadership/route.ts` | `leapy-rh` |
-| `src/app/api/backoffice/leadership/[id]/route.ts` | `leapy-rh` |
-| `extensions/endpoints/src/leadership/index.js` | `directus-backoffice-with-extensions` |
-
----
-
-## Veja também
-
-<CardGroup cols={2}>
-  <Card title="Jovens — Índice" icon="users" href="/documentation/domains/jovens/index">
-    Como lideranças se relacionam com jovens no domínio
-  </Card>
-  <Card title="Jovens — Ciclo de Vida" icon="route" href="/documentation/domains/jovens/lifecycle">
-    Mudanças de liderança e eventos disparados (hook-jovem-nova-lideranca)
-  </Card>
-  <Card title="Cohorts — Importação" icon="table" href="/api-reference/backoffice/cohorts-import">
-    Resolução de lideranças durante importação em lote
-  </Card>
-</CardGroup>
+- **Extensão Directus:** `leapy-edtech/directus-backoffice-with-extensions`
+- **Rota:** `POST /leadership` em `/extensions/endpoints/backoffice/leadership`
+- **Schemas relacionados:** `directus_users`, `user_personal_data`, `user_careers`
