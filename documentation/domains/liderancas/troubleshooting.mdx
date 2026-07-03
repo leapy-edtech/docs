@@ -1,0 +1,167 @@
+---
+title: Troubleshooting — Dados de liderança vazios
+description: Como identificar e corrigir lideranças com nome ou e-mail vazios em directus_users.
+---
+
+## Contexto
+
+**Lideranças** são usuários em `directus_users` com role `user-leadership`, vinculados a jovens via `user_careers.leader_id`. Antes da migração para o modelo atual, lideranças eram armazenadas na tabela legada `Liderancas` (que será removida).
+
+---
+
+## Problema: jovens com liderança sem nome ou e-mail
+
+### Sintoma
+
+Ao buscar jovens (filtrados por turma, ex: `start_date >= 2026-01-01`), alguns aparecem com dados de liderança incompletos:
+- `directus_users.first_name` NULL
+- `directus_users.email` NULL
+
+Isso impede comunicação, relatórios e exibição correta de liderança no backoffice.
+
+---
+
+## Causa raiz
+
+### 1. Migração da tabela legada `Liderancas`
+
+Antes da migração, lideranças eram armazenadas na tabela `Liderancas` com colunas:
+- `Nome` (nullable)
+- `E-mail` (nullable)
+- `user` (FK para `directus_users`)
+- `empresa_id` (FK para `Empresas`)
+
+Durante a migração para o modelo atual (`directus_users` com role `user-leadership` + `user_careers.leader_id`), registros com `Nome` ou `E-mail` NULL podem ter sido migrados com `first_name`/`email` NULL em `directus_users`.
+
+**Nota:** A tabela `Liderancas` é legada e será removida. Jovens aprendizes ainda podem ter FK `lideranca_id` em `user_apprenticeship_data` apontando pra ela, mas o sistema atual usa `user_careers.leader_id`.
+
+### 2. Criação via `/leadership` com validação bypassada
+
+A rota `POST /leadership` (veja [API Reference](../../../api-reference/backoffice/leadership)) valida `first_name`, `last_name` e `email` como **obrigatórios**. Registros criados após a migração **não deveriam** ter campos vazios, mas podem existir casos edge:
+- Validação desabilitada temporariamente
+- Import direto via Directus Admin (bypassa validação da API)
+- Bug em script de migração/backfill
+
+---
+
+## Como identificar
+
+### Query Directus Filter (via API ou UI)
+
+Buscar jovens em turmas iniciadas em 2026 com liderança incompleta:
+
+```json
+{
+  "filter": {
+    "turma": {
+      "start_date": {
+        "_gte": "2026-01-01"
+      }
+    },
+    "_and": [
+      {
+        "user": {
+          "user_careers": {
+            "leader_id": {
+              "_or": [
+                { "first_name": { "_null": true } },
+                { "email": { "_null": true } }
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "fields": [
+    "id",
+    "user.first_name",
+    "user.last_name",
+    "turma.name",
+    "user.user_careers.leader_id.first_name",
+    "user.user_careers.leader_id.email"
+  ]
+}
+```
+
+### SQL direto (se tiver acesso ao Postgres)
+
+```sql
+SELECT 
+  j.id AS jovem_id,
+  u_jovem.first_name || ' ' || u_jovem.last_name AS jovem_nome,
+  t.name AS turma_nome,
+  u_lider.id AS lider_user_id,
+  u_lider.first_name AS lider_first_name,
+  u_lider.email AS lider_email
+FROM "Jovens" j
+JOIN directus_users u_jovem ON u_jovem.id = j.user
+JOIN user_careers uc ON uc.user_id = j.user
+JOIN directus_users u_lider ON u_lider.id = uc.leader_id
+JOIN "Turmas" t ON t.id = j.turma
+WHERE t.start_date >= '2026-01-01'
+  AND (u_lider.first_name IS NULL OR u_lider.email IS NULL);
+```
+
+---
+
+## Correção
+
+### Manual (poucos registros)
+
+1. Acesse o **Directus Admin** → `User Directory`
+2. Filtre por role `user-leadership`
+3. Identifique registros com `first_name` ou `email` vazios
+4. Edite cada registro e preencha com dados corretos (consulte planilha original ou sistema de RH da empresa)
+
+### Bulk (muitos registros)
+
+Se houver muitos registros afetados:
+
+1. **Exporte a lista** de lideranças com dados vazios (via query acima)
+2. **Consulte a fonte de verdade**: planilha original de importação, sistema de RH da empresa, ou tabela legada `Liderancas` (se ainda existir)
+3. **Rode script de backfill** via API Directus ou SQL:
+
+```javascript
+// Exemplo Node.js com Directus SDK
+import { createDirectus, rest, updateUser } from '@directus/sdk';
+
+const client = createDirectus('https://backoffice.leapy.com.br')
+  .with(rest());
+
+const updates = [
+  { id: 'uuid-lider-1', first_name: 'Maria', email: 'maria@empresa.com' },
+  { id: 'uuid-lider-2', first_name: 'João', email: 'joao@empresa.com' },
+  // ...
+];
+
+for (const { id, first_name, email } of updates) {
+  await client.request(updateUser(id, { first_name, email }));
+  console.log(`Atualizado: ${id}`);
+}
+```
+
+---
+
+## Prevenção
+
+### Validação atual (após migração)
+
+A rota `POST /leadership` já valida `first_name`, `last_name` e `email` como obrigatórios. Novos registros criados via API **não devem** ter campos vazios.
+
+### Constraints no banco (futuro)
+
+Atualmente, `directus_users.first_name` e `directus_users.email` são **nullable** por compatibilidade com outras roles (ex: `user-admin`, `user-company-admin`).
+
+**Opções futuras:**
+- Adicionar **constraint condicional** (CHECK) no Postgres: `first_name` e `email` NOT NULL apenas para role `user-leadership`
+- Criar **trigger** que valida campos obrigatórios ao inserir/atualizar usuário com role de liderança
+
+---
+
+## Referências
+
+- **API Reference**: [POST /leadership](../../../api-reference/backoffice/leadership)
+- **Modelo de dados**: `directus_users` (role `user-leadership`) + `user_careers.leader_id`
+- **Tabela legada**: `Liderancas` (será removida; jovens aprendizes ainda podem ter FK `lideranca_id` em `user_apprenticeship_data`)
+- **Código**: `leapy-edtech/directus-backoffice-with-extensions` → `/extensions/endpoints/backoffice/leadership`
