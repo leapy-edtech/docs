@@ -69,8 +69,15 @@ A coleção `Turmas` tem o campo `modelo` com dois valores em produção:
 **Regra de obrigatoriedade (apenas `leapy`):**
 
 Se `Turmas.modelo = 'leapy'` e `Jovens.Status_formacao = 'em_andamento'`, então em todo dia
-que casa com `Turmas.dia_de_curso` (ex: `terca_feira`) o jovem **deve** ter linha em
+que casa com **`Jovens.Dia do curso Leapy`** (ex: `terca_feira`) o jovem **deve** ter linha em
 `report_presenca_zoom` para o encontro daquele dia — exceto em feriados.
+
+<Warning>
+  O campo `Turmas.dia_de_curso` é **apenas informativo** — os flows de presença do Directus
+  (incluindo `[Presença] Calcular Faltas`) **não o consultam**. A obrigatoriedade é sempre
+  determinada pelo campo `Jovens.Dia do curso Leapy`. Se houver inconsistência entre os dois
+  campos, prevalece o do jovem.
+</Warning>
 
 <Note>
   Outros valores de `Status_formacao` (`nao_iniciado`, `pausado`, `ferias`, `concluido`,
