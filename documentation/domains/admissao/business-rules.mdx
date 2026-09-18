@@ -1,0 +1,206 @@
+---
+title: "Admissão — Regras de Negócio"
+description: "Máquina de estados, gates, conclusão atômica, cancelamentos A e B e ações em lote"
+---
+
+## Máquina de Estados
+
+**Domain rules:** `packages/core/src/domain/admissao.rules.ts`
+
+```
+aguardando_dados
+    ↓  complete-admission-collection (CLI-03)
+coleta_concluida
+    ↓  generate-contract (OPS-07)
+contrato_gerado
+    ↓  send-envelope (OPS-08)
+envelope_enviado  ←──── envelope_expirado
+    ↓                       ↑ resend-envelope (OPS-18)
+admissao_concluida     ────┘
+    (terminal)
+
+admissao_cancelada  ←── qualquer estado (OPS / CLI)
+    (terminal)
+```
+
+| Constante | Valor |
+|---|---|
+| `ADMISSION_TRIGGER_STEP` | `"in_admission"` — step da candidatura que dispara a criação |
+| `CANCELLABLE_ADMISSION_STATUSES` | Todos os statuses exceto `admissao_concluida` e `admissao_cancelada` |
+
+---
+
+## Gates
+
+### Gate de Coleta — `canMarkCollectionComplete`
+
+Valida que todos os campos obrigatórios estão preenchidos antes de permitir que o cliente conclua a coleta.
+
+- Campos obrigatórios: definidos em `REQUIRED_COLLECTION_FIELDS`
+- Se o jovem tiver menos de 18 anos: `REQUIRED_RL_FIELDS` (responsável legal) também são obrigatórios
+- `isValidApprenticeAge`: valida faixa etária de 14 a 24 anos
+
+### Gate de Contrato
+
+- `calendar_status` deve ser `validado` ou `aprovado_com_ressalvas`
+- Template de contrato deve estar selecionado
+- `validate-contract-data` retorna `{ ready, missingFields[], blockers[] }` — dry-run sem chamada ao ClickSign
+
+### Gate de Conclusão (v1)
+
+- `cronograma_id` preenchido manualmente por Ops antes de confirmar a conclusão
+
+---
+
+## Conclusão — Transação Atômica
+
+**Use-case:** `conclude-admission` · `packages/core/src/use-cases/admissao/conclude-admission.ts`
+
+Disparada automaticamente via webhook ClickSign (`systemMode: true`) ou manualmente por Ops como escape hatch.
+
+### O que acontece na transação (em sequência)
+
+| # | O que faz | Tabela / campo |
+|---|---|---|
+| 1 | Status da admissão | `admissions.status = "admissao_concluida"` + `concluded_at` |
+| 2 | Upgrade de role | `directus_users.role`: `user-candidate → user-learning-leaper` |
+| 3 | Líder (find or create) | `directus_users` com `role = user-leadership`, `status = active`. Se criado: senha temporária gerada na rota (argon2, Node-only) |
+| 4 | Carreira do jovem | `user_careers` com `leaderId`, `companyId` (da vaga), `startDate`, `endDate`, `contractStatus = "ativo"` |
+| 5 | Benefícios | `user_benefits` upsert de `vagas.beneficios` (string[] → booleans) |
+| 6 | Dados de formação | `user_apprenticeship_data` com `turmaId`, `entidadeId`, `statusFormacao = "em_andamento"` |
+| 7 | Link jovem | `directus_users.jovem = user_apprenticeship_data.id` |
+| 8 | Auditoria | `admission_history` com evento `admission_concluded` |
+
+<Note>
+`statusFormacao = "em_andamento"` é o valor correto verificado em prod (1.292 registros). O valor `"ativo"` não existe.
+</Note>
+
+### Fire-and-forget após commit
+
+- Welcome email ao líder recém-criado (se foi criado)
+- Moodle: cria usuário (best-effort — Ops re-tenta se falhar)
+- Email ao ponto focal da conta + todos os responsáveis da vaga (`kind = "concluded"`)
+- Slack canal ops `admissao_concluida`
+
+### Idempotência
+
+Covered by tests: `conclude-admission.test.ts` cobre `leaderId` (líder existente), `leaderToCreate` (criação), `systemMode=true` (webhook), idempotência, `ForbiddenError`, `NotFoundError`, `ValidationError`.
+
+---
+
+## Cancelamento A — Pré-Conclusão
+
+**Use-case:** `cancel-admission` · `packages/core/src/use-cases/admissao/cancel-admission.ts`
+
+**Quem pode:** OPS via `POST /api/backoffice/admissao/[id]/cancel` | Cliente via `POST /api/client/admissao/[id]/cancel` (com tenant guard por account).
+
+### O que acontece na transação
+
+| # | O que faz | Tabela / campo |
+|---|---|---|
+| 1 | Status da admissão | `admissions.status = "admissao_cancelada"` |
+| 2 | Envelope | `envelopeStatus = "cancelado"` *(somente se havia envelope ativo)* |
+| 3 | Candidatura | `user_job_applications.isRejected = true`, `currentStep = "approved_for_offer"` |
+| 4 | Auditoria | `admission_history` com evento `admission_cancelled` |
+
+<Note>
+`isRejected = true` libera o slot do partial unique index — desassocia o candidato da vaga e permite que ele entre em nova admissão em outra vaga. O step `approved_for_offer` é histórico e não muda.
+</Note>
+
+### Fire-and-forget após commit
+
+- ClickSign: invalida o envelope (best-effort, se havia envelope ativo)
+- Email ao ponto focal + responsáveis da vaga (`kind = "cancelled"`)
+- Slack `admissao_cancelada`
+
+---
+
+## Cancelamento B — Pós-Conclusão (Rollback Completo)
+
+**Use-case:** `cancel-concluded-admission` · `packages/core/src/use-cases/admissao/cancel-concluded-admission.ts`
+
+**Quem pode:** OPS apenas via `POST /api/backoffice/admissao/[id]/cancel-concluded`. Requer motivo obrigatório. É auditado.
+
+### O que desfaz na transação
+
+| # | O que desfaz | Tabela / campo |
+|---|---|---|
+| 1 | Status da admissão | `admissions.status = "admissao_cancelada"` |
+| 2 | Dados de formação | `user_apprenticeship_data` → **deletado** |
+| 3 | Carreira | `user_careers` → **deletado** |
+| 4 | Benefícios | `user_benefits` → **deletado** |
+| 5 | Link jovem | `directus_users.jovem = null` |
+| 6 | Role downgrade | `directus_users.role`: `user-learning-leaper → user-candidate` |
+| 7 | Candidatura | `user_job_applications.isRejected = true`, `currentStep = "approved_for_offer"` |
+| 8 | Auditoria | `admission_history` com evento `admission_cancelled` |
+
+<Warning>
+**Líderes não são deletados** — podem ser compartilhados por outros jovens.  
+**Envelope ClickSign não é invalidado** — o contrato assinado é registro histórico (decisão jurídica).
+</Warning>
+
+### Fire-and-forget após commit
+
+- Moodle: remove o jovem da coorte (best-effort)
+- Slack `admissao_cancelada`
+- Email ao ponto focal + responsáveis da vaga (`kind = "cancelled"`)
+
+---
+
+## Ações em Lote (Bulk)
+
+Todas as bulk actions operam com limites de IDs por operação e retornam um relatório de `{ success, skipped, errors }`.
+
+| Ação | Rota | Limite | Comportamento |
+|---|---|---|---|
+| Gerar contratos em lote | `POST /backoffice/admissao/contract/generate/bulk` | 100 IDs | `verifyAndGenerateContract(force=false)` por admissão. Falha individual não para o lote |
+| Enviar envelopes em lote | `POST /backoffice/admissao/envelope/send/bulk` | 200 IDs | `sendEnvelope` por admissão |
+| Definir template em lote | `POST /backoffice/admissao/template/bulk` | 500 IDs | Só aplica em status `coleta_concluida` |
+| Enviar lembretes de coleta | `POST /backoffice/admissao/remind` | 500 IDs | `sendAdmissionReminder` — só para `aguardando_dados` |
+| Editar campos comuns | Bulkbar na UI | — | Campos que são iguais para todos (liderança, benefícios, responsável por assinar) |
+| Cobrar assinaturas em lote | Bulkbar na UI | — | `send-signing-reminder` com rate limit de 24h por signatário |
+
+---
+
+## Trigger Automático via Vaga
+
+**Use-case:** `ensure-admissions-for-approved-applications`
+
+Chamado internamente por `updateClientVaga` e `updateVaga` quando uma vaga transita para status `admissao`. Verifica a feature flag `monorepo_features_admissao` por account antes de agir. Para cada candidatura em `approved_for_offer`: move para `in_admission` e cria `admissions`.
+
+**Idempotência:** guard via `findByApplicationId` antes do INSERT + catch de violação UNIQUE PostgreSQL (`23505`).
+
+---
+
+## Permissões por Ator
+
+| Ação | OPS | Cliente |
+|---|---|---|
+| Visualizar admissões | Todas as contas | Só a própria conta |
+| Preencher dados do jovem | Inline ou drawer | Formulário com autosave |
+| Marcar coleta como concluída | Sim | Sim |
+| Gerar contrato | Sim | Não |
+| Enviar envelope ClickSign | Individual + lote | Não |
+| Cobrar assinatura | Individual + lote | Individual + lote |
+| Cancelar admissão (pré-conclusão) | Sim | Sim |
+| Cancelar admissão (pós-conclusão) | Sim (Cenário B) | Não |
+| Concluir admissão (escape hatch) | Sim | Não |
+| Exportar XLSX (66 colunas) | Sim | Não |
+| Ver histórico de eventos | Sim (completo) | Sim (simplificado) |
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Contratos e ClickSign" icon="file-signature" href="/documentation/domains/admissao/contratos-clicksign">
+    Detalhes da conclusão via webhook e da geração de contrato
+  </Card>
+  <Card title="Modelo de Dados" icon="database" href="/documentation/domains/admissao/data-model">
+    Enums de status e tabelas tocadas nas transações
+  </Card>
+  <Card title="Arcos e Entidades" icon="sitemap" href="/documentation/platform/arcos-entidades">
+    Entidade formadora referenciada na conclusão
+  </Card>
+  <Card title="Soft Delete e Purga" icon="trash" href="/documentation/platform/soft-delete-purga">
+    Contexto do soft-delete em janelas de admissão
+  </Card>
+</CardGroup>
