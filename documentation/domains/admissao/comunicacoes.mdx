@@ -1,0 +1,110 @@
+---
+title: "Admissão — Regras de Comunicação"
+description: "Mapa completo de eventos × notificações: quais etapas geram email, quais geram Slack e quem são os destinatários"
+---
+
+## Dois Canais de Comunicação
+
+| Canal | Propósito |
+|---|---|
+| **E-mail (sistema)** | Notifica o ponto focal da empresa e os responsáveis da vaga em eventos operacionais de admissão |
+| **Slack `#admissao-v2-notificações`** | Notifica a equipe Leapy/Ops em eventos-chave da admissão |
+| **E-mail (ClickSign)** | Enviado diretamente pelo ClickSign para cada signatário — fora do controle da Leapy |
+| **Slack `#hiring-vagas`** | Canal separado para avisos de novas vagas no Hiring (não de admissão) |
+
+---
+
+## Mapa de Eventos × Notificações
+
+| Etapa | Evento registrado | E-mail (sistema) | Slack |
+|---|---|---|---|
+| Vaga criada no Hiring | — | Aviso "vaga aberta" → responsáveis da vaga | `#hiring-vagas` |
+| Admissão criada (`in_admission`) | `admission_created` | — | `#admissao-v2-notificações` · `nova_admissao` |
+| Coleta concluída (cliente finaliza) | `collection_finalized` | Notificação Ops para checar pendências | — |
+| Coleta reaberta por Ops | `collection_reopened` | — | — |
+| Calendário validado por Ops | `calendar_validated` | — | — |
+| Contrato gerado (envelope criado) | `contract_generated` | Ponto focal + responsáveis (`kind = "contract_generated"`) | `#admissao-v2-notificações` · `contrato_gerado` |
+| Envelope enviado para assinatura | `envelope_sent` | ClickSign → cada signatário (automático) | — |
+| Signatário assinou | `signatory_signed` | ClickSign → confirmação ao signatário | — |
+| Lembrete de assinatura (OPS cobra) | `reminder_sent` | ClickSign → signatários pendentes | — |
+| Envelope fechado (todos assinaram) | `envelope_closed` | ClickSign → todos os signatários | — |
+| Admissão concluída | `admission_concluded` | — | `#admissao-v2-notificações` · `admissao_concluida` |
+| Admissão cancelada | `admission_cancelled` | Ponto focal + responsáveis (`kind = "cancelled"`) | `#admissao-v2-notificações` · `admissao_cancelada` |
+| Envelope cancelado | `envelope_cancelled` | ClickSign → signatários | — |
+| Envelope expirado (prazo esgotado) | `envelope_expired` | ClickSign → aviso de expiração | `#admissao-v2-notificações` · `envelope_expirado` |
+| Envelope reenviado após expiração | `envelope_resent` | Ponto focal + responsáveis (`kind = "envelope_sent"`) + ClickSign → novos links | `#admissao-v2-notificações` · `envelope_reenviado` |
+
+---
+
+## E-mails do Sistema (Leapy)
+
+**Use-case:** `notify-rh-on-admission-event` · `packages/core/src/use-cases/admissao/notify-rh-on-admission-event.ts`
+
+Helper fire-and-forget chamado por `generate-contract`, `send-envelope` e `resend-envelope` após commit da transação principal. Nunca lança exceção — falhas são logadas e silenciadas.
+
+### Destinatários
+
+Resolução em cascata (usa a primeira não-nula):
+1. `admission.leaderEmail`
+2. `admission.corporateEmail`
+3. `vagas.emailRequisitante`
+
+**Na prática:** todos os eventos de admissão enviados pelo sistema vão para `emailPontoFocal` da conta + todos os `vagas.responsaveis[*].email`.
+
+### Exceção importante
+
+`envelope_sent` **não gera e-mail do sistema** — o ClickSign já notifica cada signatário diretamente ao ativar o envelope. Enviar também pelo sistema seria duplicação.
+
+### URL no e-mail
+
+- Com slug de conta: `/{accountSlug}/admissao/{id}` (portal do cliente)
+- Sem slug: URL do backoffice como fallback
+
+---
+
+## Mensagens Slack
+
+**Use-case:** `services.slackAdmission.sendAdmissionEvent`  
+**Canal:** `#admissao-v2-notificações`
+
+Configurado via PR #384. Cada mensagem contém contexto rico: nome do candidato, empresa, janela de admissão, ator que disparou a ação. 6 eventos de gate com formato enriquecido.
+
+**Configuração operacional:** o webhook do Slack é configurado via variável de ambiente em produção. Timeout de 10s; falhas são classificadas como `SlackSendError` e não propagadas.
+
+---
+
+## Rate Limit de Lembretes
+
+O use-case `send-signing-reminder` aplica rate limit de **24h por signatário**. Antes de notificar, cruza com `admission_history` (eventos `reminder_sent`) para evitar spam.
+
+Quando o ClickSign está offline, usa `notificarSignatarios` (POST `/notify` global) com rate limit por admissão em vez de por signatário.
+
+---
+
+## O que NÃO gera notificação
+
+| Etapa | Por quê não notifica |
+|---|---|
+| Calendário validado | Ação interna de Ops — sem destinatário externo relevante |
+| Coleta reaberta | Ação interna — Ops reabre e sabe que fez |
+| Template selecionado | Ação de configuração interna |
+| Cancelamento de admissão (pré-conclusão) pré-envelope | Sem envelope para invalidar, Slack ainda notifica |
+
+---
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Contratos e ClickSign" icon="file-signature" href="/documentation/domains/admissao/contratos-clicksign">
+    Quando e como o ClickSign envia notificações aos signatários
+  </Card>
+  <Card title="Regras de Negócio" icon="book" href="/documentation/domains/admissao/business-rules">
+    Contexto das transações que disparam notificações
+  </Card>
+  <Card title="Comunicações — Transacional" icon="envelope" href="/documentation/platform/communications-transactional">
+    Infraestrutura de e-mail transacional da plataforma
+  </Card>
+  <Card title="Events Outbox" icon="inbox" href="/documentation/platform/events-outbox">
+    Padrão de eventos assíncronos (outbox) usado nas notificações
+  </Card>
+</CardGroup>
