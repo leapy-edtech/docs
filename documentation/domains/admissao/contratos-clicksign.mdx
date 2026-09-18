@@ -1,0 +1,199 @@
+---
+title: "Admissão — Contratos e ClickSign"
+description: "Templates de contrato, geração via ClickSign Modelos, signatários, envio, cobranças e reemissão"
+---
+
+## Visão Geral
+
+A Leapy usa o **ClickSign Modelos** para geração de contratos. O template fica no ClickSign e é resolvido automaticamente por `(entidade_id, account_id, menor_variant)` na criação do envelope. As variáveis `{{}}` são preenchidas via API — não há geração local de PDF (mail-merge local existe apenas como fallback se o ClickSign estiver indisponível).
+
+## Templates de Contrato
+
+**Use-cases:** `create-contract-template`, `update-contract-template`, `deactivate-contract-template`, `list-contract-templates`  
+**Rota de gestão:** `/backoffice/admissao` → kebab → "Templates de contrato"
+
+| Segmento | Documentos no envelope |
+|---|---|
+| LeapyGO | 3 docs: Educacional + Aprendizagem + Calendário |
+| Ecossistema | 2 docs: Contrato + Calendário |
+
+O calendário é sempre incluído como 2º documento assinável no mesmo envelope. Uma única sessão de assinatura cobre todos os documentos.
+
+### Seleção de template
+
+O template é selecionado por Ops no drawer "Gerar contrato". O produto sugere o template default para o segmento da janela (`leapy_rh` ou `ecossistema`). Ops pode substituir antes de gerar.
+
+**Use-cases de seleção:** `set-admission-template` (individual), `bulk-set-admission-template` (em lote)
+
+| Restrição | Detalhe |
+|---|---|
+| Template travado | Não pode mudar após `contrato_gerado`, `envelope_enviado` ou `admissao_concluida` |
+| Bulk: somente elegíveis | `bulk-set-admission-template` só aplica em admissões com status `coleta_concluida` |
+| Limite bulk | Até 500 IDs por operação |
+
+---
+
+## Geração de Contrato (US-OPS-07)
+
+**Use-case:** `generate-contract` · `packages/core/src/use-cases/admissao/generate-contract.ts`
+
+### Pré-requisitos
+
+- `admission.status === "coleta_concluida"`
+- Template selecionado
+- Calendário com `calendar_status` em `validado` ou `aprovado_com_ressalvas`
+- Sem envelope existente (idempotência via guard)
+
+### Validação antes de gerar
+
+`validate-contract-data` executa um dry-run: verifica todos os dados sem chamar o ClickSign.  
+Retorna `{ ready, missingFields[], blockers[] }` — a UI usa isso para habilitar/desabilitar o botão.
+
+Também pode ser disparado por `verify-and-generate-contract` após validação de calendário (auto-geração).
+
+### Dados críticos
+
+| Campo | Fonte | Observação |
+|---|---|---|
+| `salary_in_words` | `vagas.salario` via lib `extenso` | Populado em `create-admission` e on-the-fly em `generate-contract` para admissões existentes |
+| Responsável pela empresa | `accounts.pontoFocal` | **Não** `vaga.requisitante` — que pode conter cargo em vez de nome |
+| Bloqueio de CNPJ | `assertNoRemainingTemplateVars()` | Falha antes de enviar ao ClickSign se alguma variável `{{}}` não foi resolvida |
+
+### Chamadas ao ClickSign (em sequência)
+
+1. `criarEnvelopeComModelo` — cria o envelope com as variáveis preenchidas
+2. `adicionarDocumentoPDF` — adiciona o calendário como 2º documento
+3. N × `adicionarSignatario` — adiciona cada signatário na ordem correta (ver seção Signatários)
+4. `ativarEnvelope` — ativa o envelope; a partir daqui é imutável
+
+### Transação atômica
+
+Após as chamadas ao ClickSign: `admissions.status = "contrato_gerado"` + `envelopeId` + `envelopeStatus = "enviado"`.
+
+**Fire-and-forget pós-commit:** Slack Ops (`contrato_gerado`) + email ao ponto focal e responsáveis da vaga.
+
+### Geração em lote
+
+`POST /api/backoffice/admissao/contract/generate/bulk` — até **100 IDs** por operação. Cada admissão pode falhar individualmente sem parar o lote. Retorna `{ generated[], skipped[], errors[] }`.
+
+---
+
+## Signatários
+
+Ordem de assinatura no envelope:
+
+| # | Signatário | Fonte |
+|---|---|---|
+| 1 | Responsável pela empresa | `accounts.pontoFocal` |
+| 2 | Jovem aprendiz | `directus_users` (o candidato) |
+| 3 | Responsável legal | Campos de RL em `admissions` *(somente se menor de 18)* |
+| 4 | Entidade formadora (EQ) | `entidades` *(somente janelas modelo LeapyGO)* |
+| 5 | Testemunha | Configurada no template |
+
+---
+
+## Envio do Envelope (US-OPS-08)
+
+**Use-case:** `send-envelope` · `packages/core/src/use-cases/admissao/send-envelope.ts`
+
+Confirma que o envelope está em circulação. O ClickSign já notificou os signatários ao ativar o envelope — esta ação é uma transição de status no produto.
+
+- Pré-requisito: `status === "contrato_gerado"`, `envelopeId` presente
+- Transação: `admissions.envelopeStatus = "enviado"`, `status = "envelope_enviado"`
+- Fire-and-forget: email ao ponto focal e responsáveis (`kind = "envelope_sent"`)
+
+**Envio em lote:** `POST /api/backoffice/admissao/envelope/send/bulk` — até **200 IDs** por operação.
+
+---
+
+## Cobrança de Assinatura (US-OPS-08 / CLI-04)
+
+**Use-case:** `send-signing-reminder`
+
+Cobra signatários que ainda não assinaram. Opera em três modos:
+
+| Modo | Quando usar |
+|---|---|
+| Individual (por `signatarioId`) | Cobrar um signatário específico — botão na linha |
+| Por lista de IDs | Cobrar múltiplos signatários selecionados |
+| Smart bulk (sem IDs) | Cobrar todos os pendentes — o sistema busca no ClickSign e filtra os elegíveis |
+
+**Rate limit:** 24h por signatário. O use-case cruza com `admission_history` (evento `reminder_sent`) antes de notificar — signatários cobrados nas últimas 24h são pulados silenciosamente.
+
+**Fallback:** se o ClickSign estiver offline, usa `notificarSignatarios` (POST global `/notify`) com rate limit por admissão.
+
+Registra `reminder_sent` em `admission_history` com `signatarioId` e `source`.
+
+---
+
+## Reemissão — Dado Errado ou Janela Mudou
+
+Se após o envio um dado estava errado ou a janela foi atualizada:
+
+1. Ops invalida o envelope atual no ClickSign
+2. Gera novo contrato com os dados corrigidos
+3. Todos os signatários precisam assinar novamente — **documento ativado no ClickSign é imutável**
+
+---
+
+## Reenvio Após Expiração (US-OPS-18 / CLI-07)
+
+**Use-case:** `resend-envelope` · `packages/core/src/use-cases/admissao/resend-envelope.ts`
+
+Quando o prazo de assinatura esgota (`envelope_expired`):
+
+1. Pré-requisito: `status === "envelope_expirado"`, `envelopeId` presente
+2. Lock optimista: relê `admissions.envelopeId` do banco antes de invalidar — evita double-resend concorrente
+3. ClickSign: `invalidarEnvelope(oldId)` → cria novo envelope com as mesmas variáveis + calendário PDF → ativa
+4. Transação: `admissions.envelopeId` atualizado, `envelopeStatus = "enviado"`, `status = "envelope_enviado"`; `admission_history` registra `envelope_resent` com `oldEnvelopeId`
+5. Fire-and-forget: Slack Ops + email ao ponto focal (`kind = "envelope_sent"`)
+
+---
+
+## Conclusão Automática via Webhook
+
+**Use-case:** `process-clicksign-webhook` + `conclude-admission`  
+**Rota:** `POST /api/webhooks/clicksign`
+
+Quando todos os signatários assinam, o ClickSign envia um webhook com evento `document_closed`, `auto_close` ou `close`.
+
+1. Valida HMAC-SHA256 com `CLICKSIGN_WEBHOOK_SECRET`
+2. `processClicksignWebhook`: atualiza `envelopeStatus = "assinado"`, registra `envelope_closed` no histórico
+3. Lê `admission.leaderEmail`; busca o líder no banco. Se não existe: gera senha temporária + hash argon2 na rota (Node-only)
+4. Chama `concludeAdmission(systemMode: true)` — ver [Regras de Negócio](/documentation/domains/admissao/business-rules)
+
+**`systemMode: true`** permite que o webhook chame `concludeAdmission` sem role de backoffice — autenticado via HMAC.
+
+---
+
+## Download do Contrato Assinado
+
+**Rota Ops:** `GET /api/backoffice/admissao/[id]/contract/download`  
+**Rota Cliente:** `GET /api/client/admissao/[id]/contract/download`
+
+Disponível após `admissao_concluida`. Usa a `signed_contract_url` armazenada como cache em `admissions`.
+
+---
+
+## Segurança
+
+| Risco | Mitigação |
+|---|---|
+| `CLICKSIGN_WEBHOOK_SECRET` exposta | Rotacionar via variáveis de ambiente; nunca commitar |
+| Double-resend de envelope expirado | Lock optimista via releitura de `envelopeId` antes de invalidar |
+| Variável `{{}}` não resolvida no contrato | `assertNoRemainingTemplateVars()` bloqueia antes de enviar ao ClickSign |
+| Signatário com cargo no lugar de nome | Sempre usa `accounts.pontoFocal`, não `vaga.requisitante` |
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Regras de Negócio" icon="book" href="/documentation/domains/admissao/business-rules">
+    Transação atômica de conclusão: role-swap, carreira, benefícios
+  </Card>
+  <Card title="Regras de Comunicação" icon="bell" href="/documentation/domains/admissao/comunicacoes">
+    Quais eventos geram email e Slack (e quais não)
+  </Card>
+  <Card title="Calendários" icon="calendar-days" href="/documentation/domains/admissao/calendarios">
+    Geração do Anexo I que acompanha o contrato
+  </Card>
+</CardGroup>
