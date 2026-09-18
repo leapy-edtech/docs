@@ -73,6 +73,18 @@
                 ]
               },
               {
+                "group": "Admissão",
+                "pages": [
+                  "documentation/domains/admissao/index",
+                  "documentation/domains/admissao/data-model",
+                  "documentation/domains/admissao/journeys",
+                  "documentation/domains/admissao/calendarios",
+                  "documentation/domains/admissao/contratos-clicksign",
+                  "documentation/domains/admissao/business-rules",
+                  "documentation/domains/admissao/comunicacoes"
+                ]
+              },
+              {
                 "group": "Matchmaker",
                 "pages": [
                   "documentation/domains/matchmaker/index",
