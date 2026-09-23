@@ -44,12 +44,7 @@ Helper fire-and-forget chamado por `generate-contract`, `send-envelope` e `resen
 
 ### Destinatários
 
-Resolução em cascata (usa a primeira não-nula):
-1. `admission.leaderEmail`
-2. `admission.corporateEmail`
-3. `vagas.emailRequisitante`
-
-**Na prática:** todos os eventos de admissão enviados pelo sistema vão para `emailPontoFocal` da conta + todos os `vagas.responsaveis[*].email`.
+Todos os eventos de admissão enviados pelo sistema vão para `emailPontoFocal` da conta + todos os `vagas.responsaveis[*].email` (com deduplicação por Set).
 
 ### Exceção importante
 
