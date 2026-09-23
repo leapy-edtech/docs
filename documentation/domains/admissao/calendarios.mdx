@@ -25,7 +25,7 @@ description: "Geração e validação de calendários: LeapyGO (automático) e E
 1. Ops clica "Gerar calendário" na tela de admissão (tab Calendário)
 2. O produto gera a partir dos dados da janela: carga horária, dia de curso, feriados de SP
 3. Ops confere o summary: término previsto, duração, feriados contemplados, fechamento de CH
-4. Baixa **PDF (Anexo I)** + **XLS (Plano de Aula)**
+4. Baixa **PDF (Anexo I)** + **XLS (Plano de Aula)** — o PDF é nomeado `calendario-{nome-slug}.pdf` (derivado do nome do jovem)
 5. Usa o XLS para criar o cronograma no backoffice e anota o `cronograma_id`
 
 ### Resultado e status
@@ -131,6 +131,21 @@ Ao validar, atualiza o `calendar_status` em `calendars` e o `calendarValidationS
 ### `approve-calendar-with-ressalvas`
 
 Quando `calendar_status === "divergencias"`: Ops aprova registrando ressalvas em texto livre (`validationNotes`). Satisfaz o gate de geração de contrato. Dispara o mesmo fire-and-forget de contratos.
+
+---
+
+## Download do Calendário em PDF
+
+O calendário gerado pode ser baixado como PDF tanto por OPS quanto pelo cliente.
+
+| Ator | Rota |
+|---|---|
+| OPS | `GET /api/backoffice/admissao/[id]/calendar` (parâmetro `?format=pdf`) |
+| Cliente | `GET /api/client/admissao/[id]/calendar/download-pdf` |
+
+O nome do arquivo é `calendario-{nome-slug}.pdf`, derivado do nome do jovem.
+
+**Período de férias na aba Calendário:** os Marcos do programa exibem o "Período de férias" usando o override da admissão individual (`admissions.inicio_ferias`/`fim_ferias`) com prioridade sobre o período padrão da janela (`janelas_admissao.inicio_ferias`/`fim_ferias`).
 
 ---
 
