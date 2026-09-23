@@ -29,15 +29,16 @@ O cliente pode, porém, mover a vaga para status `admissao` no portal de Hiring.
 
 **1. Acessa `/[account]/admissao`**
 
-Summary cards no topo: total · aguardando dados · em andamento · concluídos. Lista de candidatos com status simplificado.
+Summary cards no topo: **Total / Aguardando dados / Coleta concluída**. Os cards são clicáveis e filtram a lista (OPS tem 8 cards; cliente tem 6). Lista de candidatos com status simplificado.
 
 **2. Preenche dados por candidato**
 
-Abre drawer por candidato. Dados do Hub (nome, e-mail, telefone) e do Hiring (cargo, empresa) vêm pré-preenchidos. O cliente completa:
+Abre drawer por candidato. Dados do Hub (nome, e-mail, telefone) e do Hiring (cargo, empresa) vêm pré-preenchidos. O drawer tem 5 seções: **Dados pessoais | Endereço | Responsável legal | Liderança | Férias**. O cliente completa:
 - Dados pessoais: CPF, data de nascimento, RG, nome social
 - Endereço completo
 - Responsável legal: nome, CPF, RG, e-mail, telefone, estado civil, profissão, gênero, nacionalidade *(obrigatório se o jovem tiver menos de 18 anos)*
 - Liderança direta: nome e e-mail
+- Férias: `inicio_ferias` e `fim_ferias` (override do período padrão da janela)
 - Outros: e-mail corporativo, telefone da empresa responsável
 
 **3. Edita campos comuns em lote**
@@ -71,11 +72,12 @@ Após conclusão, o PDF assinado está disponível para download na aba Contrato
 | O cliente pode | O cliente não pode |
 |---|---|
 | Preencher e editar dados (antes de concluir) | Gerar contrato |
-| Marcar coleta como concluída | Validar calendário |
-| Cobrar assinatura (individual ou lote) | Acessar `/backoffice/admissao` |
-| Baixar contrato assinado | Concluir admissão manualmente |
-| Cancelar admissão (pré-conclusão) | Cancelar admissão pós-conclusão |
-| Mover vaga para status `admissao` (cascata) | Selecionar janela ou turma |
+| Editar período de férias (somente em `aguardando_dados`) | Validar calendário |
+| Marcar coleta como concluída | Acessar `/backoffice/admissao` |
+| Cobrar assinatura (individual ou lote) | Concluir admissão manualmente |
+| Baixar contrato assinado | Cancelar admissão pós-conclusão |
+| Cancelar admissão (pré-conclusão) | Selecionar janela ou turma |
+| Mover vaga para status `admissao` (cascata) | — |
 
 ---
 
