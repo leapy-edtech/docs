@@ -1,0 +1,182 @@
+---
+title: "Admissão — Jornadas por Ator"
+description: "Fluxo completo de admissão por stakeholder: Ops (backoffice) e Cliente (RH da empresa), com gates, regras e exceções"
+---
+
+## Visão Macro — Handoff entre Atores
+
+| # | Quem | Ação | Gate |
+|---|---|---|---|
+| 1 | Sistema | Cria admissão quando candidato vai para `in_admission` | — |
+| 2 | Cliente | Preenche dados dos jovens (28+ campos, individual ou em lote) | — |
+| 3 | Cliente | Confirma "Coleta concluída" | Todos os campos obrigatórios preenchidos |
+| 4 | Ops | Gera/valida calendário (LeapyGO auto ou Ecossistema upload) | Coleta concluída |
+| 5 | Ops | Gera contrato e envia via ClickSign | Calendário validado ou aprovado com ressalvas |
+| 6 | ClickSign | Coleta assinaturas via e-mail | — |
+| 7 | Sistema | Conclui admissão via webhook `document_closed` | Todos os signatários assinaram |
+
+## Jornada do Cliente (RH da Empresa)
+
+Shell: `leapy-rh` · roxo-ink · `/[account]/admissao`
+
+### Entrada
+
+O candidato avança para `in_admission` no pipeline de Hiring. A admissão é criada automaticamente — **o cliente não cria admissões diretamente**.
+
+O cliente pode, porém, mover a vaga para status `admissao` no portal de Hiring. Quando isso acontece, todos os candidatos em `approved_for_offer` são movidos para `in_admission` em cascata pelo sistema (`ensure-admissions-for-approved-applications`).
+
+### Etapa 1 — Coleta de Dados
+
+**1. Acessa `/[account]/admissao`**
+
+Summary cards no topo: **Total / Aguardando dados / Coleta concluída**. Os cards são clicáveis e filtram a lista (OPS tem 8 cards; cliente tem 6). Lista de candidatos com status simplificado.
+
+**2. Preenche dados por candidato**
+
+Abre drawer por candidato. Dados do Hub (nome, e-mail, telefone) e do Hiring (cargo, empresa) vêm pré-preenchidos. O drawer tem 5 seções: **Dados pessoais | Endereço | Responsável legal | Liderança | Férias**. O cliente completa:
+- Dados pessoais: CPF, data de nascimento, RG, nome social
+- Endereço completo
+- Responsável legal: nome, CPF, RG, e-mail, telefone, estado civil, profissão, gênero, nacionalidade *(obrigatório se o jovem tiver menos de 18 anos)*
+- Liderança direta: nome e e-mail
+- Férias: `inicio_ferias` e `fim_ferias` (override do período padrão da janela)
+- Outros: e-mail corporativo, telefone da empresa responsável
+
+**3. Edita campos comuns em lote**
+
+Seleciona múltiplos jovens da mesma empresa → bulkbar "Editar campos comuns". Campos que são iguais para todos (liderança, benefícios, responsável por assinar) são editados de uma só vez.
+
+**4. Confirma "Coleta concluída"**
+
+Disponível só quando todos os campos obrigatórios (`*`) estão preenchidos. Trava a edição do cliente e notifica Ops por Slack para preparar calendário e contrato.
+
+### Etapas 2–3 — Aguardar (Ops age)
+
+O cliente vê o status mudar enquanto Ops processa calendário e contrato. Sem ação necessária.
+
+### Etapa 4 — Assinatura
+
+**5. Recebe contrato via ClickSign**
+
+O responsável da empresa recebe e-mail do ClickSign com o link de assinatura. O status no produto muda para "Contrato enviado".
+
+**6. Cobra assinaturas pendentes**
+
+Se algum signatário não assinou, o cliente pode abrir o drawer → aba Assinaturas e cobrar individualmente por signatário, ou cobrar todos via bulkbar.
+
+**7. Baixa contrato assinado**
+
+Após conclusão, o PDF assinado está disponível para download na aba Contrato.
+
+### Restrições do Cliente
+
+| O cliente pode | O cliente não pode |
+|---|---|
+| Preencher e editar dados (antes de concluir) | Gerar contrato |
+| Editar período de férias (somente em `aguardando_dados`) | Validar calendário |
+| Marcar coleta como concluída | Acessar `/backoffice/admissao` |
+| Cobrar assinatura (individual ou lote) | Concluir admissão manualmente |
+| Baixar contrato assinado | Cancelar admissão pós-conclusão |
+| Cancelar admissão (pré-conclusão) | Selecionar janela ou turma |
+| Mover vaga para status `admissao` (cascata) | — |
+
+---
+
+## Jornada de Ops
+
+Shell: `backoffice v2` · índigo · `/backoffice/admissao`
+
+A tela principal tem tabs por etapa que filtram o grid: **Todos · Coleta · Calendário · Contrato · Assinaturas · Conclusão**. Ações sempre acontecem em drawer. Bulkbar flutuante para ações em lote.
+
+### Entrada
+
+Recebe notificação Slack de coleta concluída → acessa `/backoffice/admissao` → filtra por status "Calendário".
+
+### Etapa 2 — Calendário
+
+**2. Gera ou valida o calendário** — fluxo depende do segmento da janela:
+
+**LeapyGO / Instituto — automático:**
+1. Clica "Gerar calendário" → produto gera a partir dos dados da janela (CH, dia de curso, feriados SP)
+2. Confere summary: término previsto, duração, feriados, fechamento de CH
+3. Baixa PDF (Anexo I) + XLS (Plano de Aula)
+4. Usa XLS para criar o cronograma no backoffice, anota `cronograma_id`
+5. Se gerado com avisos: pode aprovar com ressalvas; se bloqueante: corrige parâmetros na janela e gera novamente
+
+**Ecossistema — upload individual ou em lote** → ver [Calendários](/documentation/domains/admissao/calendarios)
+
+**2b. Exporta dados por entidade** (fluxo paralelo, recorrente)
+
+Após coleta concluída: filtra grid por entidade → exporta XLSX com dados daquela entidade → envia externamente para a entidade formadora. Substitui o processo manual via Apps Script.
+
+### Etapa 3 — Contrato
+
+**3. Gera o contrato via ClickSign Modelos**
+
+Template auto-resolvido por `(entidade_id, account_id, menor_variant)`. Ops revisa o preview das variáveis antes de enviar — não há geração local de PDF.
+
+<Note>
+Documentos no envelope: LeapyGO gera 3 docs (Educacional + Aprendizagem + Calendário). Ecossistema gera 2 docs (Contrato + Calendário). Sessão única de assinatura para todos os documentos.
+</Note>
+
+**4. Envia via ClickSign**
+
+Envelope criado com o contrato + Anexo I (calendário PDF). Cada signatário recebe e-mail do ClickSign. Ops não precisa acompanhar manualmente — o ClickSign notifica via e-mail e webhook.
+
+### Etapa 4 — Assinaturas
+
+**5. Cobra assinaturas pendentes**
+
+Filtra por "Contrato enviado". Vê status por signatário (assinou / pendente / recusou). Pode cobrar individualmente ou via bulkbar.
+
+**6. Reemite se necessário**
+
+Se a janela mudou ou um dado estava errado após o envio: invalida o envelope e gera novo contrato. Todos os signatários precisam assinar novamente — documento ativado no ClickSign é imutável.
+
+**7. Resenvia envelope expirado**
+
+Se o prazo expirou antes de todos assinarem: usa "Reenviar envelope". O sistema invalida o envelope antigo no ClickSign, cria um novo com as mesmas variáveis e reinicia o processo de assinatura.
+
+### Etapa 5 — Conclusão
+
+**8. Conclusão automática** — Ops só confirma
+
+Quando todos assinam, o ClickSign envia o webhook `document_closed`. O sistema detecta e avança automaticamente. Ops vê um diálogo de confirmação de auditoria (não é gatilho operacional — o sistema já processou).
+
+Gate v1: `cronograma_id` preenchido manualmente antes de confirmar.
+
+---
+
+## Regras e Exceções
+
+### Calendário move a janela
+
+A janela começa sem `data_fim`. A data de término do contrato só é conhecida após o calendário calcular a carga horária completa. O produto atualiza `janelas_admissao.dataTermino` automaticamente quando o calendário é gerado ou validado.
+
+### Gate por jovem, não por janela
+
+O contrato de cada jovem pode ser gerado e enviado assim que o calendário dele estiver aprovado, sem esperar todos os outros da mesma janela. **No LeapyGO:** todos os jovens da mesma turma compartilham o mesmo calendário — o gate é simultâneo para a turma inteira. **No Ecossistema:** cada jovem tem seu próprio calendário com timings diferentes — o gate por jovem importa de verdade aqui.
+
+### Cronograma v1 = manual
+
+Ops baixa o XLS do calendário e cria o cronograma no backoffice. O `cronograma_id` é preenchido manualmente na tela de conclusão. Integração nativa é pós-v1.
+
+### Auto-geração em cascata
+
+Quando Ops valida um calendário LeapyGO, o sistema automaticamente tenta gerar contratos para todas as admissões da mesma janela que estiverem em `coleta_concluida`. Cada admissão avança ou falha independentemente — o lote não para por falha individual.
+
+## Veja Também
+
+<CardGroup cols={2}>
+  <Card title="Calendários" icon="calendar-days" href="/documentation/domains/admissao/calendarios">
+    Fluxo completo de LeapyGO e Ecossistema (individual + lote)
+  </Card>
+  <Card title="Contratos e ClickSign" icon="file-signature" href="/documentation/domains/admissao/contratos-clicksign">
+    Templates, signatários, reemissão e reenvio
+  </Card>
+  <Card title="Regras de Negócio" icon="book" href="/documentation/domains/admissao/business-rules">
+    Conclusão atômica e cancelamentos A e B
+  </Card>
+  <Card title="Regras de Comunicação" icon="bell" href="/documentation/domains/admissao/comunicacoes">
+    Notificações por e-mail e Slack em cada etapa
+  </Card>
+</CardGroup>
