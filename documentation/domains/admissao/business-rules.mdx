@@ -52,6 +52,32 @@ Valida que todos os campos obrigatórios estão preenchidos antes de permitir qu
 
 ---
 
+## Período de Férias
+
+Os campos `inicio_ferias` e `fim_ferias` em `admissions` são um override por admissão individual do período padrão definido em `janelas_admissao`. Alterar férias de uma admissão **não altera** a janela.
+
+**Quem pode editar e quando:**
+
+| Ator | Gate de status |
+|---|---|
+| Cliente | Somente em `aguardando_dados` |
+| OPS | Em qualquer status não-terminal |
+
+**Validação cruzada:** `inicio_ferias` deve ser anterior ou igual a `fim_ferias`. O DatePicker é restrito ao período do contrato da janela.
+
+**Bulk:** ao editar férias em lote com admissões de janelas com períodos incompatíveis, o sistema exibe um aviso antes de aplicar.
+
+**Rotas:**
+
+| Rota | Ator |
+|---|---|
+| `PATCH /api/backoffice/admissao/periodo-ferias/[id]` | OPS — individual |
+| `PATCH /api/backoffice/admissao/periodo-ferias/bulk` | OPS — em lote |
+| `PATCH /api/client/admissao/periodo-ferias/[id]` | Cliente — individual |
+| `PATCH /api/client/admissao/periodo-ferias/bulk` | Cliente — em lote |
+
+---
+
 ## Conclusão — Transação Atômica
 
 **Use-case:** `conclude-admission` · `packages/core/src/use-cases/admissao/conclude-admission.ts`
@@ -157,6 +183,9 @@ Todas as bulk actions operam com limites de IDs por operação e retornam um rel
 | Enviar envelopes em lote | `POST /backoffice/admissao/envelope/send/bulk` | 200 IDs | `sendEnvelope` por admissão |
 | Definir template em lote | `POST /backoffice/admissao/template/bulk` | 500 IDs | Só aplica em status `coleta_concluida` |
 | Enviar lembretes de coleta | `POST /backoffice/admissao/remind` | 500 IDs | `sendAdmissionReminder` — só para `aguardando_dados` |
+| Editar campo individual (liderança) | `PATCH /backoffice/admissao/[id]/field` | — | Edição inline de `leaderName`, `leaderEmail` |
+| Editar liderança em lote | `PATCH /backoffice/admissao/fields/bulk` | 500 IDs | Edição em lote de liderança |
+| Editar período de férias em lote | `PATCH /backoffice/admissao/periodo-ferias/bulk` | — | OPS; cliente tem rota equivalente em `/client/` |
 | Editar campos comuns | Bulkbar na UI | — | Campos que são iguais para todos (liderança, benefícios, responsável por assinar) |
 | Cobrar assinaturas em lote | Bulkbar na UI | — | `send-signing-reminder` com rate limit de 24h por signatário |
 
@@ -182,6 +211,7 @@ Chamado internamente por `updateClientVaga` e `updateVaga` quando uma vaga trans
 | Gerar contrato | Sim | Não |
 | Enviar envelope ClickSign | Individual + lote | Não |
 | Cobrar assinatura | Individual + lote | Individual + lote |
+| Editar período de férias | Sim (qualquer status não-terminal) | Sim (somente `aguardando_dados`) |
 | Cancelar admissão (pré-conclusão) | Sim | Sim |
 | Cancelar admissão (pós-conclusão) | Sim (Cenário B) | Não |
 | Concluir admissão (escape hatch) | Sim | Não |
