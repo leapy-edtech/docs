@@ -27,6 +27,9 @@ description: "Tabelas, enums e relações do módulo de admissão: admissions, a
 | `leader_email` | string | Email da liderança direta |
 | `corporate_email` | string | Email corporativo do jovem |
 | `salary_in_words` | string | Salário por extenso (gerado via lib `extenso` a partir de `vagas.salario`) |
+| `inicio_ferias` | date | Data de início do período de férias (override por admissão individual) |
+| `fim_ferias` | date | Data de término do período de férias |
+| `periodo_ferias` | string | Representação textual derivada automaticamente ("DD/MM/YYYY a DD/MM/YYYY") |
 | `legal_guardian_name` | string | Nome do responsável legal |
 | `legal_guardian_cpf` | string | CPF do responsável legal |
 | `legal_guardian_rg` | string | RG do responsável legal |
@@ -132,6 +135,8 @@ Log append-only e imutável. Cada evento registra: `admissionId`, `eventType`, t
 | `vagas_totais` | integer | Total de vagas disponíveis |
 | `modalidade_ensino` | string | Modalidade de ensino |
 | `modalidade_formacao_pratica` | string | Modalidade da formação prática |
+| `inicio_ferias` | date | Período padrão de férias da janela (pode ser sobrescrito por admissão individual) |
+| `fim_ferias` | date | Fim do período padrão de férias |
 | `deleted_at`, `deleted_by`, `purge_after` | — | Soft-delete LGPD |
 
 ### `janela_admissao_turmas`
